@@ -1,0 +1,292 @@
+INVENTAIRE DES RÉGLAGES — QOL TOOLKIT 3.0.0
+
+1785 variables recensées dans l'extraction publique Forever.
+387 correspondent à un identifiant repéré dans les menus natifs.
+71 options documentées sont proposées dans sept catégories, dont Graphismes.
+Le fichier CSV détaille le classement de chaque variable, sans imposer de valeurs.
+
+MÉTHODE ET LIMITES
+- Sources lues hors jeu. Aucune interaction avec le client WoW.
+- Inventaire statique : extraction Ketho, révision d1ee569878094270c0ad8d8b00de0762158fd578, vérifiée le 09/11/2026.
+- Les 10 variables réservées au PTR sont exclues du relevé statique.
+- Menus : sources Gethe, branche forever, révision 9dc84f0d3bbae1768ac3405b3716000bd93eda06.
+- Les définitions communes, Mainline utilisées par Forever et les adaptations Camelot
+  sont comparées. Les composants de réglages groupés sont également exclus.
+- L'index des menus est conservateur : une référence à un contrôle conditionnel
+  suffit à l'écarter des options modifiables. Ce n'est pas une preuve que ce contrôle
+  est visible sur chaque personnage ni que tous les menus contextuels ont été trouvés.
+- « Aucun menu identifié » signifie à examiner, pas forcément console uniquement.
+  Certaines variables décrivent un état interne plutôt qu'une préférence utile.
+- L'inventaire en jeu relit ConsoleGetAllCommands à l'ouverture. Il ne conserve que
+  les variables accessibles, dédoublonnées sans tenir compte des majuscules.
+- Settings.GetSetting complète la détection des menus sur le client installé.
+- Le nombre réellement disponible peut différer selon la version et les modules chargés.
+
+UTILISATION
+/aqol > Réglages avancés. Choisis un onglet, recherche une option si besoin.
+Onglets en haut, liste défilante à la molette ou avec la barre à droite.
+Les saisies sont conservées pendant le défilement et après un refus du client.
+Case à cocher : effet immédiat. Nombre : Appliquer ou Entrée. Échap annule la saisie.
+Format de capture : clic pour alterner JPEG et TGA.
+Défaut : valeur réelle fournie par le client, pour cette ligne uniquement.
+Survol d'une ligne : nom console, valeur actuelle, défaut et plage proposée.
+Toutes les modifications sont désactivées en combat. Aucun changement à l'ouverture.
+Les valeurs sont gérées par WoW ; désactiver l'addon ne les remet pas à zéro.
+Les plages numériques sont des bornes d'édition choisies pour l'interface,
+pas une promesse sur les limites du moteur. Un refus ou une valeur ajustée est signalé.
+Un autre addon ou un préréglage WoW peut ensuite modifier les mêmes valeurs.
+Graphismes : les réglages fins de végétation, météo et ombres peuvent être influencés
+par les préréglages globaux. L'effet des options dépend du rendu et de la zone.
+43 options graphiques : filtre Tout, Décor, Ombres, Effets, Image ou Raid.
+Les 15 variantes Raid restent distinctes du profil normal et nécessitent le profil
+raid activé dans les options WoW. Aucun profil n'est activé automatiquement.
+La liste modifiable est une sélection vérifiée, pas la totalité des variables du moteur.
+
+INVENTAIRE EN JEU
+Lecture seule, y compris pour les variables documentées ailleurs dans l'addon.
+Filtres : Hors menus, Tout, Menus du jeu, Protégés, Graphismes, Graph. hors menus.
+Graphismes reprend toute la catégorie graphique signalée par le client,
+y compris les variables sans réglage modifiable dans l'addon.
+Recherche par nom ou description.
+« Protégés » inclut les restrictions de combat et les variables verrouillées.
+La description des variables non documentées provient du client ; elle peut être en anglais.
+Les commandes, macros, scripts, valeurs secrètes et variables inaccessibles sont omis.
+Le module n'exécute aucune commande console et ne contourne aucune restriction.
+
+EXEMPLES ÉCARTÉS POUR ÉVITER LES DOUBLONS
+- Caméra : distance maximale, champ de vision, vitesses de rotation/suivi,
+  suivi du terrain, mouvements de tête, réduction des mouvements de caméra.
+- Plaques : style, couleurs de classe, taille des auras, espacement des debuffs.
+- Combat : texte flottant, lancement au survol, ciblage d'action, maintien de touche.
+- Butin : loot automatique et fenêtre sous le curseur.
+- Audio : volumes, musique, erreurs vocales, sons en arrière-plan.
+- Graphismes : résolutions, qualité, limites FPS et options déjà exposées.
+
+OPTIONS DOCUMENTÉES
+
+[camera] Vitesse du zoom — cameraZoomSpeed
+Vitesse du zoom à la molette. Plus haut : zoom plus rapide.
+
+[camera] Entrée souris brute — rawMouseEnable
+Utilise directement les mouvements de la souris pour contrôler la caméra.
+
+[plates] Échelle minimale — nameplateMinScale
+Taille minimale utilisée pour les plaques selon la distance.
+
+[plates] Échelle maximale — nameplateMaxScale
+Taille maximale utilisée pour les plaques selon la distance.
+
+[plates] Échelle de la cible — nameplateSelectedScale
+Multiplie la taille de la plaque de ta cible.
+
+[plates] Opacité minimale — nameplateMinAlpha
+Opacité minimale des plaques. 0 : transparent ; 1 : opaque.
+
+[plates] Opacité maximale — nameplateMaxAlpha
+Opacité maximale des plaques. 0 : transparent ; 1 : opaque.
+
+[plates] Opacité de la cible — nameplateSelectedAlpha
+Opacité de la plaque ciblée. 1 : opaque.
+
+[plates] Opacité derrière un obstacle — nameplateOccludedAlphaMult
+Multiplie l’opacité quand une unité est masquée par le décor.
+
+[plates] Espacement vertical — nameplateOverlapV
+Espacement entre les plaques empilées. Plus haut : davantage d’espace.
+
+[plates] Espacement horizontal — nameplateOverlapH
+Espacement horizontal utilisé pour éviter le chevauchement des plaques.
+
+[plates] Vitesse de déplacement — nameplateMotionSpeed
+Vitesse à laquelle les plaques rejoignent leur nouvelle position.
+
+[plates] Distance d’affichage — nameplateMaxDistance
+Distance demandée en yards. Le client peut imposer une limite plus basse.
+
+[plates] Marge en haut — nameplateTopInset
+Marge supérieure des plaques, en fraction de la hauteur de l’écran.
+
+[plates] Marge en bas — nameplateBottomInset
+Marge inférieure des plaques, en fraction de la hauteur de l’écran.
+
+[combat] Lancer à l’appui — ActionButtonUseKeyDown
+Activé : déclenche le raccourci à l’appui. Désactivé : au relâchement.
+
+[combat] File de sorts (ms) — SpellQueueWindow
+Fenêtre pour anticiper le prochain sort pendant une incantation ou le GCD. 0 : désactivée.
+
+[combat] Quitter la forme automatiquement — autoUnshift
+Autorise les actions à quitter une forme de druide quand elles le nécessitent.
+
+[interface] Comparer les objets — alwaysCompareItems
+Affiche la comparaison d’équipement sans maintenir Maj.
+
+[interface] Suivre les quêtes acceptées — autoQuestWatch
+Ajoute automatiquement les nouvelles quêtes au suivi.
+
+[interface] Suivre les quêtes qui progressent — autoQuestProgress
+Ajoute au suivi une quête dont un objectif vient de progresser.
+
+[interface] Ajouter les nouveaux sorts aux barres — AutoPushSpellToActionBar
+Place automatiquement les nouveaux sorts dans une case libre des barres d’action.
+
+[graphics] Densité de la végétation — groundEffectDensity
+Quantité d’herbe et de petits décors au sol. Une valeur élevée peut réduire les FPS.
+
+[graphics] Distance de la végétation — groundEffectDist
+Distance d’affichage de l’herbe et des petits décors. Une valeur élevée peut réduire les FPS.
+
+[graphics] Fondu de la végétation — groundEffectFade
+Distance de fondu des petits décors au sol. Le rendu dépend aussi de leur distance d’affichage.
+
+[graphics] Fondu des objets lointains — lodObjectFadeScale
+Augmente la distance de fondu des objets. Plus haut : davantage de décor, coût GPU accru.
+
+[graphics] Seuil des petits objets — lodObjectCullSize
+Plus bas : conserve les petits objets plus loin. Peut réduire les FPS.
+
+[graphics] Détail du terrain lointain — terrainLodDist
+Distance avant simplification du terrain. Plus haut : relief plus détaillé, coût accru.
+
+[graphics] Détail des objets du décor — doodadLodScale
+Échelle de détail des objets du décor. Plus haut : modèles détaillés plus longtemps.
+
+[graphics] Détail des bâtiments — wmoLodDist
+Distance de détail des grands bâtiments et structures. Plus haut : coût graphique accru.
+
+[graphics] Détail des personnages — entityLodDist
+Distance de détail des personnages et créatures. Plus haut : coût accru dans les foules.
+
+[graphics] Ombres adoucies — shadowSoft
+Adoucit les contours des ombres, si le mode de rendu actif le permet.
+
+[graphics] Fondu des ombres des unités — entityShadowFadeScale
+Distance de fondu des ombres des personnages et créatures. Dépend du mode d’ombres.
+
+[graphics] Résolution des ombres — shadowTextureSize
+Détail des textures d’ombres. 2048 utilise plus de mémoire graphique que 1024.
+
+[graphics] Cascades d’ombres — shadowNumCascades
+Nombre de zones de calcul des ombres. Plus haut : couverture plus détaillée, coût GPU accru.
+
+[graphics] Transitions des ombres — shadowBlendCascades
+Adoucit les transitions entre les cascades. Nécessite plusieurs cascades actives.
+
+[graphics] Lissage de l’occlusion — assaoBlurPassCount
+Nombre de passes de lissage ASSAO. Dépend du niveau d’occlusion ambiante ; plus haut coûte davantage.
+
+[graphics] Ombres de contact fines — assaoDetailShadowStrength
+Renforce les petits détails ASSAO. Peut faire scintiller les contours. Nécessite l’occlusion ambiante.
+
+[graphics] Intensité de l’occlusion — assaoShadowMult
+Renforce les ombres de contact ASSAO. Sans effet si cette méthode d’occlusion est inactive.
+
+[graphics] Netteté de l’occlusion — assaoSharpness
+Précision des bords ASSAO. 0 : fondu large ; 1 : contours préservés. Nécessite l’occlusion ambiante.
+
+[graphics] Intensité météo — weatherDensity
+Densité de la pluie et de la neige, selon la météo de la zone. 0 : effets réduits au minimum.
+
+[graphics] Halo lumineux classique — ffxGlow
+Halo autour des zones lumineuses. Son effet dépend du mode de rendu utilisé.
+
+[graphics] Effet visuel de mort — ffxDeath
+Désature l’image lorsque ton personnage est mort.
+
+[graphics] Bloom — bloomEnable
+Active le bloom des zones lumineuses. Son intensité se règle dans les graphismes du jeu.
+
+[graphics] Particules des pas — showfootprintparticles
+Affiche les particules produites par les pas lorsque le sol le permet.
+
+[graphics] Netteté sans FSR — ResampleAlwaysSharpen
+Active le filtre de netteté même sans mise à l’échelle FSR. Intensité dans les graphismes du jeu.
+
+[graphics] Qualité du CMAA2 — CMAA2Quality
+Qualité de l’anticrénelage CMAA2. Sans effet si un autre anticrénelage est sélectionné.
+
+[graphics] Netteté du CMAA2 — CMAA2ExtraSharpness
+Préserve mieux les textes et contours avec CMAA2, au prix d’un anticrénelage moins marqué.
+
+[graphics] Animations lointaines allégées — animFrameSkipLOD
+Réduit la fréquence des animations à distance. Peut économiser des ressources, avec moins de fluidité au loin.
+
+[graphics] FPS pendant les chargements — maxFPSLoading
+Limite les FPS sur les écrans de chargement. Ne règle pas la vitesse de chargement.
+
+[graphics] Densité de la végétation — raid — RAIDgroundEffectDensity
+Profil raid activé dans WoW. Quantité d’herbe et de petits décors au sol. Une valeur élevée peut réduire les FPS.
+
+[graphics] Distance de la végétation — raid — RAIDgroundEffectDist
+Profil raid activé dans WoW. Distance d’affichage de l’herbe et des petits décors. Une valeur élevée peut réduire les FPS.
+
+[graphics] Fondu de la végétation — raid — RAIDgroundEffectFade
+Profil raid activé dans WoW. Distance de fondu des petits décors au sol. Le rendu dépend aussi de leur distance d’affichage.
+
+[graphics] Intensité météo — raid — RAIDweatherDensity
+Profil raid activé dans WoW. Densité de la pluie et de la neige, selon la météo de la zone. 0 : effets réduits au minimum.
+
+[graphics] Ombres adoucies — raid — RAIDshadowSoft
+Profil raid activé dans WoW. Adoucit les contours des ombres, si le mode de rendu actif le permet.
+
+[graphics] Fondu des objets lointains — raid — RAIDlodObjectFadeScale
+Profil raid activé dans WoW. Augmente la distance de fondu des objets. Plus haut : davantage de décor, coût GPU accru.
+
+[graphics] Seuil des petits objets — raid — RAIDlodObjectCullSize
+Profil raid activé dans WoW. Plus bas : conserve les petits objets plus loin. Peut réduire les FPS.
+
+[graphics] Détail du terrain lointain — raid — RAIDterrainLodDist
+Profil raid activé dans WoW. Distance avant simplification du terrain. Plus haut : relief plus détaillé, coût accru.
+
+[graphics] Détail des objets du décor — raid — RAIDdoodadLodScale
+Profil raid activé dans WoW. Échelle de détail des objets du décor. Plus haut : modèles détaillés plus longtemps.
+
+[graphics] Détail des bâtiments — raid — RAIDwmoLodDist
+Profil raid activé dans WoW. Distance de détail des grands bâtiments et structures. Plus haut : coût graphique accru.
+
+[graphics] Détail des personnages — raid — RAIDentityLodDist
+Profil raid activé dans WoW. Distance de détail des personnages et créatures. Plus haut : coût accru dans les foules.
+
+[graphics] Fondu des ombres des unités — raid — RAIDentityShadowFadeScale
+Profil raid activé dans WoW. Distance de fondu des ombres des personnages et créatures. Dépend du mode d’ombres.
+
+[graphics] Résolution des ombres — raid — RAIDshadowTextureSize
+Profil raid activé dans WoW. Détail des textures d’ombres. 2048 utilise plus de mémoire graphique que 1024.
+
+[graphics] Cascades d’ombres — raid — RAIDshadowNumCascades
+Profil raid activé dans WoW. Nombre de zones de calcul des ombres. Plus haut : couverture plus détaillée, coût GPU accru.
+
+[graphics] Transitions des ombres — raid — RAIDshadowBlendCascades
+Profil raid activé dans WoW. Adoucit les transitions entre les cascades. Nécessite plusieurs cascades actives.
+
+[images] Format des captures — screenshotFormat
+JPEG : fichiers plus légers. TGA : images sans compression JPEG.
+
+[images] Qualité JPEG — screenshotQuality
+Qualité des captures JPEG, de 1 à 10. Sans effet sur les captures TGA.
+
+[sound] Bruits de ton armure — Sound_EnableArmorFoleySoundForSelf
+Joue les frottements et cliquetis de ton équipement.
+
+[sound] Bruits des autres armures — Sound_EnableArmorFoleySoundForOthers
+Joue les frottements et cliquetis de l’équipement des autres personnages.
+
+[sound] Bruits de pas — FootstepSounds
+Joue les bruits de pas des personnages et créatures.
+
+[sound] Écouter depuis le personnage — Sound_ListenerAtCharacter
+Place l’écoute des sons 3D sur ton personnage plutôt que sur la caméra.
+
+SOURCES
+https://github.com/Gethe/wow-ui-source/tree/9dc84f0d3bbae1768ac3405b3716000bd93eda06/Interface/AddOns/Blizzard_SettingsDefinitions_Frame
+https://github.com/Gethe/wow-ui-source/tree/9dc84f0d3bbae1768ac3405b3716000bd93eda06/Interface/AddOns/Blizzard_SettingsDefinitions_Shared
+https://github.com/Gethe/wow-ui-source/blob/9dc84f0d3bbae1768ac3405b3716000bd93eda06/Interface/AddOns/Blizzard_APIDocumentationGenerated/CVarDocumentation.lua
+https://github.com/Gethe/wow-ui-source/blob/9dc84f0d3bbae1768ac3405b3716000bd93eda06/Interface/AddOns/Blizzard_APIDocumentationGenerated/ConsoleDocumentation.lua
+https://github.com/Ketho/BlizzardInterfaceResources/blob/d1ee569878094270c0ad8d8b00de0762158fd578/Resources/CVars.lua
+
+SHA256 de l’extraction utilisée : 29c835be3fd99f7bc6583c824d06a9ef31fc22ac8387921d1bd66442ac3e801f
+
+INTERFACE 3.0
+Étoile : favori, également accessible depuis l'accueil. Filtre Modifiés : valeurs différentes du défaut.
+La sélection multiple propose un récapitulatif avant remise à zéro ; Défaut par ligne reste immédiat.
+Les profils copient les favoris, jamais les valeurs CVars elles-mêmes.

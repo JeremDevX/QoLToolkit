@@ -1,0 +1,1786 @@
+﻿Réglage;Catégorie du client;Classement;Restriction combat signalée;Onglet Arkann;Sources menus natifs
+accessibilityScreenNarrationEnabled;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+accessibilityScreenNarrationSpeechRate;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+accessibilityScreenNarrationSpeechVolume;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+accessibilityScreenNarrationVoice;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+accountNeedsTurnStrafeDialog;Jeu;À examiner : aucun menu identifié;Non;;
+acknowledgedArrowCallouts;Jeu;À examiner : aucun menu identifié;Non;;
+ActionButtonUseKeyDown;Jeu;Option documentée;Oui;combat;
+ActionButtonUseKeyHeldSpell;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua | Blizzard_SettingsDefinitions_Frame/Combat.lua
+ActionCombatCameraEnable;Moteur;À examiner : aucun menu identifié;Non;;
+actionedAdventureJournalEntries;Jeu;À examiner : aucun menu identifié;Non;;
+addFriendInfoShown;Jeu;À examiner : aucun menu identifié;Non;;
+addonChallengeModeRestrictionsForced;Jeu;À examiner : aucun menu identifié;Non;;
+addonChatRestrictionsForced;Jeu;À examiner : aucun menu identifié;Non;;
+addonCombatRestrictionsForced;Jeu;À examiner : aucun menu identifié;Non;;
+addonEncounterRestrictionsForced;Jeu;À examiner : aucun menu identifié;Non;;
+addonLoadDebugging;Diagnostic;À examiner : aucun menu identifié;Non;;
+addonMapRestrictionsForced;Jeu;À examiner : aucun menu identifié;Non;;
+addonPerformanceMsgError;Jeu;À examiner : aucun menu identifié;Non;;
+addonPerformanceMsgOverall;Jeu;À examiner : aucun menu identifié;Non;;
+addonPerformanceMsgWarning;Jeu;À examiner : aucun menu identifié;Non;;
+addonPvPMatchRestrictionsForced;Jeu;À examiner : aucun menu identifié;Non;;
+advancedCombatLogging;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Network.lua
+AdvFlyingDynamicFOVEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+advFlyKeyboardMaxPitchFactor;Jeu;À examiner : aucun menu identifié;Non;;
+advFlyKeyboardMaxTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+advFlyKeyboardMinPitchFactor;Jeu;À examiner : aucun menu identifié;Non;;
+advFlyKeyboardMinTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+advFlyPitchControl;Jeu;À examiner : aucun menu identifié;Non;;
+advFlyPitchControlCameraChase;Jeu;À examiner : aucun menu identifié;Non;;
+advFlyPitchControlGroundDebounce;Jeu;À examiner : aucun menu identifié;Non;;
+agentUID;Jeu;À examiner : aucun menu identifié;Non;;
+AIBrain;Moteur;À examiner : aucun menu identifié;Non;;
+AIController;Moteur;À examiner : aucun menu identifié;Non;;
+AIControllerEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+AIEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+allowCompareWithToggle;Jeu;À examiner : aucun menu identifié;Non;;
+allowDevPublicKey;Réseau;À examiner : aucun menu identifié;Non;;
+AllowSoftwareRenderer;Graphismes;À examiner : aucun menu identifié;Non;;
+AllowSoftwareRendererDX12;Graphismes;À examiner : aucun menu identifié;Non;;
+AllowSpectateMode;Jeu;À examiner : aucun menu identifié;Non;;
+AllowWinRT;Moteur;À examiner : aucun menu identifié;Non;;
+alwaysCompareItems;Jeu;Option documentée;Non;interface;
+alwaysShowRuneIcons;Divers;À examiner : aucun menu identifié;Non;;
+animFrameSkipLOD;Graphismes;Option documentée;Non;graphics;
+arachnophobiaMode;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/AccessibilityOverrides.lua
+AreaTriggerEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+AreaTriggers;Moteur;À examiner : aucun menu identifié;Non;;
+assaoAdaptiveQualityLimit;Graphismes;À examiner : aucun menu identifié;Non;;
+assaoBlurPassCount;Graphismes;Option documentée;Non;graphics;
+assaoDetailShadowStrength;Graphismes;Option documentée;Non;graphics;
+assaoFadeOutFrom;Graphismes;À examiner : aucun menu identifié;Non;;
+assaoFadeOutTo;Graphismes;À examiner : aucun menu identifié;Non;;
+assaoHorizonAngleThresh;Graphismes;À examiner : aucun menu identifié;Non;;
+assaoNormals;Graphismes;À examiner : aucun menu identifié;Non;;
+assaoRadius;Graphismes;À examiner : aucun menu identifié;Non;;
+assaoShadowClamp;Graphismes;À examiner : aucun menu identifié;Non;;
+assaoShadowMult;Graphismes;Option documentée;Non;graphics;
+assaoShadowPower;Graphismes;À examiner : aucun menu identifié;Non;;
+assaoSharpness;Graphismes;Option documentée;Non;graphics;
+assaoTemporalSSAngleOffset;Graphismes;À examiner : aucun menu identifié;Non;;
+assaoTemporalSSRadiusOffset;Graphismes;À examiner : aucun menu identifié;Non;;
+assistAttack;Jeu;À examiner : aucun menu identifié;Non;;
+assistedCombatHighlight;Jeu;À examiner : aucun menu identifié;Non;;
+assistedCombatHighlightRPE;Jeu;À examiner : aucun menu identifié;Non;;
+assistedCombatIconUpdateRate;Jeu;À examiner : aucun menu identifié;Oui;;
+assistedCombatReduceHighlights;Jeu;À examiner : aucun menu identifié;Non;;
+AsyncAssistActions;Moteur;À examiner : aucun menu identifié;Non;;
+asyncHandlerTimeout;Graphismes;À examiner : aucun menu identifié;Non;;
+asyncThreadSleep;Graphismes;À examiner : aucun menu identifié;Non;;
+auctionHouseDurationDropdown;Jeu;À examiner : aucun menu identifié;Non;;
+audioLocale;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Languages.lua
+AuraDebugger;Moteur;À examiner : aucun menu identifié;Non;;
+AuraEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+autoAcceptQuickJoinRequests;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+autoClearAFK;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+autoCompleteResortNamesOnRecency;Jeu;À examiner : aucun menu identifié;Non;;
+autoCompleteUseContext;Jeu;À examiner : aucun menu identifié;Non;;
+autoCompleteWhenEditingFromCenter;Jeu;À examiner : aucun menu identifié;Non;;
+autoDismount;Jeu;À examiner : aucun menu identifié;Non;;
+autoDismountFlying;Jeu;À examiner : aucun menu identifié;Non;;
+autoFilledMultiCastSlots;Jeu;À examiner : aucun menu identifié;Non;;
+autoInteract;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+autojoinBGVoice;Sons;À examiner : aucun menu identifié;Non;;
+autojoinPartyVoice;Sons;À examiner : aucun menu identifié;Non;;
+autoLootDefault;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+autoLootRate;Jeu;À examiner : aucun menu identifié;Non;;
+AutoPushSpellToActionBar;Jeu;Option documentée;Non;interface;
+autoQuestPopUps;Jeu;À examiner : aucun menu identifié;Non;;
+autoQuestProgress;Jeu;Option documentée;Non;interface;
+autoQuestWatch;Jeu;Option documentée;Non;interface;
+autoRangedCombat;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Combat.lua
+autoSelfCast;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Combat.lua
+autoStand;Jeu;À examiner : aucun menu identifié;Oui;;
+autoUnshift;Jeu;Option documentée;Oui;combat;
+bankAutoDepositReagents;Jeu;À examiner : aucun menu identifié;Non;;
+bankConfirmTabCleanUp;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+BeckonTriggerEventlog;Moteur;À examiner : aucun menu identifié;Non;;
+BehaviorTree;Moteur;À examiner : aucun menu identifié;Non;;
+BlizzCon2026ColdSwapFeatureEnabled;Divers;À examiner : aucun menu identifié;Non;;
+BlizzCon2026Experience;Divers;À examiner : aucun menu identifié;Non;;
+blockChannelInvites;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+blockTrades;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+bloomEnable;Graphismes;Option documentée;Non;graphics;
+bloomUserMult;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+bodyQuota;Graphismes;À examiner : aucun menu identifié;Non;;
+breakUpLargeNumbers;Jeu;À examiner : aucun menu identifié;Non;;
+Brightness;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+buffDurations;Jeu;À examiner : aucun menu identifié;Non;;
+CAADebuffSelfAlert;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAEnabled;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAInterruptCast;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAInterruptCastSuccess;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAPartyHealthFrequency;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAPartyHealthPercent;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAPartyHealthVoice;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAPartyHealthVolume;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAPlayerCastFormat;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAPlayerCastMinTime;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAPlayerCastMode;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAPlayerCastThrottle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAPlayerCastVoice;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAPlayerCastVolume;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAPlayerHealthFormat;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAPlayerHealthPercent;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAPlayerHealthThrottle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAPlayerHealthVoice;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAPlayerHealthVolume;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAPulsePlayerHealthPercent;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAPulsePlayerHealthVolume;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAResource1Formats;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAResource1Percents;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAResource1Throttle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAResource1Voice;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAResource1Volume;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAResource2Formats;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAResource2Percents;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAResource2Throttle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAResource2Voice;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAResource2Volume;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAASayCombatEnd;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAASayCombatStart;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAASayIfTargeted;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAASayTargetName;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAASayYourDebuffs;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAASayYourDebuffsFormat;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAASayYourDebuffsMinDuration;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAASayYourDebuffsVoice;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAASayYourDebuffsVolume;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAASpeed;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAATargetCastFormat;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAATargetCastMinTime;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAATargetCastMode;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAATargetCastThrottle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAATargetCastVoice;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAATargetCastVolume;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAATargetDeathBehavior;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAATargetHealthFormat;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAATargetHealthPercent;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAATargetHealthThrottle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAATargetHealthVoice;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAATargetHealthVolume;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+CAAVoice;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua | Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+CAAVolume;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/CombatAudioAlertConstants.lua
+calendarShowBattlegrounds;Jeu;À examiner : aucun menu identifié;Non;;
+calendarShowDarkmoon;Jeu;À examiner : aucun menu identifié;Non;;
+calendarShowHolidays;Jeu;À examiner : aucun menu identifié;Non;;
+calendarShowLockouts;Jeu;À examiner : aucun menu identifié;Non;;
+calendarShowResets;Jeu;À examiner : aucun menu identifié;Non;;
+calendarShowWeeklyHolidays;Jeu;À examiner : aucun menu identifié;Non;;
+cameraBobbing;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Camelot/ControlsOverrides.lua
+cameraBobbingSmoothSpeed;Jeu;À examiner : aucun menu identifié;Non;;
+cameraCustomViewSmoothing;Jeu;À examiner : aucun menu identifié;Non;;
+cameraDistanceMaxZoomFactor;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Camelot/ControlsOverrides.lua
+cameraDistanceRateMult;Jeu;À examiner : aucun menu identifié;Non;;
+cameraDive;Jeu;À examiner : aucun menu identifié;Non;;
+CameraFollowGamepadAdjustDelay;Jeu;À examiner : aucun menu identifié;Non;;
+CameraFollowGamepadAdjustEaseIn;Jeu;À examiner : aucun menu identifié;Non;;
+CameraFollowOnStick;Jeu;À examiner : aucun menu identifié;Non;;
+CameraFollowPitchDeadZone;Jeu;À examiner : aucun menu identifié;Non;;
+CameraFollowPitchOffset;Jeu;À examiner : aucun menu identifié;Non;;
+CameraFollowPitchSpeed;Jeu;À examiner : aucun menu identifié;Non;;
+CameraFollowPitchStrength;Jeu;À examiner : aucun menu identifié;Non;;
+CameraFollowSnapCharacterAngle;Jeu;À examiner : aucun menu identifié;Non;;
+CameraFollowTargetCombat;Jeu;À examiner : aucun menu identifié;Non;;
+CameraFollowYawSpeed;Jeu;À examiner : aucun menu identifié;Non;;
+cameraFov;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+cameraFoVSmoothSpeed;Jeu;À examiner : aucun menu identifié;Non;;
+cameraGroundSmoothSpeed;Jeu;À examiner : aucun menu identifié;Non;;
+cameraHeightIgnoreStandState;Jeu;À examiner : aucun menu identifié;Non;;
+cameraIndirectOffset;Jeu;À examiner : aucun menu identifié;Non;;
+cameraIndirectVisibility;Jeu;À examiner : aucun menu identifié;Non;;
+CameraKeepCharacterCentered;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+cameraPitchMoveSpeed;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+cameraPitchSmoothMax;Jeu;À examiner : aucun menu identifié;Non;;
+cameraPitchSmoothMin;Jeu;À examiner : aucun menu identifié;Non;;
+cameraPitchSmoothSpeed;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+cameraPivot;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Camelot/ControlsOverrides.lua
+cameraPivotDXMax;Jeu;À examiner : aucun menu identifié;Non;;
+cameraPivotDYMin;Jeu;À examiner : aucun menu identifié;Non;;
+CameraReduceUnexpectedMovement;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+cameraSavedDistance;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSavedPetBattleDistance;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSavedPitch;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSavedVehicleDistance;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmooth;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysFearDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysFearFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysIdleDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysIdleFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysMoveDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysMoveFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysStopDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysStopFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysStrafeDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysStrafeFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysTrackDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysTrackFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysTurnDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothAlwaysTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverFearDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverFearFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverIdleDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverIdleFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverMoveDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverMoveFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverStopDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverStopFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverStrafeDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverStrafeFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverTrackDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverTrackFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverTurnDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothNeverTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothPitch;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterFearDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterFearFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterIdleDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterIdleFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterMoveDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterMoveFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterStopDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterStopFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterStrafeDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterStrafeFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterTrackDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterTrackFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterTurnDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmarterTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartFearDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartFearFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartIdleDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartIdleFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartMoveDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartMoveFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartStopDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartStopFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartStrafeDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartStrafeFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartTrackDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartTrackFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartTurnDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSmartTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineFearDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineFearFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineIdleDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineIdleFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineMoveDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineMoveFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineStopDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineStopFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineStrafeDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineStrafeFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineTrackDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineTrackFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineTurnDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothSplineTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothStyle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+cameraSmoothTimeMax;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothTimeMin;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothTrackingStyle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+cameraSmoothViewDataAlwaysDistanceDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataAlwaysDistanceFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataAlwaysPitchDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataAlwaysPitchFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataAlwaysYawDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataAlwaysYawFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataNeverDistanceDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataNeverDistanceFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataNeverPitchDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataNeverPitchFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataNeverYawDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataNeverYawFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmartDistanceDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmartDistanceFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmarterDistanceDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmarterDistanceFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmarterPitchDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmarterPitchFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmarterYawDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmarterYawFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmartPitchDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmartPitchFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmartYawDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSmartYawFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSplineDistanceDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSplineDistanceFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSplinePitchDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSplinePitchFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSplineYawDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothViewDataSplineYawFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSmoothYaw;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSubmergePitch;Jeu;À examiner : aucun menu identifié;Non;;
+cameraSurfacePitch;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTargetSmoothSpeed;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTilt;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Camelot/ControlsOverrides.lua
+cameraTerrainTiltAlwaysFallAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysFallDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysFallFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysFearAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysFearDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysFearFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysIdleAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysIdleDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysIdleFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysJumpAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysJumpDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysJumpFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysMoveAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysMoveDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysMoveFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysStrafeAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysStrafeDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysStrafeFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysSwimAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysSwimDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysSwimFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysTaxiAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysTaxiDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysTaxiFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysTrackAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysTrackDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysTrackFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysTurnAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysTurnDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltAlwaysTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverFallAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverFallDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverFallFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverFearAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverFearDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverFearFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverIdleAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverIdleDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverIdleFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverJumpAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverJumpDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverJumpFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverMoveAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverMoveDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverMoveFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverStrafeAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverStrafeDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverStrafeFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverSwimAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverSwimDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverSwimFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverTaxiAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverTaxiDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverTaxiFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverTrackAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverTrackDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverTrackFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverTurnAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverTurnDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltNeverTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterFallAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterFallDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterFallFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterFearAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterFearDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterFearFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterIdleAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterIdleDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterIdleFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterJumpAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterJumpDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterJumpFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterMoveAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterMoveDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterMoveFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterStrafeAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterStrafeDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterStrafeFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterSwimAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterSwimDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterSwimFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterTaxiAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterTaxiDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterTaxiFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterTrackAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterTrackDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterTrackFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterTurnAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterTurnDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmarterTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartFallAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartFallDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartFallFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartFearAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartFearDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartFearFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartIdleAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartIdleDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartIdleFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartJumpAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartJumpDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartJumpFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartMoveAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartMoveDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartMoveFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartStrafeAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartStrafeDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartStrafeFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartSwimAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartSwimDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartSwimFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartTaxiAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartTaxiDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartTaxiFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartTrackAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartTrackDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartTrackFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartTurnAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartTurnDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSmartTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineFallAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineFallDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineFallFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineFearAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineFearDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineFearFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineIdleAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineIdleDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineIdleFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineJumpAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineJumpDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineJumpFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineMoveAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineMoveDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineMoveFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineStrafeAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineStrafeDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineStrafeFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineSwimAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineSwimDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineSwimFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineTaxiAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineTaxiDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineTaxiFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineTrackAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineTrackDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineTrackFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineTurnAbsorb;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineTurnDelay;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltSplineTurnFactor;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltTimeMax;Jeu;À examiner : aucun menu identifié;Non;;
+cameraTerrainTiltTimeMin;Jeu;À examiner : aucun menu identifié;Non;;
+cameraView;Jeu;À examiner : aucun menu identifié;Non;;
+cameraViewBlendStyle;Jeu;À examiner : aucun menu identifié;Non;;
+cameraWaterCollision;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+cameraYawMoveSpeed;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+cameraYawSmoothMax;Jeu;À examiner : aucun menu identifié;Non;;
+cameraYawSmoothMin;Jeu;À examiner : aucun menu identifié;Non;;
+cameraYawSmoothSpeed;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+cameraZoomSpeed;Jeu;Option documentée;Non;camera;
+cameraZSmooth;Jeu;À examiner : aucun menu identifié;Non;;
+canUseQuestItemWithLeftClick;Jeu;À examiner : aucun menu identifié;Non;;
+casContainerSizeLimit;Moteur;À examiner : aucun menu identifié;Non;;
+categorizeTrainerUI;Jeu;À examiner : aucun menu identifié;Non;;
+characterFrameCollapsed;Jeu;À examiner : aucun menu identifié;Non;;
+characterNeedsTurnStrafeDialog;Jeu;À examiner : aucun menu identifié;Non;;
+characterSocialRestrictionSettingsApplied;Jeu;À examiner : aucun menu identifié;Non;;
+ChatAmbienceVolume;Sons;À examiner : aucun menu identifié;Non;;
+chatBubbles;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Interface.lua
+chatBubblesParty;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Interface.lua
+chatBubblesRaid;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Interface.lua
+chatClassColorOverride;Jeu;À examiner : aucun menu identifié;Non;;
+chatMouseScroll;Jeu;À examiner : aucun menu identifié;Non;;
+ChatMusicVolume;Sons;À examiner : aucun menu identifié;Non;;
+ChatSoundVolume;Sons;À examiner : aucun menu identifié;Non;;
+chatStyle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+checkAddonVersion;Jeu;À examiner : aucun menu identifié;Non;;
+ChromaEffectsEnable;Moteur;À examiner : aucun menu identifié;Non;;
+ChromaEffectsFactionColor;Moteur;À examiner : aucun menu identifié;Non;;
+classicStyleWorldText;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+ClientCastDebug;Diagnostic;À examiner : aucun menu identifié;Non;;
+ClientCastLimitDebug;Diagnostic;À examiner : aucun menu identifié;Non;;
+ClientMessageEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_AFTERMATH_BY_API_MASK;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_AFTERMATH_BY_GPU_CATEGORY;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_ASYNC_COMPUTE_BY_API_MASK;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_ASYNC_COMPUTE_BY_GPU_CATEGORY;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_ClusteredShading;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_CMAA2;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_CMD_LIST_MT_BY_API_MASK;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_CMD_LIST_MT_BY_GPU_CATEGORY;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_COPY_QUEUE_BY_API_MASK;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_COPY_QUEUE_BY_GPU_CATEGORY;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_CTexAsyncCreate;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_FSR;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_HIGH_MEM_FEATURES_BY_API_MASK;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_HIGH_MEM_FEATURES_BY_GPU_CATEGORY;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_LOW_LATENCY_CBS_BY_API_MASK;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_LOW_LATENCY_CBS_BY_GPU_CATEGORY;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_LowLatency;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_LowVramActions;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_MemoryAllocationTraces;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_MSAA;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_NeedsGxRestart;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_OPT_FEATURES_BY_API_MASK;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_OPT_FEATURES_BY_GPU_CATEGORY;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_RAY_TRACING_BY_API_MASK;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_RAY_TRACING_BY_GPU_CATEGORY;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_RGB10A2_API;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_RGB10A2_CAT;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_RTShadows;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_SHADER_MT_BY_API_MASK;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_SHADER_MT_BY_GPU_CATEGORY;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_SM6_BY_API_MASK;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_SM6_BY_GPU_CATEGORY;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_SpellClutter;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_VolumeFog;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_WORK_OPTIMS_BY_API_MASK;Moteur;À examiner : aucun menu identifié;Non;;
+ClientSettings_WORK_OPTIMS_BY_GPU_CATEGORY;Moteur;À examiner : aucun menu identifié;Non;;
+ClipCursor;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+cloakFixEnabled;Moteur;À examiner : aucun menu identifié;Non;;
+closedExtraAbiltyTutorials;Jeu;À examiner : aucun menu identifié;Non;;
+closedInfoFrames;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+closedInfoFramesAccountWide;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+closedRemixArtifactTutorialFrames;Jeu;À examiner : aucun menu identifié;Non;;
+clubFinderCacheExpiry;Jeu;À examiner : aucun menu identifié;Non;;
+clubFinderCachePendingExpiry;Jeu;À examiner : aucun menu identifié;Non;;
+clubFinderPlayerLanguageSettings;Jeu;À examiner : aucun menu identifié;Non;;
+clubFinderPlayerSettings;Jeu;À examiner : aucun menu identifié;Non;;
+clusteredShading;Graphismes;À examiner : aucun menu identifié;Non;;
+CMAA2ExtraSharpness;Graphismes;Option documentée;Non;graphics;
+CMAA2HalfFloat;Graphismes;À examiner : aucun menu identifié;Non;;
+CMAA2Quality;Graphismes;Option documentée;Non;graphics;
+collapsedCurrencyCategoryDefaults;Jeu;À examiner : aucun menu identifié;Non;;
+collapsedReputationHeaderDefaults;Jeu;À examiner : aucun menu identifié;Non;;
+collapseExpandBuffs;Jeu;À examiner : aucun menu identifié;Non;;
+Collision;Moteur;À examiner : aucun menu identifié;Non;;
+colorblindMode;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Colorblind.lua
+colorblindSimulator;Graphismes;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Colorblind.lua
+colorblindWeaknessFactor;Graphismes;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Colorblind.lua
+colorChatNamesByClass;Jeu;À examiner : aucun menu identifié;Non;;
+combatLogRetentionTime;Jeu;À examiner : aucun menu identifié;Non;;
+combatLogUniqueFilename;Jeu;À examiner : aucun menu identifié;Non;;
+combatWarningsEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+combinedBags;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Preset.lua
+comboPointLocation;Jeu;À examiner : aucun menu identifié;Non;;
+commentatorLossOfControlIconUnitFrame;Jeu;À examiner : aucun menu identifié;Non;;
+commentatorLossOfControlTextNameplate;Jeu;À examiner : aucun menu identifié;Non;;
+commentatorLossOfControlTextUnitFrame;Jeu;À examiner : aucun menu identifié;Non;;
+communitiesShowOffline;Jeu;À examiner : aucun menu identifié;Non;;
+componentCompress;Graphismes;À examiner : aucun menu identifié;Non;;
+componentEmissive;Graphismes;À examiner : aucun menu identifié;Non;;
+componentSpecular;Graphismes;À examiner : aucun menu identifié;Non;;
+componentTexCacheSize;Graphismes;À examiner : aucun menu identifié;Non;;
+componentTexLoadLimit;Graphismes;À examiner : aucun menu identifié;Non;;
+componentTextureLevel;Graphismes;À examiner : aucun menu identifié;Non;;
+componentThread;Graphismes;À examiner : aucun menu identifié;Non;;
+ConsoleKey;Console;À examiner : aucun menu identifié;Non;;
+consoleShowDebugMessages;Diagnostic;À examiner : aucun menu identifié;Non;;
+consoleShowSpamMessages;Diagnostic;À examiner : aucun menu identifié;Non;;
+contentTrackingFilter;Jeu;À examiner : aucun menu identifié;Non;;
+ContentTuning;Moteur;À examiner : aucun menu identifié;Non;;
+Contrast;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+cooldownViewerEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+cooldownViewerShowUnlearned;Jeu;À examiner : aucun menu identifié;Non;;
+coordsByTenths;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+countdownForCooldowns;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/ActionBars.lua
+covenantMissionTutorial;Jeu;À examiner : aucun menu identifié;Non;;
+craftingOrdersOnlyPreferredArmorCollectable;Jeu;À examiner : aucun menu identifié;Non;;
+currencyCategoriesCollapsed;Jeu;À examiner : aucun menu identifié;Non;;
+currentGameMode;Jeu;À examiner : aucun menu identifié;Non;;
+CursorCenteredYPos;Moteur;À examiner : aucun menu identifié;Non;;
+CursorFreelookCentering;Moteur;À examiner : aucun menu identifié;Non;;
+CursorFreelookStartDelta;Moteur;À examiner : aucun menu identifié;Non;;
+cursorSizePreferred;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+CursorStickyCentering;Moteur;À examiner : aucun menu identifié;Non;;
+CustomDesignEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+CustomWindowEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+daltonize;Graphismes;À examiner : aucun menu identifié;Oui;;
+DamageCalculator;Moteur;À examiner : aucun menu identifié;Non;;
+damageMeterEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+damageMeterResetOnNewInstance;Jeu;À examiner : aucun menu identifié;Non;;
+dangerousShipyardMissionWarningAlreadyShown;Jeu;À examiner : aucun menu identifié;Non;;
+DebugTorsoTwist;Diagnostic;À examiner : aucun menu identifié;Non;;
+deemphasizeOffspecPrimaryStats;Jeu;À examiner : aucun menu identifié;Non;;
+defaultReputationSortType;Jeu;À examiner : aucun menu identifié;Non;;
+DeprecatedWarningThrottle;Moteur;À examiner : aucun menu identifié;Non;;
+DepthBasedOpacity;Graphismes;À examiner : aucun menu identifié;Non;;
+deselectOnClick;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+developerLog;Diagnostic;À examiner : aucun menu identifié;Non;;
+developerLogFilterDebug;Diagnostic;À examiner : aucun menu identifié;Non;;
+developerLogFilterError;Diagnostic;À examiner : aucun menu identifié;Non;;
+developerLogFilterFatal;Diagnostic;À examiner : aucun menu identifié;Non;;
+developerLogFilterNormal;Diagnostic;À examiner : aucun menu identifié;Non;;
+developerLogFilterSpam;Diagnostic;À examiner : aucun menu identifié;Non;;
+developerLogFilterWarning;Diagnostic;À examiner : aucun menu identifié;Non;;
+developerLogWriteToFile;Diagnostic;À examiner : aucun menu identifié;Non;;
+digSites;Jeu;À examiner : aucun menu identifié;Non;;
+DisableAdvancedFlyingFullScreenEffects;Jeu;À examiner : aucun menu identifié;Non;;
+DisableAdvancedFlyingVelocityVFX;Jeu;À examiner : aucun menu identifié;Non;;
+disableAELooting;Jeu;À examiner : aucun menu identifié;Non;;
+disableAutoRealmSelect;Moteur;À examiner : aucun menu identifié;Non;;
+disableHorizonStart;Graphismes;À examiner : aucun menu identifié;Non;;
+disableServerNagle;Réseau;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Network.lua
+disableSuggestedLevelActivityFilter;Jeu;À examiner : aucun menu identifié;Non;;
+disableUILoadErrorDialog;Diagnostic;À examiner : aucun menu identifié;Non;;
+disableUserAddonsByDefault;Jeu;À examiner : aucun menu identifié;Non;;
+discordClientEnabled;Diagnostic;À examiner : aucun menu identifié;Non;;
+discordDisplayName;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+displayFreeBagSlots;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Camelot/InterfaceOverrides.lua
+displaySpellActivationOverlays;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Combat.lua
+displayTemporaryEnchantIcon;Jeu;À examiner : aucun menu identifié;Non;;
+displayWorldPVPObjectives;Jeu;À examiner : aucun menu identifié;Non;;
+dnMTUpdate;Graphismes;À examiner : aucun menu identifié;Non;;
+doNotFlashLowHealthWarning;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Combat.lua
+doNotShowTWFraudWarning;Jeu;À examiner : aucun menu identifié;Non;;
+dontShowEquipmentSetsOnItems;Jeu;À examiner : aucun menu identifié;Non;;
+doodadLodScale;Graphismes;Option documentée;Non;graphics;
+dragonRidingRacesFilter;Jeu;À examiner : aucun menu identifié;Non;;
+dragonRidingRacesFilterWQ;Jeu;À examiner : aucun menu identifié;Non;;
+DriveDynamicFOVEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+DriverVersionCheck;Graphismes;À examiner : aucun menu identifié;Non;;
+DriveSwapReverseTurnDirection;Jeu;À examiner : aucun menu identifié;Non;;
+dynamicLod;Graphismes;À examiner : aucun menu identifié;Non;;
+DynamicRenderScale;Graphismes;À examiner : aucun menu identifié;Non;;
+DynamicRenderScaleMin;Graphismes;À examiner : aucun menu identifié;Non;;
+EJDungeonDifficulty;Jeu;À examiner : aucun menu identifié;Non;;
+EJLootClass;Jeu;À examiner : aucun menu identifié;Non;;
+EJLootSpec;Jeu;À examiner : aucun menu identifié;Non;;
+EJRaidDifficulty;Jeu;À examiner : aucun menu identifié;Non;;
+EJSelectedTier;Jeu;À examiner : aucun menu identifié;Non;;
+EmitterCombatRange;Jeu;À examiner : aucun menu identifié;Non;;
+emphasizeMySpellEffects;Jeu;À examiner : aucun menu identifié;Non;;
+EmpowerMinHoldStagePercent;Jeu;À examiner : aucun menu identifié;Non;;
+empowerTapControls;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua | Blizzard_SettingsDefinitions_Frame/Combat.lua
+EmpowerTapControlsReleaseThreshold;Jeu;À examiner : aucun menu identifié;Non;;
+enableAssetTracking;Jeu;À examiner : aucun menu identifié;Non;;
+enableBGDL;Réseau;À examiner : aucun menu identifié;Non;;
+EnableBlinkApplicationIcon;Jeu;À examiner : aucun menu identifié;Non;;
+enableCollectionToasts;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua | Blizzard_SettingsDefinitions_Shared/Preset.lua
+enableConnectToPhotoSharing;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+enableFloatingCombatText;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+enableLearnedRecipeToasts;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua | Blizzard_SettingsDefinitions_Shared/Preset.lua
+enableLootToasts;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua | Blizzard_SettingsDefinitions_Shared/Preset.lua
+enableMouseoverCast;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Combat.lua
+enableMouseSpeed;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+enableMovePad;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+enableMultiActionBars;Jeu;À examiner : aucun menu identifié;Non;;
+enablePetBattleFloatingCombatText_v2;Jeu;À examiner : aucun menu identifié;Non;;
+enablePings;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/PingSystem.lua
+enablePVPNotifyAFK;Jeu;À examiner : aucun menu identifié;Non;;
+enableQuestCacheLogging;Jeu;À examiner : aucun menu identifié;Non;;
+enableRuneSpentAnim;Moteur;À examiner : aucun menu identifié;Non;;
+enableSourceLocationLookup;Diagnostic;À examiner : aucun menu identifié;Non;;
+enableWowMouse;Moteur;À examiner : aucun menu identifié;Non;;
+encounterTimelineEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+encounterTimelineHideForOtherRoles;Jeu;À examiner : aucun menu identifié;Oui;;
+encounterTimelineHideLongCountdowns;Jeu;À examiner : aucun menu identifié;Non;;
+encounterTimelineHideQueuedCountdowns;Jeu;À examiner : aucun menu identifié;Non;;
+encounterTimelineHighlightDuration;Jeu;À examiner : aucun menu identifié;Non;;
+encounterTimelineIconographyEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+encounterTimelineIconographyHiddenMask;Jeu;À examiner : aucun menu identifié;Non;;
+encounterTimelineShowSequenceCount;Jeu;À examiner : aucun menu identifié;Non;;
+encounterWarningsDefaultMessageDuration;Jeu;À examiner : aucun menu identifié;Non;;
+encounterWarningsEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+encounterWarningsHideIfNotTargetingPlayer;Jeu;À examiner : aucun menu identifié;Oui;;
+encounterWarningsLevel;Jeu;À examiner : aucun menu identifié;Non;;
+endeavorInitiativesLastPointsMap;Jeu;À examiner : aucun menu identifié;Non;;
+engineSurvey;Jeu;À examiner : aucun menu identifié;Non;;
+engineSurveyPatch;Jeu;À examiner : aucun menu identifié;Non;;
+entityLodDist;Graphismes;Option documentée;Non;graphics;
+entityLodOffset;Graphismes;À examiner : aucun menu identifié;Non;;
+entityShadowFadeScale;Graphismes;Option documentée;Non;graphics;
+equipmentManager;Jeu;À examiner : aucun menu identifié;Non;;
+ErrorFilter;Diagnostic;À examiner : aucun menu identifié;Non;;
+ErrorLevelMax;Diagnostic;À examiner : aucun menu identifié;Non;;
+ErrorLevelMin;Diagnostic;À examiner : aucun menu identifié;Non;;
+Errors;Diagnostic;À examiner : aucun menu identifié;Non;;
+eventReminders;Jeu;À examiner : aucun menu identifié;Non;;
+eventSchedulerLastUpdate;Jeu;À examiner : aucun menu identifié;Non;;
+excludedCensorSources;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/SocialOverrides.lua
+ExclusiveWindowMode;Moteur;À examiner : aucun menu identifié;Non;;
+expandBagBar;Jeu;À examiner : aucun menu identifié;Non;;
+expandUpgradePanel;Jeu;À examiner : aucun menu identifié;Non;;
+expandWarbandCharacterList;Jeu;À examiner : aucun menu identifié;Non;;
+externalDefensivesEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+farclip;Graphismes;À examiner : aucun menu identifié;Non;;
+ffxAntiAliasingMode;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+ffxDeath;Graphismes;Option documentée;Non;graphics;
+ffxGlow;Graphismes;Option documentée;Non;graphics;
+ffxLingeringVenari;Graphismes;À examiner : aucun menu identifié;Non;;
+ffxNether;Graphismes;À examiner : aucun menu identifié;Non;;
+ffxVenari;Graphismes;À examiner : aucun menu identifié;Non;;
+findYourselfAnywhere;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+findYourselfAnywhereOnlyInCombat;Jeu;À examiner : aucun menu identifié;Non;;
+findYourselfInBG;Jeu;À examiner : aucun menu identifié;Non;;
+findYourselfInBGOnlyInCombat;Jeu;À examiner : aucun menu identifié;Non;;
+findYourselfInRaid;Jeu;À examiner : aucun menu identifié;Non;;
+findYourselfInRaidOnlyInCombat;Jeu;À examiner : aucun menu identifié;Non;;
+findYourselfMode;Jeu;À examiner : aucun menu identifié;Non;;
+findYourselfModeCircle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+findYourselfModeIcon;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+findYourselfModeOutline;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+flaggedTutorials;Jeu;À examiner : aucun menu identifié;Non;;
+flashErrorMessageRepeats;Jeu;À examiner : aucun menu identifié;Non;;
+flightAngleLookAhead;Jeu;À examiner : aucun menu identifié;Non;;
+floatingCombatTextAuraFade_v2;Jeu;À examiner : aucun menu identifié;Non;;
+floatingCombatTextAuras_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextCombatDamage_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextCombatDamageAllAutos_v2;Jeu;À examiner : aucun menu identifié;Non;;
+floatingCombatTextCombatDamageDirectionalOffset_v2;Jeu;À examiner : aucun menu identifié;Non;;
+floatingCombatTextCombatDamageDirectionalScale_v2;Jeu;À examiner : aucun menu identifié;Non;;
+floatingCombatTextCombatHealing_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextCombatHealingAbsorbSelf_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextCombatHealingAbsorbTarget_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextCombatLogPeriodicSpells_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextCombatState_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextComboPoints_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextDamageReduction_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextDodgeParryMiss_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextEnergyGains_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextFloatMode_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextFriendlyHealers_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextHonorGains_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextLowManaHealth_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextPeriodicEnergyGains_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextPetMeleeDamage_v2;Jeu;À examiner : aucun menu identifié;Non;;
+floatingCombatTextPetSpellDamage_v2;Jeu;À examiner : aucun menu identifié;Non;;
+floatingCombatTextReactives_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextRepChanges_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextSpellMechanics_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+floatingCombatTextSpellMechanicsOther_v2;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+FootstepSounds;Sons;Option documentée;Non;sound;
+forceClusteredShading;Graphismes;À examiner : aucun menu identifié;Non;;
+forceEnglishNames;Moteur;À examiner : aucun menu identifié;Non;;
+ForceGenerateSlug;Diagnostic;À examiner : aucun menu identifié;Non;;
+forceLODCheck;Graphismes;À examiner : aucun menu identifié;Non;;
+ForceResolutionDefaultToMaxSize;Graphismes;À examiner : aucun menu identifié;Non;;
+FrameBufferCacheForceNoHeaps;Graphismes;À examiner : aucun menu identifié;Non;;
+frameScriptFunctionInheritanceWarningMode;Diagnostic;À examiner : aucun menu identifié;Non;;
+friendInvitesCollapsed;Jeu;À examiner : aucun menu identifié;Non;;
+fstack_enabled;Diagnostic;À examiner : aucun menu identifié;Non;;
+fstack_preferParentKeys;Diagnostic;À examiner : aucun menu identifié;Non;;
+fstack_showanchors;Diagnostic;À examiner : aucun menu identifié;Non;;
+fstack_showhidden;Diagnostic;À examiner : aucun menu identifié;Non;;
+fstack_showhighlight;Diagnostic;À examiner : aucun menu identifié;Non;;
+fstack_showRaisedFrameLevels;Diagnostic;À examiner : aucun menu identifié;Non;;
+fstack_showregions;Diagnostic;À examiner : aucun menu identifié;Non;;
+GameDataVisualizer;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadAnalogMovement;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadBackend;Jeu;À examiner : aucun menu identifié;Non;;
+GamePadBackPedalThreshold;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadCameraFollowOnStick;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadCameraFollowPitchOffset;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamePadCameraLookMaxPitch;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCameraLookMaxYaw;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCameraPitchSpeed;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadCameraSavedDistance;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadCameraSavedPetBattleDistance;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadCameraSavedPitch;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadCameraSavedVehicleDistance;Jeu;À examiner : aucun menu identifié;Non;;
+GamePadCameraYawSpeed;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadCompassCustomFilterBoss;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadCompassCustomFilterCritter;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadCompassCustomFilterEnemy;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadCompassCustomFilterFriendly;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadCompassCustomFilterParty;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadConstrainedGroundTargetDistanceYds;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadConstrainedGroundTargetEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadConstrainedGroundTargetMaxRange;Jeu;À examiner : aucun menu identifié;Non;;
+GamePadCursorAutoDisableJump;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorAutoDisableSticks;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorAutoEnable;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorCenteredEmulation;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorCentering;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorForTargeting;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorLeftClick;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorOnLogin;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorPushCamera;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorRightClick;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorSpeedAccel;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorSpeedMax;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadCursorSpeedStart;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadEmulateAlt;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadEmulateCtrl;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadEmulateShift;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadEmulateTapWindowMs;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadEnable;Moteur;À examiner : aucun menu identifié;Non;;
+GamepadEnableReticleSwingTimer;Jeu;À examiner : aucun menu identifié;Non;;
+GamePadFaceMovementFreeFlying;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamePadFaceMovementMaxAngle;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamePadFaceMovementMaxAngleCombat;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamePadFaceMovementMount;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamePadFaceMovementSwimming;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamePadFactionColor;Moteur;À examiner : aucun menu identifié;Non;;
+GamepadFocusStateColor;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadFocusStateOpacity;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadHudModifierUsesToggle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+gamepadInvertPitch;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+gamepadInvertYaw;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadMapEdgePanDistance;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadMapScrollSpeed;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadMapScrollSpeedFullScreen;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadMapZoomSpeed;Jeu;À examiner : aucun menu identifié;Non;;
+GamePadOverlapMouseMs;Moteur;À examiner : aucun menu identifié;Non;;
+GamepadPossessBarOverride;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadPreferScreenTargeting;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadRaidTargetingHoverMode;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadRaidTargetingStyle;Jeu;À examiner : aucun menu identifié;Non;;
+GamePadRunThreshold;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadShowAutoAuraTooltip;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadShowPersistentInputLegend;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamePadSingleActiveID;Moteur;À examiner : aucun menu identifié;Non;;
+GamepadStanceBarOverride;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamePadStickAxisButtons;Moteur;À examiner : aucun menu identifié;Non;;
+GamepadSwapFriendlyTargetActions;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadSwapHostileTargetActions;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadSwapTargetModifiers;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadTabFriendlyTargetAction;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadTabHostileTargetAction;Jeu;À examiner : aucun menu identifié;Non;;
+GamePadTankTurnSpeed;Moteur;À examiner : aucun menu identifié;Non;;
+GamepadTargetingAnalogDeadzone;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadTargetingAnalogPullbackThreshold;Jeu;À examiner : aucun menu identifié;Non;;
+GamepadTargetingModifierVisualDelay;Jeu;À examiner : aucun menu identifié;Non;;
+GamePadTouchCursorAccel;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadTouchCursorEnable;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadTouchCursorMoveThreshold;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadTouchCursorSpeed;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadTouchTapButtons;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadTouchTapMaxMs;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadTouchTapOnlyClick;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadTouchTapRightClick;Moteur;À examiner : aucun menu identifié;Non;;
+GamePadTurnWithCamera;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamepadUsePartyTargeting;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+GamePadVibrationStrength;Moteur;À examiner : aucun menu identifié;Non;;
+GameplayContext;Moteur;À examiner : aucun menu identifié;Non;;
+gameTip;Moteur;À examiner : aucun menu identifié;Non;;
+Gamma;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+garrisonCompleteTalent;Jeu;À examiner : aucun menu identifié;Oui;;
+garrisonCompleteTalentType;Jeu;À examiner : aucun menu identifié;Oui;;
+giQuality;Moteur;À examiner : aucun menu identifié;Non;;
+graphicsComputeEffects;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsDepthEffects;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsEnvironmentDetail;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsGroundClutter;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsLightMode;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsLiquidDetail;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsOutlineMode;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsParticleDensity;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsPBRLiquidDetail;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsProjectedTextures;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsQuality;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsShadowQuality;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsSpellDensity;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsSSAO;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsTextureResolution;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+graphicsViewDistance;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+groundEffectDensity;Graphismes;Option documentée;Non;graphics;
+groundEffectDist;Graphismes;Option documentée;Non;graphics;
+groundEffectFade;Graphismes;Option documentée;Non;graphics;
+guildMemberNotify;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+guildNewsFilter;Jeu;À examiner : aucun menu identifié;Non;;
+guildRewardsCategory;Jeu;À examiner : aucun menu identifié;Non;;
+guildRewardsUsable;Jeu;À examiner : aucun menu identifié;Non;;
+guildShowOffline;Jeu;À examiner : aucun menu identifié;Non;;
+GxAdapter;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+GxAFRDevicesCount;Graphismes;À examiner : aucun menu identifié;Non;;
+GxAllowCachelessShaderMode;Graphismes;À examiner : aucun menu identifié;Non;;
+GxApi;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+GxCompatAllowSM6;Moteur;À examiner : aucun menu identifié;Non;;
+GxCompatAsyncComputeQueue;Moteur;À examiner : aucun menu identifié;Non;;
+GxCompatAsyncShaderCompilation;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+GxCompatCommandListMultiThreading;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+GxCompatCopyQueue;Moteur;À examiner : aucun menu identifié;Non;;
+GxCompatLowLatencyCallbacks;Moteur;À examiner : aucun menu identifié;Non;;
+GxCompatOptionalGpuFeatures;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+GxCompatWorkSubmitOptimizations;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+GxFullscreenResolution;Moteur;À examiner : aucun menu identifié;Non;;
+GxMaxFrameLatency;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+GxMaximize;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+GxMonitor;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+gxMTAlphaM2;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTAlphaPass;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTBeginDraw;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTDecals;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTDisable;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTLightShafts;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTMisc;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTOpaqueM2;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTOpaqueM2NoReflect;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTOpaqueWMO;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTOutlines;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTPrepass;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTRefraction;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTShadow;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTTerrain;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTTriggerOnBeginDrawComplete;Graphismes;À examiner : aucun menu identifié;Non;;
+gxMTVolFog;Graphismes;À examiner : aucun menu identifié;Non;;
+GxNewResolution;Graphismes;À examiner : aucun menu identifié;Non;;
+GxPrismEnabled;Graphismes;À examiner : aucun menu identifié;Non;;
+GxSlowShaderWarnThreshold;Graphismes;À examiner : aucun menu identifié;Non;;
+GxWindowedResolution;Moteur;À examiner : aucun menu identifié;Non;;
+hardcoreDeathAlertType;Jeu;À examiner : aucun menu identifié;Non;;
+hardcoreDeathChatType;Jeu;À examiner : aucun menu identifié;Non;;
+hardTrackedQuests;Jeu;À examiner : aucun menu identifié;Non;;
+hardTrackedWorldQuests;Jeu;À examiner : aucun menu identifié;Non;;
+HardwareCursor;Graphismes;À examiner : aucun menu identifié;Non;;
+hasSelectedExperiencePreset;Jeu;À examiner : aucun menu identifié;Non;;
+HDRBrightness;Graphismes;À examiner : aucun menu identifié;Non;;
+HDRFactor;Graphismes;À examiner : aucun menu identifié;Non;;
+HDROutput;Graphismes;À examiner : aucun menu identifié;Non;;
+HDRPeakBrightness;Graphismes;À examiner : aucun menu identifié;Non;;
+HealHandler;Moteur;À examiner : aucun menu identifié;Non;;
+heirloomCollectedFilters;Jeu;À examiner : aucun menu identifié;Non;;
+heirloomSourceFilters;Jeu;À examiner : aucun menu identifié;Non;;
+hideFastLoginLoadingScreen;Réseau;À examiner : aucun menu identifié;Non;;
+hideRewardedEvents;Jeu;À examiner : aucun menu identifié;Non;;
+highestUnlockedTieredEntranceTier;Jeu;À examiner : aucun menu identifié;Non;;
+horizonClip;Graphismes;À examiner : aucun menu identifié;Non;;
+horizonStart;Graphismes;À examiner : aucun menu identifié;Non;;
+HotfixEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+hotReloadModels;Graphismes;À examiner : aucun menu identifié;Non;;
+houseExterior_Hide_Decor;Jeu;À examiner : aucun menu identifié;Non;;
+housingDecorFreePlaceEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+housingDecorGridSnapEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+housingDecorGridVisible;Jeu;À examiner : aucun menu identifié;Non;;
+housingDecorLightRadiusIndicatorsEnabled;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+housingExpertGizmos_Scale_FrameOffset;Divers;À examiner : aucun menu identifié;Non;;
+housingExpertGizmos_Scale_Snap;Divers;À examiner : aucun menu identifié;Non;;
+housingExpertGizmos_SnapOnHold;Divers;À examiner : aucun menu identifié;Non;;
+housingLayout_Camera_DefaultDistance;Divers;À examiner : aucun menu identifié;Non;;
+housingLayout_Camera_DragFriction;Divers;À examiner : aucun menu identifié;Non;;
+housingLayout_Camera_DragMomentum;Divers;À examiner : aucun menu identifié;Non;;
+housingLayout_Camera_MaxDistance;Divers;À examiner : aucun menu identifié;Non;;
+housingLayout_Camera_MaxDistanceIncr;Divers;À examiner : aucun menu identifié;Non;;
+housingLayout_Camera_MinDistance;Divers;À examiner : aucun menu identifié;Non;;
+housingLayout_Camera_Smoothness;Divers;À examiner : aucun menu identifié;Non;;
+housingLayout_Camera_Speed;Divers;À examiner : aucun menu identifié;Non;;
+housingOtherDecorLightRadiusIndicatorType;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+housingSelectedDecorLightRadiusIndicatorType;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+housingStoragePanelCollapsed;Jeu;À examiner : aucun menu identifié;Non;;
+housingStoragePanelHeight;Jeu;À examiner : aucun menu identifié;Non;;
+housingStoragePanelWidth;Jeu;À examiner : aucun menu identifié;Non;;
+housingTutorialsEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+hwDetect;Graphismes;À examiner : aucun menu identifié;Non;;
+imageSharingPublishCooldown;Jeu;À examiner : aucun menu identifié;Non;;
+ImpactModelCollisionMelee;Jeu;À examiner : aucun menu identifié;Non;;
+ImpactModelCollisionMissile;Jeu;À examiner : aucun menu identifié;Non;;
+ImpactModelCollisionRanged;Jeu;À examiner : aucun menu identifié;Non;;
+incompleteQuestPriorityThresholdDelta;Diagnostic;À examiner : aucun menu identifié;Non;;
+initialRealmListTimeout;Moteur;À examiner : aucun menu identifié;Non;;
+InputDeviceInterfaceStyle;Divers;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Gamepad.lua
+instantQuestText;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Camelot/InterfaceOverrides.lua
+interactKeyWarningTutorial;Jeu;À examiner : aucun menu identifié;Non;;
+interactOnLeftClick;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+interactQuestItems;Jeu;À examiner : aucun menu identifié;Non;;
+InvalidateDeactivatedHandles;Diagnostic;À examiner : aucun menu identifié;Non;;
+KioskCanAutoDeleteCharacters;Divers;À examiner : aucun menu identifié;Oui;;
+KioskCanSessionExpire;Divers;À examiner : aucun menu identifié;Oui;;
+KioskCharacterTemplateSet1;Divers;À examiner : aucun menu identifié;Oui;;
+KioskCharacterTemplateSet2;Divers;À examiner : aucun menu identifié;Oui;;
+KioskLobbyKickSeconds;Divers;À examiner : aucun menu identifié;Oui;;
+KioskWarmupSeconds;Divers;À examiner : aucun menu identifié;Oui;;
+lastAddonVersion;Jeu;À examiner : aucun menu identifié;Non;;
+lastAttemptedExternalEventURLHash;Jeu;À examiner : aucun menu identifié;Non;;
+lastCharacterIndex;Jeu;À examiner : aucun menu identifié;Non;;
+lastGarrisonMissionTutorial;Jeu;À examiner : aucun menu identifié;Non;;
+lastLockedTieredEntranceCompanionAbilities;Jeu;À examiner : aucun menu identifié;Non;;
+lastRenownForCovenant1;Jeu;À examiner : aucun menu identifié;Non;;
+lastRenownForCovenant2;Jeu;À examiner : aucun menu identifié;Non;;
+lastRenownForCovenant3;Jeu;À examiner : aucun menu identifié;Non;;
+lastRenownForCovenant4;Jeu;À examiner : aucun menu identifié;Non;;
+lastRenownForDelvesSeason;Jeu;À examiner : aucun menu identifié;Non;;
+lastSelectedClubId;Jeu;À examiner : aucun menu identifié;Non;;
+lastSelectedTieredEntranceTier;Jeu;À examiner : aucun menu identifié;Non;;
+lastTalkedToGM;Jeu;À examiner : aucun menu identifié;Non;;
+lastTransmogCustomSetIDNoSpec;Jeu;À examiner : aucun menu identifié;Non;;
+lastTransmogCustomSetIDSpec1;Jeu;À examiner : aucun menu identifié;Non;;
+lastTransmogCustomSetIDSpec2;Jeu;À examiner : aucun menu identifié;Non;;
+lastTransmogCustomSetIDSpec3;Jeu;À examiner : aucun menu identifié;Non;;
+lastTransmogCustomSetIDSpec4;Jeu;À examiner : aucun menu identifié;Non;;
+lastTransmogOutfitIDNoSpec;Jeu;À examiner : aucun menu identifié;Non;;
+latestSplashScreen;Jeu;À examiner : aucun menu identifié;Oui;;
+latestTransmogSetSource;Jeu;À examiner : aucun menu identifié;Non;;
+launchAgent;Jeu;À examiner : aucun menu identifié;Non;;
+lfdCollapsedHeaders;Jeu;À examiner : aucun menu identifié;Non;;
+lfdSelectedDungeons;Jeu;À examiner : aucun menu identifié;Non;;
+lfgListAdvancedFilterMinRating;Jeu;À examiner : aucun menu identifié;Non;;
+lfgListAdvancedFilterRemovedActivities;Jeu;À examiner : aucun menu identifié;Non;;
+lfgListAdvancedFilters;Jeu;À examiner : aucun menu identifié;Non;;
+lfgListAdvancedFiltersVersion;Jeu;À examiner : aucun menu identifié;Non;;
+lfgListSearchLanguages;Jeu;À examiner : aucun menu identifié;Non;;
+lfgSelectedRoles;Jeu;À examiner : aucun menu identifié;Non;;
+linear;Graphismes;À examiner : aucun menu identifié;Non;;
+loadDeprecationFallbacks;Jeu;À examiner : aucun menu identifié;Oui;;
+locale;Moteur;À examiner : aucun menu identifié;Non;;
+locateViewerMaxJobs;Graphismes;À examiner : aucun menu identifié;Non;;
+lockActionBars;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/ActionBars.lua
+lodObjectCullDist;Graphismes;À examiner : aucun menu identifié;Non;;
+lodObjectCullSize;Graphismes;Option documentée;Non;graphics;
+lodObjectFadeScale;Graphismes;Option documentée;Non;graphics;
+lodObjectMinSize;Graphismes;À examiner : aucun menu identifié;Non;;
+lodObjectSizeScale;Graphismes;À examiner : aucun menu identifié;Non;;
+lootUnderMouse;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+lossOfControl;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Combat.lua
+lossOfControlDisarm;Jeu;À examiner : aucun menu identifié;Non;;
+lossOfControlFull;Jeu;À examiner : aucun menu identifié;Non;;
+lossOfControlInterrupt;Jeu;À examiner : aucun menu identifié;Non;;
+lossOfControlRoot;Jeu;À examiner : aucun menu identifié;Non;;
+lossOfControlSilence;Jeu;À examiner : aucun menu identifié;Non;;
+LowLatencyMinInterval;Graphismes;À examiner : aucun menu identifié;Non;;
+LowLatencyMode;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+luaErrorExceptions;Jeu;À examiner : aucun menu identifié;Non;;
+M2ForceAdditiveParticleSort;Graphismes;À examiner : aucun menu identifié;Non;;
+M2UseInstancing;Graphismes;À examiner : aucun menu identifié;Non;;
+M2UseThreads;Graphismes;À examiner : aucun menu identifié;Non;;
+majorFactionRenownMap;Jeu;À examiner : aucun menu identifié;Non;;
+mapFade;Jeu;À examiner : aucun menu identifié;Non;;
+MaxCharacterComponentLoadStartsPerFrame;Graphismes;À examiner : aucun menu identifié;Non;;
+maxFPS;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+maxFPSBk;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+maxFPSLoading;Graphismes;Option documentée;Non;graphics;
+maximumConnectionAttempts;Réseau;À examiner : aucun menu identifié;Non;;
+maxLevelSpecsUsed;Jeu;À examiner : aucun menu identifié;Non;;
+maxLightCount;Graphismes;À examiner : aucun menu identifié;Non;;
+maxLightDist;Graphismes;À examiner : aucun menu identifié;Non;;
+MaxObservedPetBattles;Moteur;À examiner : aucun menu identifié;Non;;
+minFontHeight;Jeu;À examiner : aucun menu identifié;Non;;
+miniCommunitiesFrame;Jeu;À examiner : aucun menu identifié;Non;;
+miniDressUpFrame;Jeu;À examiner : aucun menu identifié;Non;;
+minimapInsideZoom;Jeu;À examiner : aucun menu identifié;Non;;
+minimapPortalMax;Jeu;À examiner : aucun menu identifié;Non;;
+minimapShapeshiftTracking;Jeu;À examiner : aucun menu identifié;Non;;
+minimapShowPlayerCoords;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+minimapTrackedInfov4;Jeu;À examiner : aucun menu identifié;Non;;
+minimapTrackingClosestOnly;Jeu;À examiner : aucun menu identifié;Non;;
+minimapTrackingShowAll;Jeu;À examiner : aucun menu identifié;Non;;
+minimapZoom;Jeu;À examiner : aucun menu identifié;Non;;
+miniWorldMap;Jeu;À examiner : aucun menu identifié;Non;;
+missingTransmogSourceInItemTooltips;Jeu;À examiner : aucun menu identifié;Non;;
+motionSicknessFocalCircle;Jeu;À examiner : aucun menu identifié;Non;;
+motionSicknessLandscapeDarkening;Jeu;À examiner : aucun menu identifié;Non;;
+mountJournalGeneralFilters;Jeu;À examiner : aucun menu identifié;Non;;
+mountJournalShowPlayer;Jeu;À examiner : aucun menu identifié;Non;;
+mountJournalSourcesFilter;Jeu;À examiner : aucun menu identifié;Non;;
+mountJournalTypeFilter;Jeu;À examiner : aucun menu identifié;Non;;
+mouseAcceleration;Jeu;À examiner : aucun menu identifié;Non;;
+MouseHiddenInRelativeMode;Jeu;À examiner : aucun menu identifié;Non;;
+mouseInvertPitch;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+mouseInvertYaw;Jeu;À examiner : aucun menu identifié;Non;;
+mouseSpeed;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+MoveHistoryEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+movePadInPressAndHoldMode;Jeu;À examiner : aucun menu identifié;Non;;
+movePadLocked;Jeu;À examiner : aucun menu identifié;Non;;
+movieSubtitle;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Subtitles.lua
+movieSubtitleBackground;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Subtitles.lua
+movieSubtitleBackgroundAlpha;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Subtitles.lua
+MSAAAlphaTest;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+MSAAQuality;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+nameplateAuraScale;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateBottomInset;Jeu;Option documentée;Oui;plates;
+nameplateCheckDistanceForTarget;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateDebuffPadding;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateForceShowUnitName;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateGameObjectMaxDistance;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateMaxAlpha;Jeu;Option documentée;Oui;plates;
+nameplateMaxAlphaDistance;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateMaxDistance;Jeu;Option documentée;Oui;plates;
+nameplateMaxScale;Jeu;Option documentée;Oui;plates;
+nameplateMaxScaleDistance;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateMinAlpha;Jeu;Option documentée;Oui;plates;
+nameplateMinAlphaDistance;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateMinScale;Jeu;Option documentée;Oui;plates;
+nameplateMinScaleDistance;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateMotionSpeed;Jeu;Option documentée;Oui;plates;
+nameplateNotSelectedAlpha;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateOccludedAlphaMult;Jeu;Option documentée;Oui;plates;
+nameplateOtherAtBase;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateOverlapH;Jeu;Option documentée;Oui;plates;
+nameplateOverlapV;Jeu;Option documentée;Oui;plates;
+nameplatePlayerMaxDistance;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplatePlayRemovalAnimation;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateSelectedAlpha;Jeu;Option documentée;Oui;plates;
+nameplateSelectedScale;Jeu;Option documentée;Oui;plates;
+nameplateShowAll;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowAllPersonalAuras;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateShowCastBars;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateShowClassColor;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowDebuffsOnFriendly;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateShowEnemies;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowEnemyGuardians;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateShowEnemyMinions;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowEnemyMinus;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowEnemyPets;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateShowEnemyTotems;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateShowFriendlyClassColor;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowFriendlyNpcs;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowFriendlyPlayerGuardians;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateShowFriendlyPlayerMinions;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowFriendlyPlayerPets;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateShowFriendlyPlayers;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowFriendlyPlayerTotems;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateShowFriendlyRealmName;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowOffscreen;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowOnlyNameForFriendlyPlayerUnits;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateShowSelf;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Combat.lua
+nameplateSimplifiedScale;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateSize;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateStyle;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nameplateTargetBehindMaxDistance;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateTargetRadialPosition;Jeu;À examiner : aucun menu identifié;Oui;;
+nameplateTopInset;Jeu;Option documentée;Oui;plates;
+nameplateUseClassColorForFriendlyPlayerUnitNames;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+nearclip;Graphismes;À examiner : aucun menu identifié;Non;;
+newDelvesSeason;Jeu;À examiner : aucun menu identifié;Oui;;
+newMythicPlusSeason;Jeu;À examiner : aucun menu identifié;Oui;;
+newPvpSeason;Jeu;À examiner : aucun menu identifié;Oui;;
+noBuffDebuffFilterOnTarget;Jeu;À examiner : aucun menu identifié;Non;;
+NonEmitterCombatRange;Jeu;À examiner : aucun menu identifié;Non;;
+NotchedDisplayMode;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+notifiedOfNewMail;Jeu;À examiner : aucun menu identifié;Non;;
+numCurrencyCategories;Jeu;À examiner : aucun menu identifié;Non;;
+numReputationHeaders;Jeu;À examiner : aucun menu identifié;Non;;
+ObjectSelectionCircle;Jeu;À examiner : aucun menu identifié;Non;;
+occludedSilhouettePlayer;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/CombatOverrides.lua
+occlusionMaxJobs;Graphismes;À examiner : aucun menu identifié;Non;;
+onlyShowCollectedItemsInJournal;Jeu;À examiner : aucun menu identifié;Non;;
+optOutIngameSurveys;Jeu;À examiner : aucun menu identifié;Non;;
+orderHallMissionTutorial;Jeu;À examiner : aucun menu identifié;Non;;
+otherRolesAzeriteEssencesHidden;Jeu;À examiner : aucun menu identifié;Non;;
+outdoorMinAltitudeDistance;Jeu;À examiner : aucun menu identifié;Non;;
+Outline;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+OutlineEngineMode;Graphismes;À examiner : aucun menu identifié;Non;;
+outlineModeShowLootEffectWhenDisabled;Jeu;À examiner : aucun menu identifié;Non;;
+outlineMouseOverFadeDuration;Diagnostic;À examiner : aucun menu identifié;Non;;
+outlineSelectionFadeDuration;Diagnostic;À examiner : aucun menu identifié;Non;;
+outlineSoftInteractFadeDuration;Diagnostic;À examiner : aucun menu identifié;Non;;
+overrideArchive;Jeu;À examiner : aucun menu identifié;Non;;
+overrideScreenFlash;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Camelot/AccessibilityOverrides.lua | Blizzard_SettingsDefinitions_Frame/Mainline/AccessibilityOverrides.lua
+particleDensity;Graphismes;À examiner : aucun menu identifié;Non;;
+particleMTDensity;Graphismes;À examiner : aucun menu identifié;Non;;
+particulatesEnabled;Graphismes;À examiner : aucun menu identifié;Non;;
+partyBackgroundOpacity;Jeu;À examiner : aucun menu identifié;Non;;
+partyInvitesCollapsed_Glue;Jeu;À examiner : aucun menu identifié;Non;;
+Pathing;Moteur;À examiner : aucun menu identifié;Non;;
+pathSmoothing;Jeu;À examiner : aucun menu identifié;Non;;
+pbrLiquidDetail;Moteur;À examiner : aucun menu identifié;Non;;
+pendingInviteInfoShown;Jeu;À examiner : aucun menu identifié;Non;;
+performedDeathTutorial;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+performedVendorTutorial;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+perksActivitiesCurrentMonth;Jeu;À examiner : aucun menu identifié;Non;;
+perksActivitiesLastPoints;Jeu;À examiner : aucun menu identifié;Non;;
+perksActivitiesPendingCompletion;Jeu;À examiner : aucun menu identifié;Non;;
+persistMoveLogOnTransfer;Diagnostic;À examiner : aucun menu identifié;Non;;
+petJournalFilters;Jeu;À examiner : aucun menu identifié;Non;;
+petJournalFilterVersion;Jeu;À examiner : aucun menu identifié;Non;;
+petJournalSort;Jeu;À examiner : aucun menu identifié;Non;;
+petJournalSourceFilters;Jeu;À examiner : aucun menu identifié;Non;;
+petJournalTab;Jeu;À examiner : aucun menu identifié;Non;;
+petJournalTypeFilters;Jeu;À examiner : aucun menu identifié;Non;;
+petStableShowExoticOnly;Jeu;À examiner : aucun menu identifié;Non;;
+petStableSort;Jeu;À examiner : aucun menu identifié;Non;;
+PhaseHistory;Moteur;À examiner : aucun menu identifié;Non;;
+physicsLevel;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+pingCategoryTutorialShown;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/PingSystem.lua
+pingMode;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/PingSystem.lua
+pingTarget;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/PingSystem.lua
+playerColorOverrides;Jeu;À examiner : aucun menu identifié;Non;;
+PlayerSpawnTracking;Moteur;À examiner : aucun menu identifié;Non;;
+playIntroMovie;Jeu;À examiner : aucun menu identifié;Non;;
+plunderstormRealm;Réseau;À examiner : aucun menu identifié;Non;;
+POIShiftComplete;Diagnostic;À examiner : aucun menu identifié;Non;;
+portal;Réseau;À examiner : aucun menu identifié;Non;;
+PraiseTheSun;Jeu;À examiner : aucun menu identifié;Non;;
+PreemptiveCastEnable;Moteur;À examiner : aucun menu identifié;Non;;
+preloadLoadingDistObject;Moteur;À examiner : aucun menu identifié;Non;;
+preloadLoadingDistTerrain;Moteur;À examiner : aucun menu identifié;Non;;
+preloadPlayerModels;Jeu;À examiner : aucun menu identifié;Non;;
+preloadStreamingDistObject;Moteur;À examiner : aucun menu identifié;Non;;
+preloadStreamingDistTerrain;Moteur;À examiner : aucun menu identifié;Non;;
+PreventOsIdleSleep;Divers;À examiner : aucun menu identifié;Non;;
+primaryProfessionsFilter;Jeu;À examiner : aucun menu identifié;Non;;
+ProcDebugEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+profanityFilter;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+professionAccessorySlotsExampleShown;Jeu;À examiner : aucun menu identifié;Non;;
+professionsAllocateBestQualityReagents;Jeu;À examiner : aucun menu identifié;Non;;
+professionsAllocateBestQualityReagentsCustomer;Jeu;À examiner : aucun menu identifié;Non;;
+professionsFlyoutHideUnowned;Jeu;À examiner : aucun menu identifié;Non;;
+professionsOrderDurationDropdown;Jeu;À examiner : aucun menu identifié;Non;;
+professionsOrderRecipientDropdown;Jeu;À examiner : aucun menu identifié;Non;;
+professionToolSlotsExampleShown;Jeu;À examiner : aucun menu identifié;Non;;
+projectedTextures;Graphismes;À examiner : aucun menu identifié;Non;;
+PushToTalkSound;Sons;À examiner : aucun menu identifié;Non;;
+pvpFramesDisplayClassColor;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+pvpFramesDisplayOnlyHealerPowerBars;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+pvpFramesDisplayPowerBars;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+pvpFramesHealthText;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+pvpOptionDisplayPets;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+pvpSelectedRoles;Jeu;À examiner : aucun menu identifié;Non;;
+QuestEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+questLogOpen;Jeu;À examiner : aucun menu identifié;Non;;
+questPOI;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Preset.lua
+questPOILocalStory;Jeu;À examiner : aucun menu identifié;Non;;
+questPOIWQ;Jeu;À examiner : aucun menu identifié;Non;;
+questTextContrast;Jeu;À examiner : aucun menu identifié;Non;;
+RAIDclusteredShading;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDcomponentTextureLevel;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDDepthBasedOpacity;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDdoodadLodScale;Graphismes;Option documentée;Non;graphics;
+RAIDentityLodDist;Graphismes;Option documentée;Non;graphics;
+RAIDentityShadowFadeScale;Graphismes;Option documentée;Non;graphics;
+RAIDfarclip;Graphismes;À examiner : aucun menu identifié;Non;;
+raidFramesCenterBigDefensive;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDispelIndicatorAnimatedBorder;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDispelIndicatorOverlay;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDispelIndicatorOverlayAnimation;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDispelIndicatorType;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDisplayAggroHighlight;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDisplayBuffs;Jeu;À examiner : aucun menu identifié;Non;;
+raidFramesDisplayClassColor;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDisplayDebuffs;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDisplayIncomingHeals;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDisplayLargerRoleSpecificDebuffs;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDisplayOnlyDispellableDebuffs;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDisplayOnlyHealerPowerBars;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesDisplayPowerBars;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesHealthBarColor;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesHealthBarColorBG;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesHealthText;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidFramesHeight;Jeu;À examiner : aucun menu identifié;Non;;
+raidFramesPosition;Jeu;À examiner : aucun menu identifié;Non;;
+raidFramesWidth;Jeu;À examiner : aucun menu identifié;Non;;
+RAIDgiQuality;Moteur;À examiner : aucun menu identifié;Non;;
+raidGraphicsComputeEffects;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsDepthEffects;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsEnvironmentDetail;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsGroundClutter;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsLightMode;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsLiquidDetail;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsOutlineMode;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsParticleDensity;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsPBRLiquidDetail;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsProjectedTextures;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+RAIDgraphicsQuality;Moteur;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsShadowQuality;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsSpellDensity;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsSSAO;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsTextureResolution;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+raidGraphicsViewDistance;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua | Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+RAIDgroundEffectDensity;Graphismes;Option documentée;Non;graphics;
+RAIDgroundEffectDist;Graphismes;Option documentée;Non;graphics;
+RAIDgroundEffectFade;Graphismes;Option documentée;Non;graphics;
+RAIDhorizonClip;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDhorizonStart;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDlodObjectCullDist;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDlodObjectCullSize;Graphismes;Option documentée;Non;graphics;
+RAIDlodObjectFadeScale;Graphismes;Option documentée;Non;graphics;
+RAIDlodObjectMinSize;Graphismes;À examiner : aucun menu identifié;Non;;
+raidOptionDisplayMainTankAndAssist;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidOptionDisplayPets;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+raidOptionIsShown;Jeu;À examiner : aucun menu identifié;Non;;
+raidOptionKeepGroupsTogether;Jeu;À examiner : aucun menu identifié;Non;;
+raidOptionLocked;Jeu;À examiner : aucun menu identifié;Non;;
+raidOptionShowBorders;Jeu;À examiner : aucun menu identifié;Non;;
+raidOptionSortMode;Jeu;À examiner : aucun menu identifié;Non;;
+RAIDOutlineEngineMode;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDparticleDensity;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDparticleMTDensity;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDParticulatesEnabled;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDpbrLiquidDetail;Moteur;À examiner : aucun menu identifié;Non;;
+RAIDprojectedTextures;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDreflectionMode;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDrefraction;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDRenderFormat;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDrippleDetail;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDsettingsEnabled;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+RAIDshadowBlendCascades;Graphismes;Option documentée;Non;graphics;
+RAIDshadowMode;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDshadowNumCascades;Graphismes;Option documentée;Non;graphics;
+RAIDshadowRt;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDshadowSoft;Graphismes;Option documentée;Non;graphics;
+RAIDshadowTextureSize;Graphismes;Option documentée;Non;graphics;
+RAIDspellClutter;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDSSAO;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDsunShafts;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDterrainLodDist;Graphismes;Option documentée;Non;graphics;
+RAIDTerrainLodDiv;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDterrainMipLevel;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDVolumeFog;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDVolumeFogLevel;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDWaterDetail;Graphismes;À examiner : aucun menu identifié;Non;;
+RAIDweatherDensity;Graphismes;Option documentée;Non;graphics;
+RAIDwmoLodDist;Graphismes;Option documentée;Non;graphics;
+RAIDworldBaseMip;Graphismes;À examiner : aucun menu identifié;Non;;
+rawMouseEnable;Jeu;Option documentée;Non;camera;
+reflectionDownscale;Graphismes;À examiner : aucun menu identifié;Non;;
+reflectionMode;Graphismes;À examiner : aucun menu identifié;Non;;
+refraction;Graphismes;À examiner : aucun menu identifié;Non;;
+reloadUIOnAspectChange;Graphismes;À examiner : aucun menu identifié;Non;;
+remoteTextToSpeech;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+remoteTextToSpeechVoice;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+RenderFormat;Graphismes;À examiner : aucun menu identifié;Non;;
+RenderScale;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+RenderScaleDowngradeBackgroundMinSize;Graphismes;À examiner : aucun menu identifié;Non;;
+RenderScaleDowngradeForegroundMinSize;Graphismes;À examiner : aucun menu identifié;Non;;
+ReplaceMyPlayerPortrait;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Interface.lua
+ReplaceOtherPlayerPortraits;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Interface.lua
+reputationsCollapsed;Jeu;À examiner : aucun menu identifié;Non;;
+ResampleAlwaysSharpen;Graphismes;Option documentée;Non;graphics;
+ResampleQuality;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+ResampleSharpness;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+ResizeConstraints;Graphismes;À examiner : aucun menu identifié;Non;;
+restrictCalendarInvites;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+rippleDetail;Graphismes;À examiner : aucun menu identifié;Non;;
+rotateMinimap;Jeu;À examiner : aucun menu identifié;Non;;
+runeFadeTime;Moteur;À examiner : aucun menu identifié;Non;;
+runeSpentFadeTime;Moteur;À examiner : aucun menu identifié;Non;;
+runeSpentFlashTime;Moteur;À examiner : aucun menu identifié;Non;;
+sceneOcclusionEnable;Graphismes;À examiner : aucun menu identifié;Non;;
+screenEdgeFlash;Jeu;À examiner : aucun menu identifié;Non;;
+screenshotFormat;Graphismes;Option documentée;Non;images;
+screenshotQuality;Graphismes;Option documentée;Non;images;
+screenshotSizeOverride;Graphismes;À examiner : aucun menu identifié;Non;;
+scriptErrors;Jeu;À examiner : aucun menu identifié;Non;;
+scriptProfile;Diagnostic;À examiner : aucun menu identifié;Non;;
+scriptWarnings;Diagnostic;À examiner : aucun menu identifié;Non;;
+scrollToLogQuest;Jeu;À examiner : aucun menu identifié;Non;;
+secondaryProfessionsFilter;Jeu;À examiner : aucun menu identifié;Non;;
+secureAbilityToggle;Jeu;À examiner : aucun menu identifié;Non;;
+seenAgeVerificationRestrictionState;Jeu;À examiner : aucun menu identifié;Non;;
+seenAlliedRaceUnlocks;Jeu;À examiner : aucun menu identifié;Non;;
+seenAsiaCharacterUpgradePopup;Jeu;À examiner : aucun menu identifié;Oui;;
+seenCharacterUpgradePopup;Jeu;À examiner : aucun menu identifié;Non;;
+seenConfigurationWarnings;Jeu;À examiner : aucun menu identifié;Non;;
+seenExpansionTrialPopup;Jeu;À examiner : aucun menu identifié;Non;;
+seenLevelSquishPopup;Jeu;À examiner : aucun menu identifié;Non;;
+seenPurchasableClassCapstone;Jeu;À examiner : aucun menu identifié;Non;;
+seenRegionalChatDisabled;Jeu;À examiner : aucun menu identifié;Non;;
+seenTimerunningFirstLoginPopup;Jeu;À examiner : aucun menu identifié;Non;;
+serverAlert;Réseau;À examiner : aucun menu identifié;Non;;
+ServerMessageEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+serviceTypeFilter;Jeu;À examiner : aucun menu identifié;Non;;
+shadowBlendCascades;Graphismes;Option documentée;Non;graphics;
+shadowMode;Graphismes;À examiner : aucun menu identifié;Non;;
+shadowNumCascades;Graphismes;Option documentée;Non;graphics;
+shadowRt;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+shadowSoft;Graphismes;Option documentée;Non;graphics;
+shadowTextureSize;Graphismes;Option documentée;Non;graphics;
+ShakeStrengthCamera;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+ShakeStrengthUI;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+shipyardMissionTutorialAreaBuff;Jeu;À examiner : aucun menu identifié;Non;;
+shipyardMissionTutorialBlockade;Jeu;À examiner : aucun menu identifié;Non;;
+shipyardMissionTutorialFirst;Jeu;À examiner : aucun menu identifié;Non;;
+showAllItemsInTransmog;Jeu;À examiner : aucun menu identifié;Non;;
+ShowAllSpellRanks;Jeu;À examiner : aucun menu identifié;Non;;
+showArenaEnemyCastbar;Jeu;À examiner : aucun menu identifié;Non;;
+showArenaEnemyFrames;Jeu;À examiner : aucun menu identifié;Oui;;
+showArenaEnemyPets;Jeu;À examiner : aucun menu identifié;Oui;;
+showBattlefieldMinimap;Jeu;À examiner : aucun menu identifié;Non;;
+showBuilderFeedback;Jeu;À examiner : aucun menu identifié;Non;;
+showCastableBuffs;Jeu;À examiner : aucun menu identifié;Non;;
+showCreateCharacterRealmConfirmDialog;Jeu;À examiner : aucun menu identifié;Non;;
+showCustomSetDetails;Jeu;À examiner : aucun menu identifié;Non;;
+showDelveEntrancesOnMap;Jeu;À examiner : aucun menu identifié;Non;;
+showDispelDebuffs;Jeu;À examiner : aucun menu identifié;Non;;
+showDungeonEntrancesOnMap;Jeu;À examiner : aucun menu identifié;Non;;
+showErrors;Diagnostic;À examiner : aucun menu identifié;Non;;
+showfootprintparticles;Graphismes;Option documentée;Non;graphics;
+showHonorAsExperience;Jeu;À examiner : aucun menu identifié;Non;;
+showInGameNavigation;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Interface.lua | Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+showKeyring;Jeu;À examiner : aucun menu identifié;Non;;
+showLoadingScreenTips;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Camelot/InterfaceOverrides.lua
+showLootSpam;Jeu;À examiner : aucun menu identifié;Non;;
+showMaxLevelAnnouncements;Jeu;À examiner : aucun menu identifié;Non;;
+showNPETutorials;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+showOutfitDetails;Jeu;À examiner : aucun menu identifié;Non;;
+showPartyPets;Jeu;À examiner : aucun menu identifié;Oui;;
+showPhotosensitivityWarning;Jeu;À examiner : aucun menu identifié;Non;;
+showPingsInChat;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/PingSystem.lua
+showPingsOnRaidFrames;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/PingSystem.lua
+showQuestDifficultyColor;Jeu;À examiner : aucun menu identifié;Non;;
+showQuestLevel;Jeu;À examiner : aucun menu identifié;Non;;
+showQuestObjectivesInLog;Jeu;À examiner : aucun menu identifié;Non;;
+ShowQuestUnitCircles;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+showScreenNarrationDialog;Jeu;À examiner : aucun menu identifié;Non;;
+showSpectatorTeamCircles;Jeu;À examiner : aucun menu identifié;Non;;
+showSpenderFeedback;Jeu;À examiner : aucun menu identifié;Non;;
+showSwingTimer;Jeu;À examiner : aucun menu identifié;Non;;
+showTamers;Jeu;À examiner : aucun menu identifié;Non;;
+showTamersWQ;Jeu;À examiner : aucun menu identifié;Non;;
+showTargetCastbar;Jeu;À examiner : aucun menu identifié;Non;;
+showTargetOfTarget;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Combat.lua
+showTaxiNodeLearnedIcon;Jeu;À examiner : aucun menu identifié;Non;;
+showTempMaxHealthLoss;Jeu;À examiner : aucun menu identifié;Non;;
+showTimestamps;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+showToastBroadcast;Jeu;À examiner : aucun menu identifié;Non;;
+showToastClubInvitation;Jeu;À examiner : aucun menu identifié;Non;;
+showToastConversation;Jeu;À examiner : aucun menu identifié;Non;;
+showToastFriendRequest;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+showToastOffline;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+showToastOnline;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+showToastWindow;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/SocialOverrides.lua | Blizzard_SettingsDefinitions_Shared/Preset.lua
+showTokenFrame;Jeu;À examiner : aucun menu identifié;Non;;
+showTutorials;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Interface.lua | Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+showVKeyCastbar;Jeu;À examiner : aucun menu identifié;Non;;
+showVKeyCastbarOnlyOnTarget;Jeu;À examiner : aucun menu identifié;Non;;
+showVKeyCastbarSpellName;Jeu;À examiner : aucun menu identifié;Non;;
+simd;Moteur;À examiner : aucun menu identifié;Non;;
+skipTutorialAchievement;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+SkyCloudLOD;Graphismes;À examiner : aucun menu identifié;Non;;
+SlugOpticalWeight;Diagnostic;À examiner : aucun menu identifié;Non;;
+SmartNavigationCursorAnchor;Jeu;À examiner : aucun menu identifié;Non;;
+SmartNavigationCursorAppearance;Jeu;À examiner : aucun menu identifié;Non;;
+SmartNavigationCursorButtonAnchor;Jeu;À examiner : aucun menu identifié;Non;;
+SmartNavigationCursorFlipHorizontal;Jeu;À examiner : aucun menu identifié;Non;;
+SmartNavigationCursorFlipVertical;Jeu;À examiner : aucun menu identifié;Non;;
+SmartNavigationCursorRotationAngle;Jeu;À examiner : aucun menu identifié;Non;;
+SmartNavigationCursorScale;Jeu;À examiner : aucun menu identifié;Non;;
+SmartNavigationScrollSpeed;Jeu;À examiner : aucun menu identifié;Non;;
+smoothUnitPhasing;Jeu;À examiner : aucun menu identifié;Non;;
+smoothUnitPhasingActorPurgatoryTimeMs;Jeu;À examiner : aucun menu identifié;Non;;
+smoothUnitPhasingAliveTimeoutMs;Jeu;À examiner : aucun menu identifié;Non;;
+smoothUnitPhasingDestroyedPurgatoryTimeMs;Jeu;À examiner : aucun menu identifié;Non;;
+smoothUnitPhasingDistThreshold;Jeu;À examiner : aucun menu identifié;Non;;
+smoothUnitPhasingEnableAlive;Jeu;À examiner : aucun menu identifié;Non;;
+smoothUnitPhasingUnseenPurgatoryTimeMs;Jeu;À examiner : aucun menu identifié;Non;;
+smoothUnitPhasingVehicleExtraTimeoutMs;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetEnemy;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Combat.lua
+SoftTargetEnemyArc;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetEnemyRange;Jeu;À examiner : aucun menu identifié;Oui;;
+SoftTargetForce;Jeu;À examiner : aucun menu identifié;Oui;;
+SoftTargetFriend;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetFriendArc;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetFriendRange;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetIconEnemy;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+SoftTargetIconFriend;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetIconGameObject;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+SoftTargetIconInteract;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+SoftTargetInteract;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+SoftTargetInteractArc;Jeu;À examiner : aucun menu identifié;Non;;
+softTargetInteractionTutorialTotalInteractions;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetInteractOnlyInRange;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetInteractRange;Jeu;À examiner : aucun menu identifié;Oui;;
+SoftTargetInteractRangeIsHard;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetLowPriorityIcons;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+SoftTargetMatchLocked;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetNameplateEnemy;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetNameplateFriend;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetNameplateInteract;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetNameplateSize;Jeu;À examiner : aucun menu identifié;Non;;
+softTargettingInteractKeySound;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Controls.lua
+SoftTargetTooltipDurationMs;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetTooltipEnemy;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+SoftTargetTooltipFriend;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetTooltipInteract;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+SoftTargetTooltipLocked;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetWithLocked;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetWorldtextFarDist;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetWorldtextNearDist;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetWorldtextNearScale;Jeu;À examiner : aucun menu identifié;Non;;
+SoftTargetWorldtextSize;Jeu;À examiner : aucun menu identifié;Non;;
+sortCharListByLastActive;Jeu;À examiner : aucun menu identifié;Non;;
+sortDiskReads;Jeu;À examiner : aucun menu identifié;Non;;
+soulbindsActivatedTutorial;Jeu;À examiner : aucun menu identifié;Non;;
+soulbindsLandingPageTutorial;Jeu;À examiner : aucun menu identifié;Non;;
+soulbindsViewedTutorial;Jeu;À examiner : aucun menu identifié;Non;;
+Sound_AllyPlayerHighpassDSPCutoff;Sons;À examiner : aucun menu identifié;Non;;
+Sound_AlternateListener;Sons;À examiner : aucun menu identifié;Non;;
+Sound_AmbienceHighpassDSPCutoff;Sons;À examiner : aucun menu identifié;Non;;
+Sound_AmbienceVolume;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_DialogVolume;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_DSPBufferSize;Sons;À examiner : aucun menu identifié;Non;;
+Sound_EnableAllSound;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EnableAmbience;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EnableArmorFoleySoundForOthers;Sons;Option documentée;Non;sound;
+Sound_EnableArmorFoleySoundForSelf;Sons;Option documentée;Non;sound;
+Sound_EnableDialog;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EnableDSPEffects;Sons;À examiner : aucun menu identifié;Non;;
+Sound_EnableEmoteSounds;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EnableEncounterWarningsSounds;Sons;Menu natif identifié;Non;;Blizzard_Settings_Shared/Mainline/AudioOverrides.lua
+Sound_EnableErrorSpeech;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EnableGameplaySFX;Sons;Menu natif identifié;Non;;Blizzard_Settings_Shared/Mainline/AudioOverrides.lua
+Sound_EnableMixMode2;Sons;À examiner : aucun menu identifié;Non;;
+Sound_EnableMusic;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EnablePetBattleMusic;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EnablePetSounds;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EnablePingSounds;Sons;Menu natif identifié;Non;;Blizzard_Settings_Shared/Mainline/AudioOverrides.lua
+Sound_EnablePositionalLowPassFilter;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EnableReverb;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EnableSFX;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EnableSoundWhenGameIsInBG;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_EncounterWarningsVolume;Sons;Menu natif identifié;Non;;Blizzard_Settings_Shared/Mainline/AudioOverrides.lua
+Sound_EnemyPlayerHighpassDSPCutoff;Sons;À examiner : aucun menu identifié;Non;;
+Sound_GameplaySFX;Sons;Menu natif identifié;Non;;Blizzard_Settings_Shared/Mainline/AudioOverrides.lua
+Sound_ListenerAtCharacter;Sons;Option documentée;Non;sound;
+Sound_MasterVolume;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_MaxCacheableSizeInBytes;Sons;À examiner : aucun menu identifié;Non;;
+Sound_MaxCacheSizeInBytes;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_MusicVolume;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_NPCHighpassDSPCutoff;Sons;À examiner : aucun menu identifié;Non;;
+Sound_NumChannels;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_OutputDriverIndex;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_OutputDriverName;Sons;À examiner : aucun menu identifié;Non;;
+Sound_OutputSampleRate;Sons;À examiner : aucun menu identifié;Non;;
+Sound_PingVolume;Sons;Menu natif identifié;Non;;Blizzard_Settings_Shared/Mainline/AudioOverrides.lua
+Sound_SFXVolume;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+Sound_VoiceChatInputDriverIndex;Sons;À examiner : aucun menu identifié;Non;;
+Sound_VoiceChatInputDriverName;Sons;À examiner : aucun menu identifié;Non;;
+Sound_VoiceChatOutputDriverIndex;Sons;À examiner : aucun menu identifié;Non;;
+Sound_VoiceChatOutputDriverName;Sons;À examiner : aucun menu identifié;Non;;
+Sound_ZoneMusicNoDelay;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+SoundPerf_VariationCap;Sons;À examiner : aucun menu identifié;Non;;
+SpawnRegion;Moteur;À examiner : aucun menu identifié;Non;;
+specular;Graphismes;À examiner : aucun menu identifié;Non;;
+speechToText;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+spellActivationOverlayOpacity;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua | Blizzard_SettingsDefinitions_Frame/Combat.lua
+spellBookHideFlyouts;Jeu;À examiner : aucun menu identifié;Non;;
+spellBookHidePassives;Jeu;À examiner : aucun menu identifié;Non;;
+spellBookMinimize;Jeu;À examiner : aucun menu identifié;Non;;
+spellClutter;Graphismes;À examiner : aucun menu identifié;Non;;
+SpellCooldownDebugger;Moteur;À examiner : aucun menu identifié;Non;;
+spellDiminishPVPEnemiesEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+spellDiminishPVPOnlyTriggerableByMe;Jeu;À examiner : aucun menu identifié;Non;;
+SpellEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+SpellOverrides;Moteur;À examiner : aucun menu identifié;Non;;
+SpellQueueWindow;Jeu;Option documentée;Non;combat;
+SpellScriptEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+SpellTargeting;Moteur;À examiner : aucun menu identifié;Non;;
+spellVisualDensityFilterSetting;Jeu;À examiner : aucun menu identifié;Non;;
+SpellVisuals;Moteur;À examiner : aucun menu identifié;Non;;
+SplineOpt;Diagnostic;À examiner : aucun menu identifié;Non;;
+SSAO;Graphismes;À examiner : aucun menu identifié;Non;;
+ssaoMagicNormals;Graphismes;À examiner : aucun menu identifié;Non;;
+ssaoMagicThresholdHigh;Graphismes;À examiner : aucun menu identifié;Non;;
+ssaoMagicThresholdLow;Graphismes;À examiner : aucun menu identifié;Non;;
+statusText;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Interface.lua
+statusTextDisplay;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Interface.lua
+stopAutoAttackOnTargetChange;Jeu;À examiner : aucun menu identifié;Non;;
+streamingCameraLookAheadTime;Graphismes;À examiner : aucun menu identifié;Non;;
+streamingCameraMaxRadius;Graphismes;À examiner : aucun menu identifié;Non;;
+streamingCameraRadius;Graphismes;À examiner : aucun menu identifié;Non;;
+streamStatusMessage;Jeu;À examiner : aucun menu identifié;Non;;
+sunShafts;Graphismes;À examiner : aucun menu identifié;Non;;
+superTrackerDist;Jeu;À examiner : aucun menu identifié;Non;;
+SuppressCpuMicrocodeChecks;Moteur;À examiner : aucun menu identifié;Non;;
+synchronizeBindings;Moteur;À examiner : aucun menu identifié;Non;;
+synchronizeChatFrames;Moteur;À examiner : aucun menu identifié;Non;;
+synchronizeConfig;Moteur;À examiner : aucun menu identifié;Non;;
+taintLog;Diagnostic;À examiner : aucun menu identifié;Non;;
+taintLogObjectSecrets;Diagnostic;À examiner : aucun menu identifié;Non;;
+talentPointsSpent;Jeu;À examiner : aucun menu identifié;Non;;
+TargetAutoEnemy;Jeu;À examiner : aucun menu identifié;Non;;
+TargetAutoFriend;Jeu;À examiner : aucun menu identifié;Non;;
+TargetAutoLock;Jeu;À examiner : aucun menu identifié;Non;;
+TargetEnemyAttacker;Jeu;À examiner : aucun menu identifié;Non;;
+targetFPS;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+targetHighlightAlwaysShown;Jeu;À examiner : aucun menu identifié;Non;;
+TargetNearestUseNew;Jeu;À examiner : aucun menu identifié;Non;;
+TargetPriorityCombatLock;Jeu;À examiner : aucun menu identifié;Non;;
+TargetPriorityCombatLockContextualRelaxation;Jeu;À examiner : aucun menu identifié;Non;;
+TargetPriorityCombatLockHighlight;Jeu;À examiner : aucun menu identifié;Non;;
+TargetPriorityPvp;Jeu;À examiner : aucun menu identifié;Non;;
+telemetryWowlabsPackage;Moteur;À examiner : aucun menu identifié;Non;;
+telemetryWowPackage;Moteur;À examiner : aucun menu identifié;Non;;
+teleportMaxNoLoadDist;Graphismes;À examiner : aucun menu identifié;Non;;
+terrainLodDist;Graphismes;Option documentée;Non;graphics;
+TerrainLodDiv;Graphismes;À examiner : aucun menu identifié;Non;;
+terrainMipLevel;Graphismes;À examiner : aucun menu identifié;Non;;
+test_cameraDynamicPitch;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraDynamicPitchBaseFovPad;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraDynamicPitchBaseFovPadDownScale;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraDynamicPitchBaseFovPadFlying;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraDynamicPitchSmartPivotCutoffDist;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraHeadMovementDeadZone;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraHeadMovementFirstPersonDampRate;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraHeadMovementMovingDampRate;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraHeadMovementMovingStrength;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraHeadMovementRangeScale;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraHeadMovementStandingDampRate;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraHeadMovementStandingStrength;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraHeadMovementStrength;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraOverShoulder;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraTargetFocusEnemyEnable;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraTargetFocusEnemyStrengthPitch;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraTargetFocusEnemyStrengthYaw;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraTargetFocusInteractEnable;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraTargetFocusInteractStrengthPitch;Jeu;À examiner : aucun menu identifié;Non;;
+test_cameraTargetFocusInteractStrengthYaw;Jeu;À examiner : aucun menu identifié;Non;;
+textLocale;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua | Blizzard_SettingsDefinitions_Shared/Languages.lua
+textToSpeech;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/AudioAssist.lua
+textureErrorColors;Graphismes;À examiner : aucun menu identifié;Non;;
+textureFilteringMode;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+ThreadPoolLimitHP;Divers;À examiner : aucun menu identifié;Non;;
+ThreadPoolLimitLP;Divers;À examiner : aucun menu identifié;Non;;
+ThreadPoolLimitMP;Divers;À examiner : aucun menu identifié;Non;;
+ThreadPoolPerThreadAllocator;Divers;À examiner : aucun menu identifié;Non;;
+threatPlaySounds;Jeu;À examiner : aucun menu identifié;Non;;
+threatShowNumeric;Jeu;À examiner : aucun menu identifié;Non;;
+threatWarning;Jeu;À examiner : aucun menu identifié;Non;;
+threatWorldText;Jeu;À examiner : aucun menu identifié;Non;;
+timeMgrAlarmEnabled;Jeu;À examiner : aucun menu identifié;Non;;
+timeMgrAlarmMessage;Jeu;À examiner : aucun menu identifié;Non;;
+timeMgrAlarmTime;Jeu;À examiner : aucun menu identifié;Non;;
+timeMgrUseLocalTime;Jeu;À examiner : aucun menu identifié;Non;;
+timeMgrUseMilitaryTime;Jeu;À examiner : aucun menu identifié;Non;;
+titleBarShortName;Moteur;À examiner : aucun menu identifié;Non;;
+titleBarShowAccountName;Moteur;À examiner : aucun menu identifié;Non;;
+titleBarShowBuildInfo;Moteur;À examiner : aucun menu identifié;Non;;
+titleBarShowCharacterName;Moteur;À examiner : aucun menu identifié;Non;;
+titleBarShowConfigName;Moteur;À examiner : aucun menu identifié;Non;;
+titleBarShowGxInfo;Moteur;À examiner : aucun menu identifié;Non;;
+titleBarShowPID;Moteur;À examiner : aucun menu identifié;Non;;
+titleBarShowRealmName;Moteur;À examiner : aucun menu identifié;Non;;
+toastDuration;Jeu;À examiner : aucun menu identifié;Non;;
+tooltipPointsShowMinAndMax;Jeu;À examiner : aucun menu identifié;Non;;
+tooltipShowAuraCasterNames;Jeu;À examiner : aucun menu identifié;Non;;
+tooltipShowAuraSpellIDs;Jeu;À examiner : aucun menu identifié;Non;;
+toyBoxCollectedFilters;Jeu;À examiner : aucun menu identifié;Non;;
+toyBoxExpansionFilters;Jeu;À examiner : aucun menu identifié;Non;;
+toyBoxSourceFilters;Jeu;À examiner : aucun menu identifié;Non;;
+trackedAchievements;Jeu;À examiner : aucun menu identifié;Non;;
+trackedInitiativeTasks;Jeu;À examiner : aucun menu identifié;Non;;
+trackedPerksActivities;Jeu;À examiner : aucun menu identifié;Non;;
+trackedProfessionRecipes;Jeu;À examiner : aucun menu identifié;Non;;
+trackedProfessionRecraftRecipes;Jeu;À examiner : aucun menu identifié;Non;;
+trackedQuests;Jeu;À examiner : aucun menu identifié;Non;;
+trackedWorldQuests;Jeu;À examiner : aucun menu identifié;Non;;
+transmogCurrentSpecOnly;Jeu;À examiner : aucun menu identifié;Non;;
+transmogDebug;Jeu;À examiner : aucun menu identifié;Non;;
+transmogHideIgnoredSlots;Jeu;À examiner : aucun menu identifié;Non;;
+transmogPreviewedWeaponToggle;Jeu;À examiner : aucun menu identifié;Non;;
+transmogrifySetsFilters;Jeu;À examiner : aucun menu identifié;Non;;
+transmogrifyShowCollected;Jeu;À examiner : aucun menu identifié;Non;;
+transmogrifyShowUncollected;Jeu;À examiner : aucun menu identifié;Non;;
+transmogrifySourceFilters;Jeu;À examiner : aucun menu identifié;Non;;
+transmogShowID;Jeu;À examiner : aucun menu identifié;Non;;
+TTSUseCharacterSettings;Moteur;À examiner : aucun menu identifié;Non;;
+TurnSpeed;Moteur;À examiner : aucun menu identifié;Oui;;
+UberTooltips;Jeu;À examiner : aucun menu identifié;Non;;
+uiScale;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+uiScaleMultiplier;Jeu;À examiner : aucun menu identifié;Oui;;
+unitClutter;Jeu;À examiner : aucun menu identifié;Non;;
+unitClutterInstancesOnly;Jeu;À examiner : aucun menu identifié;Non;;
+unitClutterPlayerThreshold;Jeu;À examiner : aucun menu identifié;Non;;
+UnitEnterCombatLog;Moteur;À examiner : aucun menu identifié;Non;;
+unitFacingPlayerDeadZoneDeg;Jeu;À examiner : aucun menu identifié;Non;;
+UnitNameEnemyGuardianName;Jeu;À examiner : aucun menu identifié;Non;;
+UnitNameEnemyMinionName;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+UnitNameEnemyPetName;Jeu;À examiner : aucun menu identifié;Non;;
+UnitNameEnemyPlayerName;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+UnitNameEnemyTotemName;Jeu;À examiner : aucun menu identifié;Non;;
+UnitNameFocused;Jeu;À examiner : aucun menu identifié;Non;;
+UnitNameForceHideMinus;Jeu;À examiner : aucun menu identifié;Non;;
+UnitNameFriendlyGuardianName;Jeu;À examiner : aucun menu identifié;Non;;
+UnitNameFriendlyMinionName;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+UnitNameFriendlyPetName;Jeu;À examiner : aucun menu identifié;Non;;
+UnitNameFriendlyPlayerName;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+UnitNameFriendlySpecialNPCName;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+UnitNameFriendlyTotemName;Jeu;À examiner : aucun menu identifié;Non;;
+UnitNameGuildTitle;Jeu;À examiner : aucun menu identifié;Non;;
+UnitNameHostleNPC;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+UnitNameInteractiveNPC;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+UnitNameNonCombatCreatureName;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+UnitNameNPC;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+UnitNameOwn;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+UnitNamePlayerGuild;Jeu;À examiner : aucun menu identifié;Non;;
+UnitNamePlayerPVPTitle;Jeu;À examiner : aucun menu identifié;Non;;
+unitsLookAtPlayers;Jeu;À examiner : aucun menu identifié;Non;;
+UnitSurnameOwn;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Nameplates.lua
+UnitVisibility;Moteur;À examiner : aucun menu identifié;Non;;
+unlockedMajorFactions;Jeu;À examiner : aucun menu identifié;Non;;
+useBLEEP;Réseau;À examiner : aucun menu identifié;Non;;
+useCommentatorSelectionCircles;Jeu;À examiner : aucun menu identifié;Non;;
+useHDRBrightness;Graphismes;À examiner : aucun menu identifié;Non;;
+useHDRPeakBrightness;Graphismes;À examiner : aucun menu identifié;Non;;
+useHighResTextures;Jeu;Menu natif identifié;Non;;Blizzard_Settings_Shared/Mainline/GraphicsOverrides.lua
+useIPv6;Réseau;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Network.lua
+UseKeyHeldSpellErrorPollTime;Jeu;À examiner : aucun menu identifié;Non;;
+useMaxFPS;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+useMaxFPSBk;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+userFontScale;Jeu;À examiner : aucun menu identifié;Non;;
+userFontScaleGlue;Jeu;À examiner : aucun menu identifié;Non;;
+UseSlug;Diagnostic;À examiner : aucun menu identifié;Non;;
+useTargetFPS;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+useUiScale;Jeu;Menu natif identifié;Oui;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+validateFrameXML;Jeu;À examiner : aucun menu identifié;Non;;
+VerboseSpellScriptEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+videoOptionsVersion;Graphismes;À examiner : aucun menu identifié;Non;;
+videoOptionsVersionDefault;Graphismes;À examiner : aucun menu identifié;Non;;
+violenceLevel;Jeu;À examiner : aucun menu identifié;Non;;
+VoiceChatMasterVolumeScale;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+VoiceCommunicationMode;Sons;À examiner : aucun menu identifié;Non;;
+VoiceEnableWhenGameIsInBG;Sons;À examiner : aucun menu identifié;Non;;
+VoiceInputDevice;Sons;À examiner : aucun menu identifié;Non;;
+VoiceInputVolume;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+VoiceOutputDevice;Sons;À examiner : aucun menu identifié;Non;;
+VoiceOutputVolume;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+voiceProvider;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua | Blizzard_Settings_Shared/Camelot/NewDefinitions.lua
+VoiceProxyEventLog;Moteur;À examiner : aucun menu identifié;Non;;
+VoicePushToTalkKeybind;Sons;À examiner : aucun menu identifié;Non;;
+VoiceSelfDeafened;Sons;À examiner : aucun menu identifié;Non;;
+VoiceSelfMuted;Sons;À examiner : aucun menu identifié;Non;;
+voiceUseDiscordSettings;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua | Blizzard_Settings_Shared/Camelot/NewDefinitions.lua
+VoiceVADSensitivity;Sons;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Audio.lua
+volumeFog;Graphismes;À examiner : aucun menu identifié;Non;;
+volumeFogInterior;Graphismes;À examiner : aucun menu identifié;Non;;
+volumeFogLevel;Graphismes;À examiner : aucun menu identifié;Non;;
+vrsParticles;Graphismes;À examiner : aucun menu identifié;Non;;
+vrsValar;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+vrsValarAlwaysOn;Graphismes;À examiner : aucun menu identifié;Non;;
+vrsValarEnvLuma;Graphismes;À examiner : aucun menu identifié;Non;;
+vrsValarGPUMode;Graphismes;À examiner : aucun menu identifié;Non;;
+vrsValarLPUseCornerSampling;Graphismes;À examiner : aucun menu identifié;Non;;
+vrsValarUseAsyncCompute;Graphismes;À examiner : aucun menu identifié;Non;;
+vrsValarUseMotionVectors;Graphismes;À examiner : aucun menu identifié;Non;;
+vrsValarUseWeberFechner;Graphismes;À examiner : aucun menu identifié;Non;;
+vrsValarWeberFechnerConstant;Graphismes;À examiner : aucun menu identifié;Non;;
+vrsWorldGeo;Graphismes;À examiner : aucun menu identifié;Non;;
+vsync;Graphismes;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Shared/Graphics.lua
+WalkableSurfacesValidationLog;Moteur;À examiner : aucun menu identifié;Non;;
+wardrobeSetsFilters;Jeu;À examiner : aucun menu identifié;Non;;
+wardrobeShowAllFactions;Jeu;À examiner : aucun menu identifié;Non;;
+wardrobeShowAllRaces;Jeu;À examiner : aucun menu identifié;Non;;
+wardrobeShowCollected;Jeu;À examiner : aucun menu identifié;Non;;
+wardrobeShowUncollected;Jeu;À examiner : aucun menu identifié;Non;;
+wardrobeSourceFilters;Jeu;À examiner : aucun menu identifié;Non;;
+waterDetail;Graphismes;À examiner : aucun menu identifié;Non;;
+weatherDensity;Graphismes;Option documentée;Non;graphics;
+webChallengeURLTimeout;Moteur;À examiner : aucun menu identifié;Non;;
+whisperMode;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Social.lua
+wholeChatWindowClickable;Jeu;À examiner : aucun menu identifié;Non;;
+winePlatformTTS;Jeu;À examiner : aucun menu identifié;Non;;
+wmoDoodadDist;Graphismes;À examiner : aucun menu identifié;Non;;
+wmoLodDist;Graphismes;Option documentée;Non;graphics;
+wmoLodDistScale;Graphismes;À examiner : aucun menu identifié;Non;;
+wmoPortalFadeScale;Graphismes;À examiner : aucun menu identifié;Non;;
+wmoPortalInteriorFade;Graphismes;À examiner : aucun menu identifié;Non;;
+WorldActionsLog;Moteur;À examiner : aucun menu identifié;Non;;
+worldBaseMip;Graphismes;À examiner : aucun menu identifié;Non;;
+worldIntersectMaxJobs;Graphismes;À examiner : aucun menu identifié;Non;;
+worldLoadSort;Graphismes;À examiner : aucun menu identifié;Non;;
+worldMapShowCursorCoords;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+worldMapShowPlayerCoords;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Mainline/InterfaceOverrides.lua
+worldPreloadHighResTextures;Graphismes;À examiner : aucun menu identifié;Non;;
+worldPreloadNonCritical;Graphismes;À examiner : aucun menu identifié;Non;;
+worldPreloadNonCriticalTimeout;Graphismes;À examiner : aucun menu identifié;Non;;
+worldPreloadSort;Graphismes;À examiner : aucun menu identifié;Non;;
+worldQuestFilterAnima;Jeu;À examiner : aucun menu identifié;Non;;
+worldQuestFilterArtifactPower;Jeu;À examiner : aucun menu identifié;Non;;
+worldQuestFilterEquipment;Jeu;À examiner : aucun menu identifié;Non;;
+worldQuestFilterGold;Jeu;À examiner : aucun menu identifié;Non;;
+worldQuestFilterProfessionMaterials;Jeu;À examiner : aucun menu identifié;Non;;
+worldQuestFilterReputation;Jeu;À examiner : aucun menu identifié;Non;;
+worldQuestFilterResources;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextCritScreenY_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextGravity_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextMinAlpha_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextMinSize;Jeu;Menu natif identifié;Non;;Blizzard_SettingsDefinitions_Frame/Accessibility.lua
+WorldTextNonRandomZ_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextRampDuration_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextRampPow_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextRampPowCrit_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextRandomXY_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextRandomZMax_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextRandomZMin_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextScale_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextScreenY_v2;Jeu;À examiner : aucun menu identifié;Non;;
+WorldTextStartPosRandomness_v2;Jeu;À examiner : aucun menu identifié;Non;;
+worldViewCullMaxJobs;Graphismes;À examiner : aucun menu identifié;Non;;
+xpBarText;Jeu;À examiner : aucun menu identifié;Non;;

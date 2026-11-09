@@ -1,0 +1,647 @@
+local addonName, ns = ...
+local db, panel, check, qualityCheck, status, category, homeCategory, refreshAppearance
+local quick, quickBag, refreshQuick, ToggleQuickSettings
+local listening, bankOpen, failed, scheduled
+local qualityListening, getQualityColor, appearanceQueued
+local pending = {}
+local qualityBorders, samples, shortcuts = {}, {}, {}
+local shortcutMargins = {}
+local defaults = {
+    enabled = false, qualityBorders = true, qualityOpacity = 100,
+    qualityGlow = 25, qualityInnerGlow = 0, qualityUncommonOnly = false,
+}
+local borderTexture = "Interface\\Common\\WhiteIconFrame"
+local glowAtlas = "bags-glow-white"
+-- Native combined and separate grids leave 5 units between slots.
+local outerGlowPadding = 2
+local shortcutWidth, shortcutRight = 42, -32
+local titleRight = shortcutRight - shortcutWidth - 4
+
+local function ValidSetting(value, default)
+    if type(default) == "boolean" then return type(value) == "boolean" end
+    return type(value) == "number" and value >= 0 and value <= 100 and value % 1 == 0
+end
+
+local function ValidColor(quality, hex)
+    return type(quality) == "number" and quality >= 0 and quality <= 8 and quality % 1 == 0
+        and type(hex) == "string" and hex:match("^%x%x%x%x%x%x$")
+end
+
+local function CopyColors(source)
+    local colors = {}
+    for quality, hex in pairs(source) do
+        if ValidColor(quality, hex) then colors[quality] = hex end
+    end
+    return colors
+end
+
+local function NormalizeSettings(value)
+    if type(value) ~= "table" then value = {} end
+    for key, default in pairs(defaults) do
+        if not ValidSetting(value[key], default) then value[key] = default end
+    end
+    value.qualityColors = CopyColors(type(value.qualityColors) == "table" and value.qualityColors or {})
+    return value
+end
+
+if ns.SettingsState then
+    local function Migrate(root)
+        root.bagSort = NormalizeSettings(root.bagSort)
+    end
+    ns.SettingsState.RegisterMigration("ForeverTooltipLibreDB", 1, Migrate)
+    ns.SettingsState.RegisterMigration("ForeverTooltipLibreDB", 2, Migrate)
+    ns.SettingsState.RegisterMigration("ForeverTooltipLibreDB", 3, Migrate)
+end
+
+local function Secret(value)
+    return issecretvalue and issecretvalue(value)
+end
+
+local function IsPersonalBag(frame)
+    if frame and frame == ContainerFrameCombinedBags then return true end
+    if not frame or not frame.GetBagID or not NUM_TOTAL_BAG_FRAMES then return false end
+    local bagID = frame:GetBagID()
+    return not Secret(bagID) and type(bagID) == "number" and bagID >= 0 and bagID <= NUM_TOTAL_BAG_FRAMES
+end
+
+local function QualityColor(quality)
+    local hex = db.qualityColors[quality]
+    if hex then return tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255 end
+    local ok, r, g, b = pcall(getQualityColor, quality)
+    if ok and not Secret(r) and not Secret(g) and not Secret(b)
+        and type(r) == "number" and type(g) == "number" and type(b) == "number" then return r, g, b end
+end
+
+local function RestoreNativeBorder(regions)
+    local native = regions.nativeBorder
+    if not native then return end
+    local alpha = native:GetAlpha()
+    if not Secret(alpha) and alpha == 0 then native:SetAlpha(regions.nativeAlpha) end
+    regions.nativeBorder, regions.nativeAlpha = nil, nil
+end
+
+local function HideBorder(regions)
+    if not regions then return end
+    regions.border:Hide()
+    if regions.glow then regions.glow:Hide() end
+    if regions.innerGlow then regions.innerGlow:Hide() end
+    RestoreNativeBorder(regions)
+end
+
+local function PaintGlow(button, regions, key, padding, intensity, r, g, b)
+    local glow = regions[key]
+    if intensity == 0 then
+        if glow then glow:Hide() end
+        return
+    end
+    if not glow then
+        -- Draw over the icon (BORDER), under the stack count (ARTWORK, 0).
+        glow = button:CreateTexture(nil, "ARTWORK", nil, key == "innerGlow" and -2 or -1)
+        if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(glowAtlas) and glow.SetAtlas then
+            glow:SetAtlas(glowAtlas)
+        else
+            glow:SetTexture(borderTexture)
+        end
+        glow:SetPoint("TOPLEFT", button, "TOPLEFT", -padding, padding)
+        glow:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", padding, -padding)
+        glow:SetBlendMode("ADD")
+        regions[key] = glow
+    end
+    glow:SetVertexColor(r, g, b, intensity / 100)
+    glow:Show()
+end
+
+local function PaintQualityBorder(button, quality)
+    if button.IsForbidden and button:IsForbidden() then return end
+    local regions = qualityBorders[button]
+    local minimum = db.qualityUncommonOnly and 2 or 0
+    if not db.qualityBorders or Secret(quality) or type(quality) ~= "number" or not (quality >= minimum and quality <= 8) then
+        return HideBorder(regions)
+    end
+    local r, g, b = QualityColor(quality)
+    if not r then return HideBorder(regions) end
+    if not regions then
+        local border = button:CreateTexture(nil, "OVERLAY", nil, 0)
+        border:SetTexture(borderTexture)
+        border:SetAllPoints(button)
+        regions = {border = border}
+        qualityBorders[button] = regions
+    end
+    local native = button.IconBorder
+    if regions.nativeBorder ~= native then RestoreNativeBorder(regions) end
+    if native and native.GetAlpha and native.SetAlpha then
+        local alpha = native:GetAlpha()
+        if not Secret(alpha) and type(alpha) == "number" and alpha ~= 0 then
+            regions.nativeBorder, regions.nativeAlpha = native, alpha
+            native:SetAlpha(0)
+        end
+    end
+    regions.border:SetVertexColor(r, g, b, db.qualityOpacity / 100)
+    regions.border:Show()
+    PaintGlow(button, regions, "glow", outerGlowPadding, db.qualityGlow, r, g, b)
+    PaintGlow(button, regions, "innerGlow", -3, db.qualityInnerGlow, r, g, b)
+end
+
+local function OnItemQuality(button, quality)
+    if not db.qualityBorders or not button or not button.GetParent or not button.CreateTexture then return end
+    local frame = button.containerFrame or button:GetParent()
+    if IsPersonalBag(frame) and (frame == ContainerFrameCombinedBags
+        or ContainerFrameUtil_GetShownFrameForID(frame:GetBagID()) == frame) then
+        PaintQualityBorder(button, quality)
+    else
+        HideBorder(qualityBorders[button])
+    end
+end
+
+local function RefreshQualityBorders()
+    if not qualityListening then return end
+    if not db.qualityBorders then
+        for _, regions in pairs(qualityBorders) do HideBorder(regions) end
+        return
+    end
+    for _, frame in ContainerFrameUtil_EnumerateContainerFrames() do
+        if IsPersonalBag(frame) and frame:IsVisible() and frame.EnumerateValidItems then
+            for _, button in frame:EnumerateValidItems() do
+                local info = C_Container.GetContainerItemInfo(button:GetBagID(), button:GetID())
+                PaintQualityBorder(button, not Secret(info) and info and info.quality)
+            end
+        end
+    end
+end
+
+local function RefreshSamples()
+    for button, quality in pairs(samples) do PaintQualityBorder(button, quality) end
+end
+
+local function PreviewAppearance()
+    RefreshSamples()
+    if appearanceQueued then return end
+    if not C_Timer or not C_Timer.After then return RefreshQualityBorders() end
+    appearanceQueued = true
+    C_Timer.After(.05, function()
+        appearanceQueued = false
+        RefreshQualityBorders()
+    end)
+end
+
+local function IsBankOpen()
+    if bankOpen then return true end
+    local personal = BankFrame and BankFrame:IsShown()
+    local guild = GuildBankFrame and GuildBankFrame:IsShown()
+    return Secret(personal) or personal or Secret(guild) or guild
+end
+
+local function Unavailable()
+    if failed then return "Tri suspendu jusqu’au rechargement de l’interface." end
+    if not listening or not C_Container or type(C_Container.SortBags) ~= "function" then
+        return "Tri automatique indisponible sur ce client."
+    end
+end
+
+local function Refresh()
+    check:SetChecked(db.enabled)
+    qualityCheck:SetChecked(db.qualityBorders)
+    status:SetText(Unavailable() or "")
+    if refreshAppearance then refreshAppearance() end
+    if refreshQuick and quick:IsShown() then refreshQuick() end
+end
+
+local function SetQualityBorders(value)
+    db.qualityBorders = value
+    Refresh()
+    RefreshQualityBorders()
+end
+
+local function CloseQuickSettings(frame)
+    if quick and (not frame or frame == quickBag) then quick:Hide() end
+end
+
+local function OpenSettings(destination)
+    CloseQuickSettings()
+    if ns.StopAllPreviews then ns.StopAllPreviews() end
+    if destination and Settings.OpenToCategory then Settings.OpenToCategory(destination:GetID()) end
+end
+
+local function ReadTitleRight(title, frame)
+    if not title or not title.GetPointByName then return end
+    local ok, point, relativeTo, relativePoint, x, y = pcall(title.GetPointByName, title, "TOPRIGHT")
+    if ok and not Secret(point) and not Secret(relativeTo) and not Secret(relativePoint)
+        and not Secret(x) and not Secret(y) and point == "TOPRIGHT" and relativeTo == frame
+        and relativePoint == "TOPRIGHT" and type(x) == "number" and type(y) == "number" then return x, y end
+end
+
+local function HideShortcut(frame)
+    CloseQuickSettings(frame)
+    local button = shortcuts[frame]
+    if not button then return end
+    button:Hide()
+    local margin = shortcutMargins[frame]
+    shortcutMargins[frame] = nil
+    if not margin or margin.title ~= frame.TitleContainer then return end
+    local x, y = ReadTitleRight(margin.title, frame)
+    if x == titleRight and y == margin.y then
+        pcall(margin.title.SetPoint, margin.title, "TOPRIGHT", frame, "TOPRIGHT", margin.x, y)
+    end
+end
+
+local function AttachShortcut(frame)
+    if not frame or (frame.IsForbidden and frame:IsForbidden()) then return end
+    if not IsPersonalBag(frame) then
+        return HideShortcut(frame)
+    end
+    local button = shortcuts[frame]
+    if not button then
+        button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        shortcuts[frame] = button
+        button:SetSize(shortcutWidth, 20)
+        button:SetPoint("TOPRIGHT", frame, "TOPRIGHT", shortcutRight, -3)
+        button:SetText("QOL")
+        button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        button:SetScript("OnClick", function(self, mouseButton)
+            if not IsPersonalBag(frame) then return end
+            if mouseButton == "RightButton" then OpenSettings(homeCategory) else ToggleQuickSettings(frame) end
+            if GameTooltip and not GameTooltip:IsForbidden() and GameTooltip:GetOwner() == self then GameTooltip:Hide() end
+        end)
+        button:SetScript("OnEnter", function(self)
+            if not GameTooltip or GameTooltip:IsForbidden() then return end
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText("QoL Toolkit")
+            GameTooltip:AddLine("Clic gauche · Réglages rapides", 1, 1, 1)
+            GameTooltip:AddLine("Clic droit · Accueil de l’addon", 1, 1, 1)
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", function(self)
+            if GameTooltip and not GameTooltip:IsForbidden() and GameTooltip:GetOwner() == self then GameTooltip:Hide() end
+        end)
+        if frame.HookScript then
+            frame:HookScript("OnHide", function() CloseQuickSettings(frame) end)
+        end
+    end
+    local level = frame:GetFrameLevel()
+    for _, region in pairs({frame.TitleContainer, frame.NineSlice, frame.CloseButton}) do
+        if region.GetFrameLevel then
+            local headerLevel = region:GetFrameLevel()
+            if not Secret(headerLevel) and type(headerLevel) == "number" then level = math.max(level, headerLevel) end
+        end
+    end
+    button:SetFrameLevel(level + 1)
+    local title = frame.TitleContainer
+    local x, y = ReadTitleRight(title, frame)
+    if x and x > titleRight and pcall(title.SetPoint, title, "TOPRIGHT", frame, "TOPRIGHT", titleRight, y) then
+        shortcutMargins[frame] = {title = title, x = x, y = y}
+    end
+    button:Show()
+end
+
+local sampleIcons = {
+    "Interface\\Icons\\INV_Stone_01",
+    "Interface\\Icons\\INV_Misc_Gem_Pearl_01",
+    "Interface\\Icons\\INV_Misc_Gem_Emerald_01",
+    "Interface\\Icons\\INV_Misc_Gem_Sapphire_01",
+    "Interface\\Icons\\INV_Misc_Gem_Amethyst_01",
+    "Interface\\Icons\\INV_Misc_Gem_Topaz_01",
+}
+local qualityLabels = {"Médiocre", "Commun", "Peu commun", "Rare", "Épique", "Légendaire"}
+
+local function ChooseColor(quality)
+    if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
+    local r, g, b = QualityColor(quality)
+    if not r then return end
+    local previous = db.qualityColors[quality]
+    ColorPickerFrame:SetupColorPickerAndShow({
+        r = r, g = g, b = b, hasOpacity = false,
+        swatchFunc = function()
+            local red, green, blue = ColorPickerFrame:GetColorRGB()
+            db.qualityColors[quality] = string.format("%02X%02X%02X", math.floor(red * 255 + .5), math.floor(green * 255 + .5), math.floor(blue * 255 + .5))
+            PreviewAppearance()
+        end,
+        cancelFunc = function()
+            db.qualityColors[quality] = previous
+            PreviewAppearance()
+        end,
+    })
+end
+
+local function BuildAppearance(body, compact)
+    local UI = ns.UI
+    local prefix = compact and "ArkannsQOLBagQuick" or "ArkannsQOLBag"
+    local syncing
+    local filterLabel = compact and "Masquer gris et blancs" or "Masquer les contours gris et blancs"
+    local filter = UI.Check(body, prefix .. "UncommonOnly", filterLabel, 16, compact and -88 or -194, function(value)
+        db.qualityUncommonOnly = value
+        RefreshSamples()
+        RefreshQualityBorders()
+    end)
+    local function Slider(key, name, y)
+        local label = UI.Label(body, "", 20, y)
+        local slider = CreateFrame("Slider", prefix .. "_" .. key, body, "BackdropTemplate")
+        slider:SetPoint("TOPLEFT", 18, y - 22)
+        slider:SetSize(compact and 222 or 244, 16)
+        slider:SetOrientation("HORIZONTAL")
+        slider:SetMinMaxValues(0, 100)
+        slider:SetValueStep(5)
+        slider:SetObeyStepOnDrag(true)
+        slider:SetBackdrop({bgFile = "Interface\\Buttons\\UI-SliderBar-Background", edgeFile = "Interface\\Buttons\\UI-SliderBar-Border", edgeSize = 8})
+        slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+        slider:GetThumbTexture():SetSize(28, 28)
+        local function Caption() label:SetText(name .. " · " .. db[key] .. " %") end
+        slider:SetScript("OnValueChanged", function(_, value)
+            if syncing then return end
+            db[key] = math.floor(value + .5)
+            Caption()
+            PreviewAppearance()
+        end)
+        return function() slider:SetValue(db[key]); Caption() end
+    end
+    local opacity = Slider("qualityOpacity", "Opacité du contour", compact and -124 or -234)
+    local outerGlow = Slider("qualityGlow", "Halo extérieur", compact and -170 or -290)
+    local innerGlow = Slider("qualityInnerGlow", "Halo intérieur", compact and -216 or -346)
+    UI.Label(body, "Couleurs et aperçu", 20, compact and -262 or -402, 15)
+    if not compact then UI.Label(body, "Clic gauche · Couleur   Clic droit · Couleur WoW", 20, -428) end
+    local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -286 or -456
+    local count = 0
+    for quality = 0, 8 do
+        local name = _G["ITEM_QUALITY" .. quality .. "_DESC"] or qualityLabels[quality + 1]
+        if name then
+            local sample = CreateFrame("Button", prefix .. "Color" .. quality, body)
+            sample:SetSize(size, size)
+            sample:SetPoint("TOPLEFT", 22 + (count % 6) * spacing, top - math.floor(count / 6) * (size + 9))
+            sample:SetNormalTexture(sampleIcons[quality + 1] or sampleIcons[2])
+            sample:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+            sample:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            sample:SetScript("OnClick", function(_, button)
+                if button == "RightButton" then
+                    db.qualityColors[quality] = nil
+                    PreviewAppearance()
+                else
+                    ChooseColor(quality)
+                end
+            end)
+            sample:SetScript("OnEnter", function(self)
+                if not GameTooltip or GameTooltip:IsForbidden() then return end
+                GameTooltip:SetOwner(self, "ANCHOR_TOP")
+                GameTooltip:SetText(name)
+                if compact then GameTooltip:AddLine("Clic droit · Couleur WoW", 1, 1, 1) end
+                GameTooltip:Show()
+            end)
+            sample:SetScript("OnLeave", function(self)
+                if GameTooltip and not GameTooltip:IsForbidden() and GameTooltip:GetOwner() == self then GameTooltip:Hide() end
+            end)
+            samples[sample] = quality
+            count = count + 1
+        end
+    end
+    local footerY = top - math.ceil(count / 6) * (size + 9) - 4
+    if not compact then
+        UI.Button(body, "ArkannsQOLBagAppearanceDefaults", "Apparence par défaut", 18, footerY, 190, function()
+            for key, value in pairs(defaults) do if key ~= "enabled" then db[key] = value end end
+            db.qualityColors = {}
+            Refresh()
+            RefreshQualityBorders()
+        end)
+    end
+    return function()
+        syncing = true
+        filter:SetChecked(db.qualityUncommonOnly)
+        opacity()
+        outerGlow()
+        innerGlow()
+        syncing = false
+        RefreshSamples()
+    end, footerY
+end
+
+local function SetEnabled(value)
+    db.enabled = value == true
+    if not db.enabled then pending = {} end
+    ns.UI.Refresh()
+end
+
+local function CreateQuickSettings()
+    local UI = ns.UI
+    local name = "ArkannsQOLBagQuickSettings"
+    quick = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
+    quick:Hide()
+    quick:SetFrameStrata("DIALOG")
+    quick:SetClampedToScreen(true)
+    quick:EnableMouse(true)
+    quick:SetScript("OnHide", function(self)
+        quickBag = nil
+        self:ClearAllPoints()
+    end)
+    UI.StylePanel(quick)
+    UI.Label(quick, "Réglages des sacs", 18, -14, 15)
+    local close = CreateFrame("Button", name .. "Close", quick, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", quick, "TOPRIGHT", -3, -3)
+    close:SetScript("OnClick", function() CloseQuickSettings() end)
+    local sort = UI.Check(quick, "ArkannsQOLBagQuickSort", "Tri à l’ouverture", 14, -37, SetEnabled)
+    local borders = UI.Check(quick, "ArkannsQOLBagQuickBorders", "Contours de rareté", 14, -62, SetQualityBorders)
+    local appearance, footerY
+    if qualityListening then
+        appearance, footerY = BuildAppearance(quick, true)
+    else
+        borders:Disable()
+        UI.Label(quick, "Bordures indisponibles sur ce client.", 18, -96)
+        footerY = -122
+    end
+    UI.Button(quick, "ArkannsQOLBagQuickMore", "Plus de réglages", 18, footerY, 140, function() OpenSettings(category) end)
+    quick:SetSize(260, -footerY + 41)
+    refreshQuick = function()
+        sort:SetChecked(db.enabled)
+        sort:SetEnabled(not Unavailable())
+        borders:SetChecked(db.qualityBorders)
+        if appearance then appearance() end
+    end
+    if UISpecialFrames then table.insert(UISpecialFrames, name) end
+end
+
+ToggleQuickSettings = function(frame)
+    if quickBag == frame and quick:IsShown() then return CloseQuickSettings() end
+    if not quick then CreateQuickSettings() end
+    quick:ClearAllPoints()
+    quick:SetPoint("TOPRIGHT", frame, "TOPLEFT", -6, -2)
+    quickBag = frame
+    quick:Show()
+    refreshQuick()
+end
+
+local function Suspend()
+    if failed then return end
+    failed = true
+    ns.UI.Refresh()
+end
+
+local function CanSort()
+    if not db.enabled or Unavailable() or IsBankOpen() then return false end
+    local combat = InCombatLockdown()
+    if Secret(combat) or combat then return false end
+    local cursor = GetCursorInfo()
+    local targeting = SpellCanTargetItem()
+    return not Secret(cursor) and cursor == nil and not Secret(targeting) and not targeting
+end
+
+local function SortOpenedBags()
+    local opened = pending
+    pending, scheduled = {}, false
+    if not CanSort() then return end
+    for frame, confirmed in pairs(opened) do
+        local visible = frame:IsVisible()
+        if confirmed and not Secret(visible) and visible and IsPersonalBag(frame) then
+            if not pcall(C_Container.SortBags) then Suspend() end
+            return
+        end
+    end
+end
+
+local function OnBagOpened(_, frame)
+    AttachShortcut(frame)
+    if not CanSort() or not IsPersonalBag(frame) then return end
+    pending[frame] = false
+    if not scheduled then
+        scheduled = true
+        C_Timer.After(0, SortOpenedBags)
+    end
+end
+
+local function ConfirmBag(bagID)
+    if Secret(bagID) or type(bagID) ~= "number" or bagID < 0 or bagID > NUM_TOTAL_BAG_FRAMES then return end
+    if not next(pending) or not ContainerFrame_AllowedToOpenBags() then return end
+    local frame = ContainerFrameUtil_GetShownFrameForID(bagID)
+    if frame and pending[frame] ~= nil then pending[frame] = true end
+end
+
+local function ConfirmAllBags()
+    if not next(pending) or not ContainerFrame_AllowedToOpenBags() then return end
+    if InputUtil and InputUtil.IsGamepadUIEnabled and InputUtil.IsGamepadUIEnabled() then
+        -- The native gamepad command toggles only the combined backpack.
+        ConfirmBag(0)
+        return
+    end
+    for frame in pairs(pending) do pending[frame] = true end
+end
+
+function ns.InitializeBagSort(rootCategory)
+    if db then return end
+    homeCategory = rootCategory
+    db = NormalizeSettings(ForeverTooltipLibreDB.bagSort)
+    ForeverTooltipLibreDB.bagSort = db
+
+    getQualityColor = (C_Item and C_Item.GetItemQualityColor) or GetItemQualityColor
+    if getQualityColor and C_Container and C_Container.GetContainerItemInfo
+        and hooksecurefunc and SetItemButtonQuality and NUM_TOTAL_BAG_FRAMES
+        and ContainerFrameUtil_EnumerateContainerFrames and ContainerFrameUtil_GetShownFrameForID then
+        hooksecurefunc("SetItemButtonQuality", OnItemQuality)
+        qualityListening = true
+    end
+
+    panel = CreateFrame("Frame", "ArkannsQOLBagsPanel", UIParent, "BackdropTemplate")
+    panel:Hide()
+    ns.UI.StylePanel(panel)
+    local scroll = CreateFrame("ScrollFrame", "ArkannsQOLBagsScroll", panel, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -4)
+    scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -30, 10)
+    local body = CreateFrame("Frame", nil, scroll)
+    body:SetSize(282, qualityListening and 586 or 225)
+    scroll:SetScrollChild(body)
+    ns.UI.Label(body, "Sacs", 16, -16, 20)
+    check = ns.UI.Check(body, "ArkannsQOLBagsEnabled", "Trier à l’ouverture manuelle", 16, -54, SetEnabled)
+    ns.UI.Label(body, "Hors combat et hors banque.", 20, -89)
+    status = ns.UI.Label(body, "", 20, -112)
+    ns.UI.Label(body, "Bordures de rareté", 20, -140, 15)
+    qualityCheck = ns.UI.Check(body, "ArkannsQOLBagQualityBorders", "Bordure selon la rareté", 16, -163, SetQualityBorders)
+    if qualityListening then
+        refreshAppearance = BuildAppearance(body)
+    else
+        qualityCheck:Disable()
+        ns.UI.Label(body, "Bordures indisponibles sur ce client.", 20, -196)
+    end
+    panel:SetScript("OnShow", function() CloseQuickSettings(); Refresh() end)
+    category = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, "Sacs")
+    AttachShortcut(ContainerFrameCombinedBags)
+    if hooksecurefunc and type(ContainerFrame_GenerateFrame) == "function" then
+        hooksecurefunc("ContainerFrame_GenerateFrame", AttachShortcut)
+    end
+    if ContainerFrameUtil_EnumerateContainerFrames then
+        for _, frame in ContainerFrameUtil_EnumerateContainerFrames() do
+            if frame:IsVisible() then AttachShortcut(frame) end
+        end
+    end
+    if EventRegistry and EventRegistry.RegisterCallback then
+        EventRegistry:RegisterCallback("ContainerFrame.OpenBag", OnBagOpened, panel)
+        EventRegistry:RegisterCallback("ContainerFrame.CloseBag", function(_, frame)
+            pending[frame] = nil
+            if frame == ContainerFrameCombinedBags then CloseQuickSettings(frame) else HideShortcut(frame) end
+        end, panel)
+    end
+
+    if EventRegistry and EventRegistry.RegisterCallback and C_Timer and C_Timer.After and NUM_TOTAL_BAG_FRAMES
+        and hooksecurefunc and ToggleBag and ToggleBackpack and ToggleAllBags
+        and ContainerFrameUtil_GetShownFrameForID and ContainerFrame_AllowedToOpenBags then
+        local events = CreateFrame("Frame")
+        events:RegisterEvent("BANKFRAME_OPENED")
+        events:RegisterEvent("BANKFRAME_CLOSED")
+        events:RegisterEvent("ADDON_ACTION_BLOCKED")
+        events:RegisterEvent("ADDON_ACTION_FORBIDDEN")
+        events:SetScript("OnEvent", function(_, event, name, method)
+            if event == "BANKFRAME_OPENED" then
+                bankOpen, pending = true, {}
+            elseif event == "BANKFRAME_CLOSED" then
+                bankOpen = false
+            elseif not Secret(name) and name == addonName and not Secret(method)
+                and type(method) == "string" and method:find("SortBags", 1, true) then
+                Suspend()
+            end
+        end)
+        -- The show event alone also fires when a merchant opens the bags. Only
+        -- native toggle commands can confirm an opening observed this frame.
+        hooksecurefunc("ToggleBag", ConfirmBag)
+        hooksecurefunc("ToggleBackpack", function() ConfirmBag(0) end)
+        hooksecurefunc("ToggleAllBags", ConfirmAllBags)
+        listening = true
+    end
+
+    ns.RegisterModule("bags", {
+        label = "Sacs", icon = "Interface\\Icons\\INV_Misc_Bag_08", category = function() return category end,
+        IsEnabled = function() return db.enabled end, SetEnabled = SetEnabled, Refresh = Refresh,
+        Summary = function() return Unavailable() or "Tri à l’ouverture manuelle" end,
+        ExportSettings = function()
+            local config = {qualityColors = CopyColors(db.qualityColors)}
+            for key in pairs(defaults) do config[key] = db[key] end
+            return config
+        end,
+        profileMigrations = {
+            function(config, current)
+                if config.qualityBorders == nil then config.qualityBorders = current.qualityBorders end
+            end,
+            function(config, current)
+                for _, key in ipairs({"qualityOpacity", "qualityGlow", "qualityUncommonOnly", "qualityColors"}) do
+                    if config[key] == nil then config[key] = current[key] end
+                end
+            end,
+            function(config, current)
+                if config.qualityInnerGlow == nil then config.qualityInnerGlow = current.qualityInnerGlow end
+            end,
+        },
+        ImportSettings = function(config)
+            if type(config) ~= "table" or type(config.enabled) ~= "boolean" then return false end
+            for key, default in pairs(defaults) do
+                if config[key] ~= nil and not ValidSetting(config[key], default) then return false end
+            end
+            if config.qualityColors ~= nil then
+                if type(config.qualityColors) ~= "table" then return false end
+                for quality, hex in pairs(config.qualityColors) do
+                    if not ValidColor(quality, hex) then return false end
+                end
+                db.qualityColors = CopyColors(config.qualityColors)
+            end
+            for key in pairs(defaults) do
+                if key ~= "enabled" and config[key] ~= nil then db[key] = config[key] end
+            end
+            RefreshQualityBorders()
+            SetEnabled(config.enabled)
+            return true
+        end,
+    })
+    Refresh()
+    RefreshQualityBorders()
+end

@@ -1,0 +1,26 @@
+## Interface: 16001
+## Title: QoL Toolkit
+## Notes: Infobulles, rappels, journal, talents, rangs de sorts, distance, sacs et réglages avancés. /aqol
+## Author: Arkann
+## Version: 3.2.5
+## SavedVariables: ForeverTooltipLibreDB
+## SavedVariablesPerCharacter: ArkannsQOLRemindersDB, ArkannsQOLSessionDB, ArkannsQOLTalentsDB
+
+WoWRuntime.lua
+SettingsState.lua
+QOLInterface.lua
+ForeverTooltipLibre.lua
+SessionJournalModel.lua
+SessionJournal.lua
+AuraReminderModel.lua
+AuraReminders.lua
+TalentPlanModel.lua
+TalentPlanData.lua
+TalentPlanner.lua
+AdvancedSettingsData.lua
+AdvancedSettings.lua
+RankGuard.lua
+TargetDistance.lua
+BagSort.lua
+Profiles.lua
+Bootstrap.lua

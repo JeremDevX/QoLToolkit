@@ -1,99 +1,7 @@
-QOL TOOLKIT — 0.1.0
+LISEZ-MOI — QoL Toolkit 0.1.0 bêta
 WoW Forever 1.60.1 • Interface 16001
 
-VERSION 0.1.0
 L’addon utilise la langue du client. Français pour le client français, anglais par défaut.
-Le dossier reste QoLToolkit. Les sauvegardes existantes sont conservées.
-
-MISE À JOUR 3.2.5
-Arkann’s QOL Forever devient QoL Toolkit. Le nouveau dossier est QoLToolkit.
-
-NOUVEAUTÉ 3.2.4
-Sacs : le bouton QOL ouvre les réglages rapides au clic gauche.
-« Plus de réglages » ouvre la page complète. Le clic droit ouvre l’accueil.
-
-CORRECTIF 3.2.3
-Sacs : le bouton QOL reste au-dessus du titre, avec un espace réservé.
-Les halos restent sous les compteurs de pile. Le halo extérieur est limité
-à 2 unités de chaque côté pour garder les cases voisines distinctes.
-
-NOUVEAUTÉS 3.2.2
-Sacs : bouton QOL dans l’en-tête. Halo extérieur et halo intérieur réglables
-séparément, chacun de 0 à 100 %.
-
-NOUVEAUTÉS 3.2.1
-Sacs : la roue dentée ouvre les réglages des sacs au clic gauche et l’accueil
-au clic droit. Personnalise les couleurs par rareté, l’opacité et le halo.
-Les aperçus se mettent à jour pendant le réglage.
-
-MISE À JOUR 3.2.0
-Les réglages et les profils sont versionnés. Les profils existants restent
-utilisables. Les builds, les positions et les compteurs sont conservés.
-Relance WoW pour charger les nouveaux fichiers.
-
-NOUVEAUTÉ 3.1.6
-Sacs : bordures de rareté dans les sacs de WoW. Le réglage « Bordure selon la
-rareté » est activé par défaut et indépendant du tri.
-
-CORRECTIF 3.1.5
-Distance : cadre WoW au-dessus du nom de la cible. Vert jusqu’à 10 m,
-jaune jusqu’à 30 m, rouge au-delà. Jaune si la fourchette chevauche un seuil.
-
-CORRECTIF 3.1.4
-Distance : davantage de seuils d’objets, chargés et validés par le client.
-Les sorts appris complètent la fourchette. Exemple : 28+ indique une borne basse seule.
-Les tests d’objets en combat sont limités aux PNJ hostiles en extérieur.
-
-CORRECTIF 3.1.3
-Distance : rafraîchissement toutes les 50 ms pour une mesure directe et toutes
-les 100 ms pour la fourchette orange. Elle évolue quand un seuil est franchi.
-Les tests contradictoires sont écartés. /reload suffit depuis la 3.1.2.
-
-CORRECTIF 3.1.2
-Distance : nombre en mètres au-dessus du portrait de ciblage. Blanc pour une
-mesure directe, orange pour la portée maximale confirmée par un sort ou un objet.
-Si les tests sont indisponibles ou ne donnent pas de borne, le nombre est masqué.
-
-CORRECTIFS 3.1.1
-Sacs : l’ouverture doit passer par les commandes natives de bascule des sacs.
-Rappels : les fonctions indisponibles sont indiquées, les autres restent accessibles.
-Rangs : le suivi s’arrête à la désactivation. L’aperçu ponctuel reste disponible.
-Depuis la 3.1.0, /reload suffit pour charger les correctifs.
-
-NOUVEAUTÉS 3.1.0
-Journal > Fonctionnement : « Mode compact (3 statistiques) » limite la liste hors survol.
-Le bouton Tout afficher désactive le mode compact et les autres filtres d’affichage.
-Distance de la cible : affichage numérique configurable depuis /aqol.
-Sacs : active le tri à l’ouverture dans les réglages. Le tri utilise la fonction
-native de WoW et ne s’exécute qu’en dehors du combat.
-Graphismes : une valeur retenue par le client ne confirme pas son effet visuel.
-Quitte WoW puis relance-le pour charger les deux nouveaux fichiers.
-
-CORRECTIFS 3.0.5
-Les favoris et le point de rang utilisent des textures WoW indépendantes de la police.
-Le thème commun respecte l’option de bordure du journal.
-Les fonds des réglages suivent le redimensionnement des panneaux.
-
-CORRECTIFS 3.0.4
-Réglages : fond intégré au panneau pour éviter le voile au retour dans une rubrique.
-Le fond reste derrière les textes et les boutons lors des changements de sous-menu.
-
-CORRECTIFS 3.0.3
-Journal : l'aide au déplacement apparaît au-dessus, sans agrandir la fenêtre.
-Le verrouillage conserve la taille du journal, y compris au bord inférieur de l'écran.
-
-CORRECTIFS 3.0.2
-Journal : flèches de tri WoW à la place des caractères non affichables.
-Tout afficher : active les huit statistiques, retire la limite compacte et les zéros masqués.
-Les filtres actifs sont indiqués au-dessus de la sélection. Les compteurs sont conservés.
-
-CORRECTIFS 3.0.1
-Aperçus : arrêt fiable en combat, à la fermeture et à la désactivation.
-Profils : vérification après copie, annulation partielle réessayable, confirmation de remplacement.
-Interface : contrôles adaptés aux panneaux étroits ; marges et grandes polices corrigées.
-Infobulles : restauration du placement, de la taille et du style WoW entre deux survols.
-Icônes : Talents et Livre des sorts corrigés, proportions conservées.
-Depuis la 3.0.0 : /reload suffit. Depuis la 2.x : quitte WoW puis relance-le.
 
 ACCUEIL
 /aqol : huit cartes avec activation, résumé, Configurer et Aperçu selon le module.
@@ -106,7 +14,7 @@ Apparence générale : police, taille, échelle, opacité, bordure, marges, espa
 Pour les couleurs, saisis un code RRGGBB puis Appliquer ou Entrée.
 Chaque module hérite du thème commun. « Apparence propre à ce module » reprend
 ses réglages locaux ; « Reprendre le thème commun » rétablit l'héritage.
-Les anciens réglages locaux sont conservés. Les désactivations de modules restent conservées.
+Tes réglages locaux et les modules désactivés sont conservés.
 Les couleurs d'alerte restent distinctes du texte normal.
 
 DISPOSITION
@@ -178,7 +86,8 @@ Les sorts sans buff persistant ne conviennent pas aux rappels.
 
 Une aura de classe doit être activée par ton personnage.
 Pour les autres buffs, un buff lancé par un allié suffit.
-Les rangs sont reconnus par leur nom. Les suivis indisponibles sont ignorés.
+Les effets enregistrés avec un ID restent reconnus si tu changes de langue.
+Les suivis indisponibles sont ignorés.
 Aucune relance automatique. Les données restreintes ne déclenchent pas d'alerte.
 
 Apparence :
@@ -280,10 +189,21 @@ via les attributs standard ou LibActionButton. Certaines variantes peuvent être
 Macros, objets, sorts futurs, familiers et données inaccessibles : ignorés.
 Aucun remplacement automatique. Un ancien rang peut être conservé volontairement.
 Activer/désactiver dans les paramètres du module ou avec /arkrang on et /arkrang off.
-Le choix est enregistré dans les réglages de QOL Forever.
+Le choix est enregistré dans les réglages de QoL Toolkit.
 Les nouveaux boutons sont repérés hors combat. Les badges ne capturent aucun clic.
 La détection repose sur C_SpellBook.IsSpellBookItemLowRank et la vérification du sort.
 Source : https://github.com/Gethe/wow-ui-source/blob/9dc84f0d3bbae1768ac3405b3716000bd93eda06/Interface/AddOns/Blizzard_APIDocumentationGenerated/SpellBookDocumentation.lua
+
+DISTANCE DE LA CIBLE
+La distance ou la fourchette s’affiche au-dessus du nom de la cible.
+Le cadre est vert jusqu’à 10 m, jaune jusqu’à 30 m et rouge au-delà.
+« 28+ » indique une distance d’au moins 28 m.
+
+SACS
+Le bouton QoL dans l’en-tête ouvre les réglages rapides au clic gauche.
+« Plus de réglages » ouvre la page complète. Le clic droit ouvre l’accueil.
+Personnalise la couleur par rareté, l’opacité et les halos intérieur et extérieur.
+Le tri facultatif se lance à l’ouverture manuelle des sacs, hors combat et hors banque.
 
 RACCOURCIS
 /ft : afficher / masquer le cadre de placement.
@@ -296,11 +216,7 @@ RACCOURCIS
 
 INSTALLATION
 Dossier : World of Warcraft\_forever_\Interface\AddOns\QoLToolkit
-Après une installation ou un changement de nom de dossier, relance WoW.
-Pour reprendre une installation antérieure, ferme WoW. Dans les dossiers
-SavedVariables du compte et des personnages sous WTF, copie
-ForeverTooltipLibre.lua sous le nom QoLToolkit.lua si ce fichier est absent.
-Conserve les originaux et garde un seul dossier de l’addon dans AddOns.
+Relance WoW après l’installation. Ouvre les réglages avec /aqol.
 
 RÉGLAGES AVANCÉS
 /aqol > Réglages avancés.

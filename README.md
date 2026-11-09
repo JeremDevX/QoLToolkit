@@ -25,13 +25,13 @@ Use the dashboard to pin modules, preview appearance changes, and position suppo
 
 The addon follows the game client language. A French client uses French. English is used on English clients and as the default on other clients.
 
-If you already use QoL Toolkit, keep the folder name and your existing SavedVariables when updating. For the older **Arkann's QOL Forever** folder, see the migration notes in the [French user guide](docs/LIRE-MOI.fr.txt).
+When updating, keep the folder name and your existing SavedVariables.
 
 ## Development
 
 - [QoLToolkit.toc](QoLToolkit.toc) defines the WoW interface version, saved variables, and Lua load order. [Core/](Core/) contains startup, shared UI, and settings. [Modules/](Modules/) contains the gameplay features.
 - [Locales/](Locales/) contains English translations. Wrap player-facing text in `L("French source text")` and add its English translation to the matching catalog. Use `L(text, key)` when the same French label needs different translations by context. Keep IDs, saved values, and text supplied by WoW or players independent of the locale.
-- [docs/](docs/) contains the French user guide and advanced settings inventory.
+- [docs/](docs/) contains the [French user guide](docs/LISEZ-MOI.fr.txt) and advanced settings inventory.
 - Run `lua tests/check.lua` from the repository root with Lua 5.1 to check the manifest, syntax, locale selection, and reminder matching offline.
 - See [AGENTS.md](AGENTS.md) for WoW Forever API, asset, and testing rules.
 

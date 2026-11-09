@@ -10,3 +10,7 @@ __pycache__/
 /.pytest_cache/
 /dist/
 *.zip
+
+# Local credentials
+/.env
+/.env.*

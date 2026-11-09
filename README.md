@@ -34,3 +34,7 @@ If you already use QoL Toolkit, keep the folder name and your existing SavedVari
 - [docs/](docs/) contains the French user guide and advanced settings inventory.
 - Run `lua tests/check.lua` from the repository root with Lua 5.1 to check the manifest, syntax, locale selection, and reminder matching offline.
 - See [AGENTS.md](AGENTS.md) for WoW Forever API, asset, and testing rules.
+
+## Releases
+
+See [Releasing on CurseForge](docs/RELEASING.md) for the webhook, repository rules, and tag process.

@@ -1,0 +1,9 @@
+package-as: QoLToolkit
+enable-nolib-creation: no
+ignore:
+  - .github
+  - .gitignore
+  - AGENTS.md
+  - README.md
+  - docs
+  - tests

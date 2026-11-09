@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local Model, WoW = ns.SessionJournalModel, ns.WoW
 local db, session, window, title, names, values, footer, settings, refreshSettings
 local ready, moving = false, false
@@ -10,19 +11,19 @@ local hoverRows = {}
 local horizontalTexts = {}
 local preview, expanded = false, false
 local metrics = {
-    {key = "duration", label = "Durée", icon = "INV_Misc_PocketWatch_01"},
-    {key = "xp", label = "XP gagnée", icon = "INV_Misc_Book_09"},
-    {key = "nextLevel", label = "Prochain niveau", icon = "Ability_Rogue_Sprint", always = true},
-    {key = "income", label = "Or reçu", icon = "INV_Misc_Coin_01"},
-    {key = "expense", label = "Or dépensé", icon = "INV_Misc_Coin_02"},
-    {key = "net", label = "Solde", icon = "INV_Misc_Bag_10"},
-    {key = "deaths", label = "Morts", icon = "Ability_Rogue_FeignDeath"},
-    {key = "levels", label = "Niveaux gagnés", icon = "Spell_Holy_InnerFire"},
+    {key = "duration", label = L("Durée"), icon = "INV_Misc_PocketWatch_01"},
+    {key = "xp", label = L("XP gagnée"), icon = "INV_Misc_Book_09"},
+    {key = "nextLevel", label = L("Prochain niveau"), icon = "Ability_Rogue_Sprint", always = true},
+    {key = "income", label = L("Or reçu"), icon = "INV_Misc_Coin_01"},
+    {key = "expense", label = L("Or dépensé"), icon = "INV_Misc_Coin_02"},
+    {key = "net", label = L("Solde"), icon = "INV_Misc_Bag_10"},
+    {key = "deaths", label = L("Morts"), icon = "Ability_Rogue_FeignDeath"},
+    {key = "levels", label = L("Niveaux gagnés"), icon = "Spell_Holy_InnerFire"},
 }
 local themes = {
-    dark = {label = "Ardoise", bg = {0.035, 0.055, 0.08}, text = {0.91, 0.94, 1}, accent = {0.3, 0.8, 1}},
-    warm = {label = "Chaleureux", bg = {0.12, 0.065, 0.025}, text = {1, 0.94, 0.8}, accent = {1, 0.76, 0.3}},
-    light = {label = "Clair", bg = {0.88, 0.9, 0.94}, text = {0.08, 0.1, 0.15}, accent = {0.1, 0.25, 0.5}},
+    dark = {label = L("Ardoise"), bg = {0.035, 0.055, 0.08}, text = {0.91, 0.94, 1}, accent = {0.3, 0.8, 1}},
+    warm = {label = L("Chaleureux"), bg = {0.12, 0.065, 0.025}, text = {1, 0.94, 0.8}, accent = {1, 0.76, 0.3}},
+    light = {label = L("Clair"), bg = {0.88, 0.9, 0.94}, text = {0.08, 0.1, 0.15}, accent = {0.1, 0.25, 0.5}},
 }
 
 local Number = WoW.IsFiniteNumber
@@ -98,15 +99,15 @@ local function RefreshRateTooltip()
     if rateTooltip:GetOwner() ~= hovered then rateTooltip:SetOwner(hovered, "ANCHOR_RIGHT") end
     rateTooltip:ClearLines()
     local xpRate = hovered.metric == "xp"
-    rateTooltip:AddLine(xpRate and "XP / heure" or "Or net / heure", 1, 0.82, 0)
+    rateTooltip:AddLine(xpRate and L("XP / heure") or L("Or net / heure"), 1, 0.82, 0)
     local xpPerHour, netPerHour = Model.HourlyRates(session, Elapsed())
     if xpPerHour == nil then
-        rateTooltip:AddLine("Disponible après 1 min.", 1, 1, 1)
+        rateTooltip:AddLine(L("Disponible après 1 min."), 1, 1, 1)
     elseif xpRate then
         rateTooltip:AddLine((session.approximateXP and "≥ " or "") .. xpPerHour, 1, 1, 1)
     else
         rateTooltip:AddLine(Money(netPerHour), 1, 1, 1)
-        rateTooltip:AddLine("Reçu − dépensé", 0.7, 0.7, 0.7)
+        rateTooltip:AddLine(L("Reçu − dépensé"), 0.7, 0.7, 0.7)
     end
     rateTooltip:Show()
 end
@@ -124,7 +125,7 @@ local function XPState()
     end
 end
 
-local nextLevelLabels = {unknown = "—", max = "Niv. max", calculating = "Calcul..."}
+local nextLevelLabels = {unknown = "—", max = L("Niv. max"), calculating = L("Calcul...")}
 local function NextLevel(elapsed)
     local status, seconds = Model.NextLevel(session, elapsed, XPState())
     return nextLevelLabels[status] or "~ " .. Duration(seconds)
@@ -234,7 +235,7 @@ Draw = function()
     names:ClearAllPoints(); values:ClearAllPoints()
     local top = db.showTitle and (fontSize + padding * 2 + 2) or padding
     title:ClearAllPoints(); title:SetPoint("TOPLEFT", padding, -padding)
-    title:SetText(preview and "Journal de session • Aperçu" or "Journal de session")
+    title:SetText(preview and L("Journal de session • Aperçu") or L("Journal de session"))
     names:SetPoint("TOPLEFT", padding, -top)
     values:SetPoint("TOPRIGHT", -padding, -top)
     names:SetWidth(db.width * 0.43 - 12)
@@ -264,12 +265,12 @@ Draw = function()
             if collapsed and #labelLines >= 3 then break end
         end
     end
-    if #labelLines == 0 then labelLines[1], valueLines[1] = "Aucune statistique affichée", "" end
+    if #labelLines == 0 then labelLines[1], valueLines[1] = L("Aucune statistique affichée"), "" end
     names:SetText(table.concat(labelLines, "\n")); values:SetText(table.concat(valueLines, "\n"))
     local horizontal = db.layout == "horizontal"
     if horizontal then
         local cells = {}
-        for index, label in ipairs(labelLines) do cells[index] = label .. " : " .. valueLines[index] end
+        for index, label in ipairs(labelLines) do cells[index] = string.format(L("%s : %s"), label, valueLines[index]) end
         names:SetText(table.concat(cells, "   •   ")); values:SetText("")
     end
     -- Keep columns aligned at large font sizes; the configured width is a minimum.
@@ -283,7 +284,7 @@ Draw = function()
             local text = horizontalTexts[index]
             if not text then text = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); horizontalTexts[index] = text end
             text:SetFont(font, fontSize, ""); text:SetTextColor(unpack(theme.text)); text:SetJustifyH("LEFT")
-            text:SetText(label .. " : " .. valueLines[index])
+            text:SetText(string.format(L("%s : %s"), label, valueLines[index]))
             local cellWidth = math.min(width - padding * 2, text:GetUnboundedStringWidth() + 4)
             if x > padding and x + cellWidth > width - padding then x, y = padding, y + rowHeight; rowHeight = fontSize + spacing end
             text:ClearAllPoints(); text:SetPoint("TOPLEFT", x, -top - y); text:SetWidth(cellWidth); text:Show()
@@ -298,7 +299,7 @@ Draw = function()
     for index, text in ipairs(horizontalTexts) do if not horizontal or index > #labelLines then text:Hide() end end
     window:SetWidth(width)
     names:SetWidth(labelWidth + 2); values:SetWidth(width - labelWidth - padding * 2 - 16)
-    footer:SetText("Glisser • clic droit pour verrouiller")
+    footer:SetText(L("Glisser • clic droit pour verrouiller"))
     moveHint:SetWidth(math.min(width, footer:GetUnboundedStringWidth() + 16))
     moveHint:SetHeight(footer:GetStringHeight() + 12)
     moveHint:SetBackdropColor(theme.bg[1], theme.bg[2], theme.bg[3], 0.95)
@@ -356,7 +357,7 @@ function ns.InitializeSessionJournal(parentCategory)
     window:RegisterForDrag("LeftButton")
     window:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 12, insets = {left = 3, right = 3, top = 3, bottom = 3}})
     title = window:CreateFontString("ArkannsQOLSessionTitle", "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOPLEFT", 12, -10); title:SetText("Journal de session")
+    title:SetPoint("TOPLEFT", 12, -10); title:SetText(L("Journal de session"))
     names = window:CreateFontString("ArkannsQOLSessionNames", "OVERLAY", "GameFontHighlight")
     names:SetJustifyH("LEFT")
     values = window:CreateFontString("ArkannsQOLSessionValues", "OVERLAY", "GameFontHighlight")
@@ -431,9 +432,9 @@ function ns.InitializeSessionJournal(parentCategory)
             refreshSettings()
         end)
     end
-    Tab("Fonctionnement", 16, scroll, "ArkannsQOLSessionOperationTab")
-    Tab("Apparence", 216, appearancePage, "ArkannsQOLSessionAppearanceTab")
-    Tab("Visibilité", 416, visibilityPage, "ArkannsQOLSessionVisibilityTab")
+    Tab(L("Fonctionnement"), 16, scroll, "ArkannsQOLSessionOperationTab")
+    Tab(L("Apparence"), 216, appearancePage, "ArkannsQOLSessionAppearanceTab")
+    Tab(L("Visibilité"), 416, visibilityPage, "ArkannsQOLSessionVisibilityTab")
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel) end
     local function Text(text, y, font)
         local label = body:CreateFontString(nil, "ARTWORK", font or "GameFontHighlightSmall")
@@ -463,14 +464,14 @@ function ns.InitializeSessionJournal(parentCategory)
         slider:SetValueStep(1); slider:SetObeyStepOnDrag(true); slider:EnableMouse(true)
         slider:SetBackdrop({bgFile = "Interface\\Buttons\\UI-SliderBar-Background", edgeFile = "Interface\\Buttons\\UI-SliderBar-Border", edgeSize = 8})
         slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal"); slider:GetThumbTexture():SetSize(32, 32)
-        controls[#controls + 1] = function() slider:SetValue(db[key]); text:SetText(label .. " : " .. db[key]) end
+        controls[#controls + 1] = function() slider:SetValue(db[key]); text:SetText(string.format(L("%s : %s"), label, tostring(db[key]))) end
         slider:SetScript("OnValueChanged", function(_, value)
             if syncing then return end
             db[key] = math.max(minimum, math.min(maximum, math.floor(value + 0.5)))
             Draw(); refreshSettings()
         end)
     end
-    Text("Fonctionnement", -8, "GameFontNormalLarge")
+    Text(L("Fonctionnement"), -8, "GameFontNormalLarge")
     local selectionStatus = Text("", -40)
     for index = 1, #metrics do
         local rowIndex = index
@@ -502,10 +503,10 @@ function ns.InitializeSessionJournal(parentCategory)
             end
         end
     end
-    Check("hideZero", "Masquer les valeurs nulles", -340, db)
-    Check("compact", "Mode compact (3 statistiques)", -372, db)
-    Check("expandOnHover", "Développer au survol", -404, db)
-    local showAll = Button("ArkannsQOLSessionShowAll", "Tout afficher", 370, -372, function()
+    Check("hideZero", L("Masquer les valeurs nulles"), -340, db)
+    Check("compact", L("Mode compact (3 statistiques)"), -372, db)
+    Check("expandOnHover", L("Développer au survol"), -404, db)
+    local showAll = Button("ArkannsQOLSessionShowAll", L("Tout afficher"), 370, -372, function()
         for _, metric in ipairs(metrics) do db.visible[metric.key] = true end
         db.compact, db.hideZero, expanded = false, false, false
         Draw(); refreshSettings()
@@ -514,12 +515,12 @@ function ns.InitializeSessionJournal(parentCategory)
     controls[#controls + 1] = function()
         local count = 0
         for _, metric in ipairs(metrics) do if db.visible[metric.key] then count = count + 1 end end
-        local status = "Sélection : " .. count
+        local status = string.format(L("Sélection : %d"), count)
         if db.compact then
-            status = status .. " / Mode compact : 3"
-            if db.expandOnHover then status = status .. " / Survol : tout" end
+            status = status .. L(" / Mode compact : 3")
+            if db.expandOnHover then status = status .. L(" / Survol : tout") end
         end
-        if db.hideZero then status = status .. " / Zéros masqués" end
+        if db.hideZero then status = status .. L(" / Zéros masqués") end
         selectionStatus:SetText(status)
         ArkannsQOLSession_expandOnHover:SetEnabled(db.compact)
         showAll:SetEnabled(count < #metrics or db.compact or db.hideZero)
@@ -527,27 +528,27 @@ function ns.InitializeSessionJournal(parentCategory)
     local layoutButton = Button("ArkannsQOLSessionLayout", "", 16, -450, function()
         db.layout = db.layout == "horizontal" and "vertical" or "horizontal"; Draw(); refreshSettings()
     end)
-    Button(nil, "Défauts de cette section", 218, -450, function()
+    Button(nil, L("Défauts de cette section"), 218, -450, function()
         for key in pairs(db.order) do db.order[key] = nil end
         db.hideZero, db.compact, db.expandOnHover, db.layout = false, false, true, "vertical"
         for _, metric in ipairs(metrics) do db.visible[metric.key] = metric.key ~= "levels" end
         NormalizeOptions(); Draw(); refreshSettings()
     end)
-    Button("ArkannsQOLSessionReset", "Réinitialiser les stats", 16, -490, function() BeginSession(false); Draw() end)
-    Text("Survole XP gagnée ou Or reçu pour le taux horaire.\nNouvelle connexion : remise à zéro. /reload : stats conservées.\nTemps AFK inclus. ≥ : données XP incomplètes.", -540)
+    Button("ArkannsQOLSessionReset", L("Réinitialiser les stats"), 16, -490, function() BeginSession(false); Draw() end)
+    Text(L("Survole XP gagnée ou Or reçu pour le taux horaire.\nNouvelle connexion : remise à zéro. /reload : stats conservées.\nTemps AFK inclus. ≥ : données XP incomplètes."), -540)
     operationBody:SetHeight(620)
     body = appearanceBody
-    Text("Apparence", -8, "GameFontNormalLarge")
+    Text(L("Apparence"), -8, "GameFontNormalLarge")
     local override = Button(nil, "", 16, -42, function()
         if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("session", not ns.UI.IsOverride("session")) end
         Draw(); refreshSettings()
     end)
-    Text("Police, opacité et thème : apparence personnalisée.", -78)
-    Check("showTitle", "Afficher le titre", -104, db)
-    Check("border", "Afficher la bordure", -136, db)
-    Slider("width", "Largeur min.", -182, 240, 1000)
-    Slider("fontSize", "Taille du texte", -240, 10, 32)
-    Slider("opacity", "Opacité du fond (%)", -298, 0, 100)
+    Text(L("Police, opacité et thème : apparence personnalisée."), -78)
+    Check("showTitle", L("Afficher le titre"), -104, db)
+    Check("border", L("Afficher la bordure"), -136, db)
+    Slider("width", L("Largeur min."), -182, 240, 1000)
+    Slider("fontSize", L("Taille du texte"), -240, 10, 32)
+    Slider("opacity", L("Opacité du fond (%)"), -298, 0, 100)
     local themeButton = Button("ArkannsQOLSessionTheme", "", 16, -362, function(self)
         MenuUtil.CreateContextMenu(self, function(_, root)
             for _, key in ipairs({"dark", "warm", "light"}) do
@@ -556,34 +557,34 @@ function ns.InitializeSessionJournal(parentCategory)
             end
         end)
     end)
-    Button(nil, "Défauts de cette section", 218, -362, function()
+    Button(nil, L("Défauts de cette section"), 218, -362, function()
         db.theme, db.width, db.fontSize, db.opacity, db.showTitle, db.border = "warm", 300, 13, 85, true, true
         if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("session", false) end
         Draw(); refreshSettings()
     end)
     body = visibilityBody
-    Text("Visibilité", -8, "GameFontNormalLarge")
-    Check("enabled", "Afficher la fenêtre", -48, db)
-    Check("hideCombat", "Masquer en combat", -80, db)
+    Text(L("Visibilité"), -8, "GameFontNormalLarge")
+    Check("enabled", L("Afficher la fenêtre"), -48, db)
+    Check("hideCombat", L("Masquer en combat"), -80, db)
     local lockButton = Button("ArkannsQOLSessionPlace", "", 16, -130, function()
         if db.locked then Place()
         else SavePosition(); db.locked = true; Draw(); refreshSettings() end
     end)
-    Button("ArkannsQOLSessionCenter", "Recentrer", 218, -130, function()
+    Button("ArkannsQOLSessionCenter", L("Recentrer"), 218, -130, function()
         SavePosition(); db.x, db.y = 0.35, 0.7; RestorePosition(); Place()
     end)
-    Button(nil, "Défauts de cette section", 16, -174, function()
+    Button(nil, L("Défauts de cette section"), 16, -174, function()
         db.enabled, db.hideCombat, db.locked, db.x, db.y = true, false, true, 0.02, 0.75
         RestorePosition(); Draw(); refreshSettings()
     end)
-    Text("Glisser : déplacer • Clic droit : verrouiller.\nL'aperçu disparaît à la fermeture des réglages.", -226)
+    Text(L("Glisser : déplacer • Clic droit : verrouiller.\nL'aperçu disparaît à la fermeture des réglages."), -226)
     refreshSettings = function()
         syncing = true
         for _, sync in ipairs(controls) do sync() end
-        themeButton:SetText("Thème : " .. themes[db.theme].label)
-        layoutButton:SetText(db.layout == "horizontal" and "Disposition : ligne" or "Disposition : liste")
-        override:SetText(ns.UI and ns.UI.IsOverride and ns.UI.IsOverride("session") and "Apparence personnalisée" or "Apparence commune")
-        lockButton:SetText(db.locked and "Déverrouiller" or "Verrouiller")
+        themeButton:SetText(string.format(L("Thème : %s"), themes[db.theme].label))
+        layoutButton:SetText(db.layout == "horizontal" and L("Disposition : ligne") or L("Disposition : liste"))
+        override:SetText(ns.UI and ns.UI.IsOverride and ns.UI.IsOverride("session") and L("Apparence personnalisée") or L("Apparence commune"))
+        lockButton:SetText(db.locked and L("Déverrouiller") or L("Verrouiller"))
         syncing = false
     end
     panel:SetScript("OnShow", function()
@@ -591,7 +592,7 @@ function ns.InitializeSessionJournal(parentCategory)
         if appearancePage:IsShown() then Preview() end
     end)
     panel:SetScript("OnHide", StopPreview)
-    settings = Settings.RegisterCanvasLayoutSubcategory(parentCategory, panel, "Journal de session")
+    settings = Settings.RegisterCanvasLayoutSubcategory(parentCategory, panel, L("Journal de session"))
     ns.sessionCategory = settings
     SLASH_ARKANNSQOLSESSION1 = "/aqsession"
     SlashCmdList.ARKANNSQOLSESSION = function() Settings.OpenToCategory(settings:GetID()) end
@@ -600,12 +601,12 @@ function ns.InitializeSessionJournal(parentCategory)
     if ns.RegisterModule then
         local configKeys = {"enabled", "locked", "showTitle", "border", "compact", "hideZero", "expandOnHover", "hideCombat", "x", "y", "width", "fontSize", "opacity", "theme", "layout"}
         ns.RegisterModule("session", {
-            label = "Journal de session", icon = "Interface\\Icons\\INV_Misc_Book_09", category = function() return settings end,
+            label = L("Journal de session"), icon = "Interface\\Icons\\INV_Misc_Book_09", category = function() return settings end,
             frame = window, IsEnabled = function() return db.enabled end,
             SetEnabled = function(value) db.enabled = value == true; if not db.enabled then preview = false end; Draw(); refreshSettings() end,
             Summary = function()
-                if db.compact then return "Mode compact · 3 statistiques" end
-                return db.layout == "horizontal" and "Statistiques en ligne" or "Statistiques de la session"
+                if db.compact then return L("Mode compact · 3 statistiques") end
+                return db.layout == "horizontal" and L("Statistiques en ligne") or L("Statistiques de la session")
             end,
             Preview = Preview, StopPreview = StopPreview,
             Refresh = function() Draw(); refreshSettings() end,
@@ -629,7 +630,7 @@ function ns.InitializeSessionJournal(parentCategory)
                 return result
             end,
             ImportSettings = function(config)
-                if type(config) ~= "table" then return false, "Réglages du journal invalides." end
+                if type(config) ~= "table" then return false, L("Réglages du journal invalides.") end
                 if moving then window:StopMovingOrSizing(); moving = false end
                 StopPreview()
                 for _, key in ipairs(configKeys) do if config[key] ~= nil then db[key] = config[key] end end

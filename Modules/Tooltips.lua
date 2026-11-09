@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local WoW = ns.WoW
 local db
 local dragging = false
@@ -21,10 +22,10 @@ anchor:SetBackdropColor(0.04, 0.12, 0.17, 0.95)
 anchor:SetBackdropBorderColor(0.2, 0.8, 1)
 local label = anchor:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 label:SetPoint("TOP", 0, -12)
-label:SetText("QoL Toolkit — Infobulles")
+label:SetText(L("QoL Toolkit — Infobulles"))
 local help = anchor:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 help:SetPoint("TOP", label, "BOTTOM", 0, -8)
-help:SetText("Glisser : déplacer • Clic droit : verrouiller\nAncrage : coin inférieur gauche.")
+help:SetText(L("Glisser : déplacer • Clic droit : verrouiller\nAncrage : coin inférieur gauche."))
 anchor:Hide()
 
 local function Say(message)
@@ -220,7 +221,7 @@ anchor:SetScript("OnMouseUp", function(self, button)
     if button == "RightButton" then
         SavePosition()
         self:Hide()
-        Say("Position enregistrée. /ft pour la modifier.")
+        Say(L("Position enregistrée. /ft pour la modifier."))
     end
 end)
 
@@ -228,14 +229,14 @@ local function SetEditing(editing)
     if not editing then
         SavePosition()
         anchor:Hide()
-        Say("Position enregistrée.")
+        Say(L("Position enregistrée."))
     else
         db.enabled = true
         db.cursor = false
         HideTooltip()
         RestorePosition()
         anchor:Show()
-        Say("Glisser : déplacer • Clic droit : verrouiller.")
+        Say(L("Glisser : déplacer • Clic droit : verrouiller."))
     end
 end
 
@@ -255,42 +256,42 @@ SlashCmdList.FOREVERTOOLTIPLIBRE = function(message)
         HideTooltip()
         RestorePosition()
         anchor:Show()
-        Say("Position réinitialisée. Glissez le cadre, puis clic droit.")
+        Say(L("Position réinitialisée. Glissez le cadre, puis clic droit."))
     elseif command == "off" then
         db.enabled = false
         anchor:Hide()
         HideTooltip()
-        Say("Désactivé. /ft on pour réactiver.")
+        Say(L("Désactivé. /ft on pour réactiver."))
     elseif command == "on" then
         db.enabled = true
-        Say("Activé.")
+        Say(L("Activé."))
     elseif command == "taille" or command == "scale" then
         if argument == "" then
-            Say("Taille : " .. db.scale .. " %. Exemple : /ft taille 120 (50 à 200).")
+            Say(L("Échelle : %s %%. Exemple : /ft taille 120 (50 à 200)."):format(db.scale))
             return
         end
         local value = tonumber((argument:gsub(",", ".")))
         if not value or value ~= value or value < 50 or value > 200 then
-            Say("Indiquez une taille entre 50 et 200 %. Exemple : /ft taille 120.")
+            Say(L("Indiquez une taille entre 50 et 200 %. Exemple : /ft taille 120."))
             return
         end
         db.scale = value
         HideTooltip()
-        Say("Taille : " .. value .. " %.")
+        Say(L("Échelle : %s %%."):format(value))
     elseif command == "curseur" or command == "cursor" then
         if argument ~= "" and argument ~= "on" and argument ~= "off" then
-            Say("/ft curseur on : suivre la souris ; /ft curseur off : position fixe.")
+            Say(L("/ft curseur on : suivre la souris ; /ft curseur off : position fixe."))
             return
         end
         if argument == "" then db.cursor = not db.cursor else db.cursor = argument == "on" end
         db.enabled = true
         anchor:Hide()
         HideTooltip()
-        Say(db.cursor and "Suivi du curseur activé." or "Position fixe restaurée.")
+        Say(db.cursor and L("Suivi du curseur activé.") or L("Position fixe restaurée."))
     elseif command == "options" or command == "parametres" then
         if settingsCategory then Settings.OpenToCategory(settingsCategory:GetID()) end
     else
-        Say("/ft options : paramètres ; /ft : placer ; /ft taille 120 : taille ; /ft curseur on ou off : suivi ; /ft reset : recentrer ; /ft off ou on : désactiver ou activer.")
+        Say(L("/ft options : paramètres ; /ft : placer ; /ft taille 120 : taille ; /ft curseur on ou off : suivi ; /ft reset : recentrer ; /ft off ou on : désactiver ou activer."))
     end
     RefreshSettings()
 end
@@ -299,22 +300,23 @@ local function CreateModernSettings(root)
     local UI = ns.UI
     local panel = CreateFrame("Frame", "ForeverTooltipLibreSettings", UIParent, "BackdropTemplate")
     panel:Hide(); UI.StylePanel(panel)
-    UI.Label(panel,"Infobulles",16,-16,18)
-    local intro=UI.Label(panel,"Position et échelle par type. Le contenu WoW reste intact.",16,-45)
+    UI.Label(panel,L("Infobulles"),16,-16,18)
+    local intro=UI.Label(panel,L("Position et échelle par type. Le contenu WoW reste intact."),16,-45)
     intro:SetPoint("TOPRIGHT",-16,-45); intro:SetHeight(28)
-    local tabs, bodies, pages, tab = {}, {}, {}, "Fonctionnement"
-    local function Select(name)
-        tab = name
-        for key, page in pairs(pages) do page:SetShown(key == name) end
-        for key, button in pairs(tabs) do button:SetEnabled(key ~= name) end
+    local tabs, bodies, pages = {}, {}, {}
+    local order = {"behavior", "appearance", "visibility"}
+    local captions = {behavior = L("Fonctionnement"), appearance = L("Apparence"), visibility = L("Visibilité")}
+    local function Select(selected)
+        for key, page in pairs(pages) do page:SetShown(key == selected) end
+        for key, button in pairs(tabs) do button:SetEnabled(key ~= selected) end
         ns.StopAllPreviews()
     end
-    for index,name in ipairs({"Fonctionnement","Apparence","Visibilité"}) do
+    for index,name in ipairs(order) do
         pages[name]=CreateFrame("ScrollFrame",nil,panel,"UIPanelScrollFrameTemplate")
         bodies[name] = CreateFrame("Frame",nil,pages[name]); bodies[name]:SetSize(580,470); pages[name]:SetScrollChild(bodies[name])
-        tabs[name] = UI.Button(panel,nil,name,16+(index-1)*194,-78,184,function() Select(name) end)
+        tabs[name] = UI.Button(panel,nil,captions[name],16+(index-1)*194,-78,184,function() Select(name) end)
     end
-    local body=bodies.Fonctionnement
+    local body=bodies.behavior
     local context="general"
     local function Current() return context=="general" and db or db.contexts[context] end
     local kindButton=UI.Button(body,"ArkannsQOLTooltipKind","",0,0,270,function()
@@ -322,39 +324,39 @@ local function CreateModernSettings(root)
         for i,key in ipairs(order) do if key==context then context=order[i%#order+1]; break end end
         RefreshSettings()
     end)
-    local custom=UI.Check(body,"ArkannsQOLTooltipCustom","Réglages propres à ce type",0,-38,function(value) Current().custom=value; HideTooltip(); RefreshSettings() end)
-    local enabled=UI.Check(body,"ForeverTooltipLibreEnabled","Activer",0,-78,function(value)
+    local custom=UI.Check(body,"ArkannsQOLTooltipCustom",L("Réglages propres à ce type"),0,-38,function(value) Current().custom=value; HideTooltip(); RefreshSettings() end)
+    local enabled=UI.Check(body,"ForeverTooltipLibreEnabled",L("Activer"),0,-78,function(value)
         Current().enabled=value; HideTooltip(); RefreshSettings()
     end)
-    local cursor=UI.Check(body,"ForeverTooltipLibreCursor","Suivre le curseur",0,-116,function(value)
+    local cursor=UI.Check(body,"ForeverTooltipLibreCursor",L("Suivre le curseur"),0,-116,function(value)
         Current().cursor=value; anchor:Hide(); HideTooltip(); RefreshSettings()
     end)
-    local positionHelp=UI.Label(body,"Position fixe : utilise le cadre Infobulles du mode Disposition.",4,-152)
-    local place=UI.Button(body,"ForeverTooltipLibrePlace","Déplacer",0,-196,170,UI.StartLayout)
-    local center=UI.Button(body,"ForeverTooltipLibreCenter","Recentrer",182,-196,170,function() db.x,db.y=.5,.5; RestorePosition(); RefreshSettings() end)
+    local positionHelp=UI.Label(body,L("Position fixe : utilise le cadre Infobulles du mode Disposition."),4,-152)
+    local place=UI.Button(body,"ForeverTooltipLibrePlace",L("Déplacer"),0,-196,170,UI.StartLayout)
+    local center=UI.Button(body,"ForeverTooltipLibreCenter",L("Recentrer"),182,-196,170,function() db.x,db.y=.5,.5; RestorePosition(); RefreshSettings() end)
     local advanced=false
     local advancedBody=CreateFrame("Frame",nil,body); advancedBody:SetPoint("TOPLEFT",0,-282); advancedBody:SetSize(500,95); advancedBody:Hide()
-    local advancedButton=UI.Button(body,"ArkannsQOLTooltipAdvanced","Avancé +",0,-242,170,function()
+    local advancedButton=UI.Button(body,"ArkannsQOLTooltipAdvanced",L("Avancé +"),0,-242,170,function()
         advanced=not advanced; advancedBody:SetShown(advanced)
     end)
-    UI.Label(advancedBody,"Marge X / Y du curseur",0,0)
+    UI.Label(advancedBody,L("Marge X / Y du curseur"),0,0)
     local offsetX=UI.Input(advancedBody,"ArkannsQOLTooltipOffsetX",4,-30,65)
     local offsetY=UI.Input(advancedBody,"ArkannsQOLTooltipOffsetY",84,-30,65)
     local function ApplyOffsets()
-        local x,y=tonumber(offsetX:GetText()),tonumber(offsetY:GetText())
+        local x,y=tonumber((offsetX:GetText():gsub(",", "."))), tonumber((offsetY:GetText():gsub(",", ".")))
         if x and y and x>=0 and x<=100 and y>=0 and y<=100 then Current().offsetX,Current().offsetY=x,y; HideTooltip(); RefreshSettings() end
     end
-    UI.Button(advancedBody,nil,"Appliquer",164,-30,106,ApplyOffsets)
+    UI.Button(advancedBody,nil,L("Appliquer"),164,-30,106,ApplyOffsets)
     offsetX:SetScript("OnEnterPressed",ApplyOffsets); offsetY:SetScript("OnEnterPressed",ApplyOffsets)
-    local typeDefaults=UI.Button(body,"ForeverTooltipLibreDefaults","Défaut de ce type",0,-390,190,function()
+    local typeDefaults=UI.Button(body,"ForeverTooltipLibreDefaults",L("Défaut de ce type"),0,-390,190,function()
         local target=Current(); target.enabled,target.cursor,target.scale,target.offsetX,target.offsetY=true,false,100,16,16
         if context~="general" then target.custom=false end
         HideTooltip(); RefreshSettings()
     end)
-    local a=bodies.Apparence
-    local own=UI.Check(a,"ArkannsQOLTooltipOwnStyle","Apparence propre à ce module",0,0,function(value) UI.SetOverride("tooltips",value) end)
-    UI.Button(a,nil,"Reprendre le thème commun",0,-42,260,function() UI.SetOverride("tooltips",false) end)
-    local scaleHelp=UI.Label(a,"L’échelle ci-dessous s’applique au type sélectionné dans Fonctionnement.",0,-78)
+    local a=bodies.appearance
+    local own=UI.Check(a,"ArkannsQOLTooltipOwnStyle",L("Apparence propre à ce module"),0,0,function(value) UI.SetOverride("tooltips",value) end)
+    UI.Button(a,nil,L("Reprendre le thème commun"),0,-42,260,function() UI.SetOverride("tooltips",false) end)
+    local scaleHelp=UI.Label(a,L("L’échelle ci-dessous s’applique au type sélectionné dans Fonctionnement."),0,-78)
     local sizeLabel=UI.Label(a,"",0,-126)
     local size=CreateFrame("Slider","ForeverTooltipLibreSize",a,"BackdropTemplate")
     size:SetPoint("TOPLEFT",4,-158); size:SetSize(330,18); size:SetOrientation("HORIZONTAL")
@@ -366,25 +368,25 @@ local function CreateModernSettings(root)
         if syncing then return end
         Current().scale=math.max(50,math.min(200,math.floor(value+.5))); HideTooltip(); RefreshSettings()
     end)
-    UI.Button(a,"ArkannsQOLTooltipPreview","Aperçu",0,-210,160,function() UI.PreviewModule("tooltips") end)
-    local stopPreview=UI.Button(a,nil,"Arrêter l’aperçu",172,-210,180,ns.StopAllPreviews)
-    local appearanceDefaults=UI.Button(a,nil,"Défaut d’apparence",0,-256,220,function() Current().scale=100; UI.SetOverride("tooltips",false); RefreshSettings() end)
-    local v=bodies["Visibilité"]
-    local hideCombat=UI.Check(v,"ArkannsQOLTooltipCombat","Garder le placement WoW en combat",0,0,function(value) db.hideCombat=value; HideTooltip() end)
-    local combatHelp=UI.Label(v,"Les infobulles restent visibles. Seul le placement personnalisé est suspendu.",0,-42)
-    UI.Button(v,nil,"Défaut de visibilité",0,-88,220,function() db.hideCombat=false; RefreshSettings() end)
+    UI.Button(a,"ArkannsQOLTooltipPreview",L("Aperçu"),0,-210,160,function() UI.PreviewModule("tooltips") end)
+    local stopPreview=UI.Button(a,nil,L("Arrêter l’aperçu"),172,-210,180,ns.StopAllPreviews)
+    local appearanceDefaults=UI.Button(a,nil,L("Défaut d’apparence"),0,-256,220,function() Current().scale=100; UI.SetOverride("tooltips",false); RefreshSettings() end)
+    local v=bodies.visibility
+    local hideCombat=UI.Check(v,"ArkannsQOLTooltipCombat",L("Garder le placement WoW en combat"),0,0,function(value) db.hideCombat=value; HideTooltip() end)
+    local combatHelp=UI.Label(v,L("Les infobulles restent visibles. Seul le placement personnalisé est suspendu."),0,-42)
+    UI.Button(v,nil,L("Défaut de visibilité"),0,-88,220,function() db.hideCombat=false; RefreshSettings() end)
     RefreshSettings=function()
         syncing=true
         local options=Current()
-        kindButton:SetText(({general="Réglages généraux",units="Unités et interactions",items="Objets",spells="Sorts"})[context])
+        kindButton:SetText(({general=L("Réglages généraux"),units=L("Unités et interactions"),items=L("Objets"),spells=L("Sorts")})[context])
         custom:SetShown(context~="general"); custom:SetChecked(options.custom)
         enabled:SetChecked(options.enabled); cursor:SetChecked(options.cursor); size:SetValue(options.scale)
         local canEdit=context=="general" or options.custom
         enabled:SetEnabled(canEdit); cursor:SetEnabled(canEdit); size:SetEnabled(canEdit)
-        sizeLabel:SetText("Échelle : "..options.scale.." %")
+        sizeLabel:SetText(L("Échelle : %s %%"):format(options.scale))
         offsetX:SetText(tostring(options.offsetX)); offsetY:SetText(tostring(options.offsetY))
         offsetX:SetEnabled(canEdit); offsetY:SetEnabled(canEdit)
-        advancedButton:SetText(advanced and "Avancé −" or "Avancé +")
+        advancedButton:SetText(advanced and L("Avancé −") or L("Avancé +"))
         own:SetChecked(UI.IsOverride("tooltips")); hideCombat:SetChecked(db.hideCombat)
         UI.StyleFrame(anchor,"tooltips")
         local style=UI.GetStyle("tooltips")
@@ -404,7 +406,7 @@ local function CreateModernSettings(root)
             label:ClearAllPoints(); label:SetPoint("TOP",0,-12); help:ClearAllPoints(); help:SetPoint("TOP",label,"BOTTOM",0,-8)
         end
         label:SetWidth(anchor:GetWidth()-24); help:SetWidth(anchor:GetWidth()-24)
-        if tooltipPreview then label:SetText("Loup des bois — Niveau 12"); help:SetText("Bête • Ennemi\nQuête : Loups abattus 2 / 5") end
+        if tooltipPreview then label:SetText(L("Loup des bois — Niveau 12")); help:SetText(L("Bête • Ennemi\nQuête : Loups abattus 2 / 5")) end
         syncing=false
     end
     panel.OnRefresh=RefreshSettings
@@ -413,7 +415,6 @@ local function CreateModernSettings(root)
         local width=math.max(320,panel:GetWidth())
         local bodyWidth=width-50
         local extra=bodyWidth<352 and 34 or 0
-        local order={"Fonctionnement","Apparence","Visibilité"}
         local columns=math.max(1,math.min(3,math.floor((width-32)/175)))
         local tabWidth=(width-32)/columns
         for index,name in ipairs(order) do
@@ -436,13 +437,13 @@ local function CreateModernSettings(root)
     panel:SetScript("OnShow",function() ns.StopAllPreviews(); LayoutSettings(); RefreshSettings() end)
     panel:HookScript("OnSizeChanged",LayoutSettings)
     panel:SetScript("OnHide",ns.StopAllPreviews)
-    settingsCategory=Settings.RegisterCanvasLayoutSubcategory(root,panel,"Infobulles")
+    settingsCategory=Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Infobulles"))
     ns.RegisterModule("tooltips",{
-        label="Infobulles",icon="Interface\\Icons\\INV_Misc_Note_01",frame=anchor,category=function() return settingsCategory end,
+        label=L("Infobulles"),icon="Interface\\Icons\\INV_Misc_Note_01",frame=anchor,category=function() return settingsCategory end,
         IsEnabled=function() return db.enabled end,SetEnabled=function(value) db.enabled=value; HideTooltip(); RefreshSettings() end,
-        Summary=function() return db.cursor and "Suit le curseur" or "Position fixe • "..db.scale.." %" end,
+        Summary=function() return db.cursor and L("Suit le curseur") or L("Position fixe • %s %%"):format(db.scale) end,
         Preview=function() tooltipPreview=true; RestorePosition(); RefreshSettings(); anchor:Show() end,
-        StopPreview=function() tooltipPreview=false; anchor:Hide(); label:SetText("QoL Toolkit — Infobulles"); help:SetText("Glisser : déplacer • Clic droit : verrouiller") end,
+        StopPreview=function() tooltipPreview=false; anchor:Hide(); label:SetText(L("QoL Toolkit — Infobulles")); help:SetText(L("Glisser : déplacer • Clic droit : verrouiller")) end,
         Refresh=function() RefreshSettings(); if db.enabled and GameTooltip:IsShown() then PositionTooltip(GameTooltip) end end,
         GetPosition=function()
             local scale=anchor:GetScale(); return db.x+anchor:GetWidth()*scale/(2*UIParent:GetWidth()),db.y+anchor:GetHeight()*scale/(2*UIParent:GetHeight())
@@ -455,13 +456,13 @@ local function CreateModernSettings(root)
             local result={}; for _,key in ipairs({"enabled","cursor","scale","x","y","contexts","offsetX","offsetY","hideCombat"}) do result[key]=UI.Copy(db[key]) end; return result
         end,
         ImportSettings=function(value)
-            if type(value)~="table" or type(value.enabled)~="boolean" or type(value.cursor)~="boolean" or type(value.scale)~="number" or value.scale~=value.scale or value.scale<50 or value.scale>200 then return false,"Infobulles invalides." end
-            for _,key in ipairs({"x","y"}) do if type(value[key])~="number" or value[key]~=value[key] or value[key]<0 or value[key]>1 then return false,"Position invalide." end end
+            if type(value)~="table" or type(value.enabled)~="boolean" or type(value.cursor)~="boolean" or type(value.scale)~="number" or value.scale~=value.scale or value.scale<50 or value.scale>200 then return false,L("Infobulles invalides.") end
+            for _,key in ipairs({"x","y"}) do if type(value[key])~="number" or value[key]~=value[key] or value[key]<0 or value[key]>1 then return false,L("Position invalide.") end end
             for _,key in ipairs({"enabled","cursor","scale","x","y","contexts","offsetX","offsetY","hideCombat"}) do db[key]=UI.Copy(value[key]) end
             NormalizeTooltipOptions(); HideTooltip(); RestorePosition(); RefreshSettings(); return true
         end,
     })
-    Select("Fonctionnement"); LayoutSettings(); RefreshSettings()
+    Select("behavior"); LayoutSettings(); RefreshSettings()
 end
 
 local function CreateSettings(root)
@@ -500,11 +501,11 @@ local function CreateSettings(root)
         SlashCmdList.FOREVERTOOLTIPLIBRE(command)
     end
 
-    Text("Infobulles", -16, "GameFontNormalLarge")
-    Text("Réglages communs aux personnages.", -44)
-    local enabled = Checkbox("ForeverTooltipLibreEnabled", "Activer", -72)
-    local cursor = Checkbox("ForeverTooltipLibreCursor", "Suivre le curseur", -108)
-    Text("Désactivé : position fixe pour les PNJ et objets.", -144)
+    Text(L("Infobulles"), -16, "GameFontNormalLarge")
+    Text(L("Réglages communs aux personnages."), -44)
+    local enabled = Checkbox("ForeverTooltipLibreEnabled", L("Activer"), -72)
+    local cursor = Checkbox("ForeverTooltipLibreCursor", L("Suivre le curseur"), -108)
+    Text(L("Désactivé : position fixe pour les PNJ et objets."), -144)
     local sizeLabel = Text("", -178, "GameFontNormal")
 
     -- Build a standard slider without the obsolete OptionsSliderTemplate.
@@ -519,12 +520,12 @@ local function CreateSettings(root)
     size:SetBackdrop({bgFile = "Interface\\Buttons\\UI-SliderBar-Background", edgeFile = "Interface\\Buttons\\UI-SliderBar-Border", tile = true, tileSize = 8, edgeSize = 8, insets = {left = 3, right = 3, top = 3, bottom = 3}})
     size:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
     size:GetThumbTexture():SetSize(32, 32)
-    Text("100 % : taille native.", -234)
+    Text(L("100 % : taille native."), -234)
 
-    local place = Button("ForeverTooltipLibrePlace", "Déplacer", 16, -268, 180, function() Place("placer") end)
-    local center = Button("ForeverTooltipLibreCenter", "Recentrer", 208, -268, 180, function() Place("reset") end)
-    Text("Glisser : déplacer • Clic droit : verrouiller.", -310)
-    Text("Survole à nouveau pour voir les changements.\nSuivi du curseur : PNJ, objets, sacs et sorts. Hors comparaisons.", -346)
+    local place = Button("ForeverTooltipLibrePlace", L("Déplacer"), 16, -268, 180, function() Place("placer") end)
+    local center = Button("ForeverTooltipLibreCenter", L("Recentrer"), 208, -268, 180, function() Place("reset") end)
+    Text(L("Glisser : déplacer • Clic droit : verrouiller."), -310)
+    Text(L("Survole à nouveau pour voir les changements.\nSuivi du curseur : PNJ, objets, sacs et sorts. Hors comparaisons."), -346)
 
     local syncing = false
     RefreshSettings = function()
@@ -535,7 +536,7 @@ local function CreateSettings(root)
         size:SetEnabled(db.enabled)
         size:SetAlpha(db.enabled and 1 or 0.5)
         size:SetValue(db.scale)
-        sizeLabel:SetText("Échelle : " .. db.scale .. " %")
+        sizeLabel:SetText(L("Échelle : %s %%"):format(db.scale))
         place:SetEnabled(db.enabled and not db.cursor)
         center:SetEnabled(db.enabled and not db.cursor)
         syncing = false
@@ -559,11 +560,11 @@ local function CreateSettings(root)
         RestorePosition()
         RefreshSettings()
     end
-    Button("ForeverTooltipLibreDefaults", "Valeurs par défaut", 16, -408, 180, Defaults)
+    Button("ForeverTooltipLibreDefaults", L("Valeurs par défaut"), 16, -408, 180, Defaults)
     panel:SetScript("OnShow", RefreshSettings)
     panel.OnRefresh = RefreshSettings
     panel.OnDefault = Defaults
-    settingsCategory = Settings.RegisterCanvasLayoutSubcategory(root, panel, "Infobulles")
+    settingsCategory = Settings.RegisterCanvasLayoutSubcategory(root, panel, L("Infobulles"))
     RefreshSettings()
 end
 

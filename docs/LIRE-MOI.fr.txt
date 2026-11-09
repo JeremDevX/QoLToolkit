@@ -1,6 +1,9 @@
-QOL TOOLKIT — 3.2.5
+QOL TOOLKIT — 0.1.0
 WoW Forever 1.60.1 • Interface 16001
 
+VERSION 0.1.0
+L’addon utilise la langue du client. Français pour le client français, anglais par défaut.
+Le dossier reste QoLToolkit. Les sauvegardes existantes sont conservées.
 
 MISE À JOUR 3.2.5
 Arkann’s QOL Forever devient QoL Toolkit. Le nouveau dossier est QoLToolkit.

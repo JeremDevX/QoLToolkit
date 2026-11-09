@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local db, native, panel, catalog, bucket, plan, fullState
 local title, buildButton, nameInput, editButton, undoButton, summary, levelLabel, levelSlider, firstButton, listBody, tooltip
 local infoCard, progressLabel, progressFill, listTitle, scroll, footer, emptyText
@@ -127,9 +128,9 @@ local function Layout()
     levelSlider:ClearAllPoints(); levelSlider:SetPoint("TOPLEFT", 16, -levelTop - fontSize - 9)
     firstButton:ClearAllPoints(); firstButton:SetPoint("TOPLEFT", 12, -levelTop - fontSize - 33)
     local listTop = editing and (levelTop + fontSize + 77) or (cardTop + cardHeight + 18)
-    listTitle:SetText(editing and "Ordre du build" or "Prochains points")
+    listTitle:SetText(editing and L("Ordre du build") or L("Prochains points"))
     listTitle:ClearAllPoints(); listTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -listTop)
-    footer:SetText(editing and "Clic : +1 • Clic droit : retirer\nAnnuler : dernier point du build" or "Badge : prochain niveau du talent\nHalo : point disponible")
+    footer:SetText(editing and L("Clic : +1 • Clic droit : retirer\nAnnuler : dernier point du build") or L("Badge : prochain niveau du talent\nHalo : point disponible"))
     scroll:ClearAllPoints(); scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -listTop - fontSize - 11)
     scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -30, math.max(52, footer:GetStringHeight() + 24))
 end
@@ -154,27 +155,27 @@ local function ShowPointTooltip(owner, nodeID, entryID)
     if not entry then return end
     tooltip:SetOwner(owner, "ANCHOR_RIGHT"); tooltip:ClearLines()
     tooltip:AddLine(entry.name, 1, 0.82, 0)
-    tooltip:AddLine("Prévu : " .. (fullState.counts[nodeID] or 0) .. "/" .. MaxRanks(node, entry), 1, 1, 1)
+    tooltip:AddLine(L("Prévu : %d/%d"):format(fullState.counts[nodeID] or 0, MaxRanks(node, entry)), 1, 1, 1)
     local levels = (editing and fullState.levels or remainingLevels)[nodeID] or {}
     local levelText = Model.LevelLabel(levels)
-    tooltip:AddLine((editing and "Niveaux : " or "À prendre : ") .. (levelText ~= "" and levelText or "—"), 1, 1, 1)
+    tooltip:AddLine(L(editing and "Niveaux : %s" or "À prendre : %s"):format(levelText ~= "" and levelText or "—"), 1, 1, 1)
     local actual = catalog.actualCounts[nodeID] or 0
-    tooltip:AddLine((catalog.hasStagedChanges and "En jeu (non validé) : " or "Appris : ") .. actual, 0.7, 0.8, 1)
+    tooltip:AddLine(L(catalog.hasStagedChanges and "En jeu (non validé) : %d" or "Appris : %d"):format(actual), 0.7, 0.8, 1)
     if C_Traits.GetTraitDescription then
         local rank = math.max(1, math.min(MaxRanks(node, entry), (fullState.counts[nodeID] or 0) + 1))
         local ok, description = pcall(C_Traits.GetTraitDescription, entryID, rank)
         if ok and type(description) == "string" then tooltip:AddLine(description, 1, 1, 1, true) end
     end
-    if editing then tooltip:AddLine("Clic : +1 • Clic droit : retirer", 0.7, 0.7, 0.7) end
+    if editing then tooltip:AddLine(L("Clic : +1 • Clic droit : retirer"), 0.7, 0.7, 0.7) end
     local unsupported = node.unsupported or entry.unsupported
-    if unsupported then tooltip:AddLine(unsupported, 1, 0.4, 0.3, true) end
+    if unsupported then tooltip:AddLine(L(unsupported), 1, 0.4, 0.3, true) end
     tooltip:Show()
 end
 
 local function AddPoint(nodeID, entryID)
     if not editing or Combat() or not plan or not catalog then return end
     local ok, reason = Model.Append(catalog, plan.order, nodeID, entryID, FirstLevel())
-    if not ok then Message(reason); return end
+    if not ok then Message(L(reason)); return end
     previewLevel = math.min(60, FirstLevel() + #plan.order - 1)
     Draw()
 end
@@ -184,8 +185,8 @@ local function ClickTalent(self, button)
     local node = catalog.nodes[self.nodeID]
     if not node then return end
     if button == "RightButton" then
-        local ok, reason = Model.RemoveLast(catalog, plan.order, self.nodeID, FirstLevel())
-        if ok then Draw() else Message(reason) end
+        local ok, reason, detail = Model.RemoveLast(catalog, plan.order, self.nodeID, FirstLevel())
+        if ok then Draw() else Message(detail and L("Retrait impossible : %s"):format(L(detail)) or L(reason)) end
         return
     end
     local chosen = fullState.choices[self.nodeID]
@@ -196,7 +197,7 @@ local function ClickTalent(self, button)
     if #entries == 1 then AddPoint(self.nodeID, entries[1]); return end
     local nodeID = self.nodeID
     MenuUtil.CreateContextMenu(self, function(_, menu)
-        menu:CreateTitle("Choisir le talent")
+        menu:CreateTitle(L("Choisir le talent"))
         for _, entryID in ipairs(entries) do
             local choice = entryID
             menu:CreateButton(node.entries[choice].name, function() AddPoint(nodeID, choice) end)
@@ -305,35 +306,35 @@ Draw = function()
     fullState = Model.Replay(catalog, plan.order, FirstLevel())
     UpdateProgress()
     ApplyStyle()
-    title:SetText("Builds · " .. catalog.className)
+    title:SetText(L("Builds · %s"):format(catalog.className))
     buildButton:SetText(plan.name)
     if nameInput.ownerPlan ~= plan then
         nameInput:ClearFocus()
         nameInput.ownerPlan = plan
         nameInput:SetText(plan.name)
     elseif not nameInput:HasFocus() then nameInput:SetText(plan.name) end
-    editButton:SetText(editing and "Terminer" or "Modifier le build")
+    editButton:SetText(editing and L("Terminer") or L("Modifier le build"))
     Layout()
     undoButton:SetEnabled(#plan.order > 0 and not Combat())
-    levelLabel:SetText("Aperçu au niveau " .. previewLevel)
+    levelLabel:SetText(L("Aperçu au niveau %d"):format(previewLevel))
     syncing = true; levelSlider:SetValue(previewLevel); syncing = false
-    local source = plan.firstLevel and "manuel" or (catalog.detectedFirstLevel and "auto" or "à vérifier")
-    firstButton:SetText("1er point : niv. " .. FirstLevel() .. " (" .. source .. ")")
+    local source = plan.firstLevel and L("manuel") or (catalog.detectedFirstLevel and L("auto") or L("à vérifier"))
+    firstButton:SetText(L("1er point : niv. %d (%s)"):format(FirstLevel(), source))
     local nextIndex
     for index = 1, math.min(#plan.order, catalog.maxPoints) do
         if not learned[index] then nextIndex = index; break end
     end
-    progressLabel:SetText(editing and (#plan.order .. " / " .. catalog.maxPoints .. " points prévus") or (learnedCount .. " / " .. #plan.order .. " points appris"))
+    progressLabel:SetText(editing and L("%d / %d points prévus"):format(#plan.order, catalog.maxPoints) or L("%d / %d points appris"):format(learnedCount, #plan.order))
     local fraction = editing and (#plan.order / catalog.maxPoints) or (#plan.order > 0 and learnedCount / #plan.order or 0)
     progressFill:SetWidth(math.max(1, 272 * math.min(1, fraction))); progressFill:SetShown(fraction > 0)
     local message
-    if fullState.error then message = "Plan à revoir : " .. fullState.error
-    elseif editing then message = #plan.order >= catalog.maxPoints and "Build complet" or "Prochain ajout : niveau " .. (FirstLevel() + #plan.order)
-    elseif catalog.hasStagedChanges then message = "Changements en attente de validation"
+    if fullState.error then message = L("Plan à revoir : %s"):format(L(fullState.error))
+    elseif editing then message = #plan.order >= catalog.maxPoints and L("Build complet") or L("Prochain ajout : niveau %d"):format(FirstLevel() + #plan.order)
+    elseif catalog.hasStagedChanges then message = L("Changements en attente de validation")
     elseif nextIndex then
         local entry = EntryFor(plan.order[nextIndex])
-        message = "Niv. " .. (FirstLevel() + nextIndex - 1) .. " · " .. (entry and entry.name or "Talent indisponible")
-    else message = #plan.order > 0 and "Build terminé" or "Ajoute tes talents avec Modifier le build." end
+        message = L("Niv. %d · %s"):format(FirstLevel() + nextIndex - 1, entry and entry.name or L("Talent indisponible"))
+    else message = #plan.order > 0 and L("Build terminé") or L("Ajoute tes talents avec Modifier le build.") end
     Message(message)
     summary:SetTextColor(unpack(Color(fullState.error and "error" or "next")))
     for _, row in ipairs(rows) do row:Hide() end
@@ -379,9 +380,9 @@ Draw = function()
             local entry = type(point) == "table" and EntryFor(point) or nil
             row.icon:SetTexture(entry and entry.icon or 134400)
             row.level:SetText(tostring(FirstLevel() + index - 1))
-            row.text:SetText(entry and entry.name or "Talent indisponible")
+            row.text:SetText(entry and entry.name or L("Talent indisponible"))
             local node = type(point) == "table" and catalog.nodes[point.nodeID]
-            row.detail:SetText(entry and ("Rang " .. (pointRanks[index] or 0) .. " / " .. MaxRanks(node, entry)) or "À revoir")
+            row.detail:SetText(entry and L("Rang %d / %d"):format(pointRanks[index] or 0, MaxRanks(node, entry)) or L("À revoir"))
             local nextColor = Color("next")
             row.background:SetColorTexture(index == nextIndex and not editing and nextColor[1] * 0.22 or 0.09, index == nextIndex and not editing and nextColor[2] * 0.22 or 0.075, 0.055, 0.85)
             if fullState.errorIndex and index >= fullState.errorIndex then row.text:SetTextColor(unpack(Color("error")))
@@ -391,7 +392,7 @@ Draw = function()
             row:Show()
         end
     end
-    emptyText:SetText(#plan.order > 0 and "Aucun point restant." or "Ton build est vide.")
+    emptyText:SetText(#plan.order > 0 and L("Aucun point restant.") or L("Ton build est vide."))
     emptyText:SetShown(visibleCount == 0)
     listBody:SetHeight(math.max(60, visibleCount * rowHeight))
     if listPlan ~= plan or listEditing ~= editing or listCount ~= visibleCount then scroll:SetVerticalScroll(0) end
@@ -416,9 +417,9 @@ Refresh = function()
     if not ok or not result then
         catalog, plan, bucket, editing = nil, nil, nil, false
         HideOverlays(); PositionPanel(); panel:Show()
-        title:SetText("Builds de talents")
-        Layout(); progressLabel:SetText("Lecture indisponible"); progressFill:Hide(); emptyText:Hide()
-        Message(reason or "Talents indisponibles. Rouvre l'arbre hors combat.")
+        title:SetText(L("Builds de talents"))
+        Layout(); progressLabel:SetText(L("Lecture indisponible")); progressFill:Hide(); emptyText:Hide()
+        Message(L(reason or "Talents indisponibles. Rouvre l'arbre hors combat."))
         editButton:SetEnabled(false); undoButton:SetEnabled(false); buildButton:SetEnabled(false); firstButton:SetEnabled(false)
         for _, row in ipairs(rows) do row:Hide() end
         return
@@ -460,7 +461,7 @@ local function Preview()
         preview:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12})
         preview:SetBackdropColor(0.08, 0.065, 0.05, 0.97); preview:SetBackdropBorderColor(0.65, 0.5, 0.2, 1)
         preview.labels = {}
-        for i, text in ipairs({"Aperçu · Builds de talents", "Niv. 20 · Prochain talent", "Niv. 21 · Talent suivant", "Exemple : plan à revoir"}) do
+        for i, text in ipairs({L("Aperçu · Builds de talents"), L("Niv. 20 · Prochain talent"), L("Niv. 21 · Talent suivant"), L("Exemple : plan à revoir")}) do
             local label = preview:CreateFontString(nil, "OVERLAY", i == 1 and "GameFontNormalLarge" or "GameFontHighlight")
             label:SetPoint("TOPLEFT", 18, -18 - (i - 1) * 36); label:SetText(text); preview.labels[i] = label
         end
@@ -468,7 +469,7 @@ local function Preview()
         preview.glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border"); preview.glow:SetBlendMode("ADD")
         preview.glow:SetPoint("RIGHT", preview, "RIGHT", -12, 30); preview.glow:SetSize(68, 68)
         local close = CreateFrame("Button", nil, preview, "UIPanelButtonTemplate")
-        close:SetPoint("BOTTOM", preview, "BOTTOM", 0, 12); close:SetSize(150, 26); close:SetText("Arrêter l’aperçu")
+        close:SetPoint("BOTTOM", preview, "BOTTOM", 0, 12); close:SetSize(150, 26); close:SetText(L("Arrêter l’aperçu"))
         close:SetScript("OnClick", StopPreview)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(close) end
         preview:SetScript("OnUpdate", function(_, delta)
@@ -566,7 +567,7 @@ function ns.InitializeTalentPlanner(parentCategory)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(value) end
         return value
     end
-    title = Text(panel, "Builds de talents", 12, -14, "GameFontNormal")
+    title = Text(panel, L("Builds de talents"), 12, -14, "GameFontNormal")
     title:SetWidth(264); title:SetWordWrap(false)
     local header = CreateFrame("Frame", nil, panel)
     header:SetPoint("TOPLEFT", 4, -4); header:SetSize(274, 32); header:EnableMouse(true); header:RegisterForDrag("LeftButton")
@@ -600,7 +601,7 @@ function ns.InitializeTalentPlanner(parentCategory)
         end)
     end)
     buildButton:GetFontString():SetWidth(180); buildButton:GetFontString():SetWordWrap(false)
-    Button("New", "Nouveau", 224, -46, 84, function()
+    Button("New", L("Nouveau"), 224, -46, 84, function()
         if not bucket or Combat() then return end
         bucket.plans[#bucket.plans + 1] = {name = "Build " .. (#bucket.plans + 1), order = {}}
         bucket.active = #bucket.plans; CurrentBucket(); editing = true; Draw()
@@ -617,12 +618,12 @@ function ns.InitializeTalentPlanner(parentCategory)
     nameInput:SetScript("OnEnterPressed", function(self) SaveName(self); self:ClearFocus() end)
     nameInput:SetScript("OnEditFocusLost", SaveName)
     nameInput:SetScript("OnEscapePressed", function(self) if plan then self:SetText(plan.name) end; self:ClearFocus() end)
-    editButton = Button("Edit", "Modifier le build", 12, -84, 196, function()
-        if Combat() then Message("Édition hors combat."); return end
+    editButton = Button("Edit", L("Modifier le build"), 12, -84, 196, function()
+        if Combat() then Message(L("Édition hors combat.")); return end
         nameInput:ClearFocus()
         editing = not editing; if editing then previewLevel = 60 end; Draw()
     end)
-    undoButton = Button("Undo", "Annuler", 216, -84, 92, function()
+    undoButton = Button("Undo", L("Annuler", "talent.undo"), 216, -84, 92, function()
         if plan and not Combat() then Model.Undo(plan.order); Draw() end
     end)
     infoCard = CreateFrame("Frame", "ArkannsQOLTalentProgress", panel, "BackdropTemplate")
@@ -636,7 +637,7 @@ function ns.InitializeTalentPlanner(parentCategory)
     end)
     infoCard:SetScript("OnLeave", function() tooltip:Hide() end)
     progressLabel = Text(infoCard, "", 12, -10, "GameFontDisableSmall"); progressLabel:SetWidth(272)
-    summary = Text(infoCard, "Ouvre tes talents (N).", 12, -28, "GameFontNormal")
+    summary = Text(infoCard, L("Ouvre tes talents (N)."), 12, -28, "GameFontNormal")
     summary:SetWidth(272); summary:SetHeight(36); summary:SetWordWrap(true)
     local track = infoCard:CreateTexture(nil, "BACKGROUND")
     track:SetPoint("BOTTOMLEFT", 12, 8); track:SetSize(272, 3); track:SetColorTexture(0.18, 0.2, 0.24, 1)
@@ -651,36 +652,36 @@ function ns.InitializeTalentPlanner(parentCategory)
     levelSlider:SetScript("OnValueChanged", function(_, value)
         if not syncing and plan then previewLevel = math.max(5, math.min(60, math.floor(value + 0.5))); Draw() end
     end)
-    firstButton = Button("FirstLevel", "1er point", 12, -294, 296, function(self)
+    firstButton = Button("FirstLevel", L("1er point"), 12, -294, 296, function(self)
         if not plan then return end
         MenuUtil.CreateContextMenu(self, function(_, menu)
-            menu:CreateTitle("Niveau du premier point")
-            menu:CreateButton("Automatique", function() plan.firstLevel = nil; Draw() end)
+            menu:CreateTitle(L("Niveau du premier point"))
+            menu:CreateButton(L("Automatique"), function() plan.firstLevel = nil; Draw() end)
             for level = 5, 10 do
                 local chosen = level
-                menu:CreateButton("Niveau " .. level, function() plan.firstLevel = chosen; Draw() end)
+                menu:CreateButton(L("Niveau %d"):format(level), function() plan.firstLevel = chosen; Draw() end)
             end
         end)
     end)
     firstButton:SetScript("OnEnter", function(self)
         if not catalog then return end
         tooltip:SetOwner(self, "ANCHOR_RIGHT"); tooltip:ClearLines()
-        tooltip:AddLine("Premier point de talent", 1, 0.82, 0)
-        tooltip:AddLine(plan.firstLevel and "Niveau choisi manuellement." or catalog.levelSource, 1, 1, 1, true)
-        tooltip:AddLine("Modifie-le ici si ton bonus Héritage diffère.", 0.7, 0.7, 0.7, true)
+        tooltip:AddLine(L("Premier point de talent"), 1, 0.82, 0)
+        tooltip:AddLine(L(plan.firstLevel and "Niveau choisi manuellement." or catalog.levelSource), 1, 1, 1, true)
+        tooltip:AddLine(L("Modifie-le ici si ton bonus Héritage diffère."), 0.7, 0.7, 0.7, true)
         tooltip:Show()
     end)
     firstButton:SetScript("OnLeave", function() tooltip:Hide() end)
-    listTitle = Text(panel, "Prochains points", 12, -220, "GameFontNormal")
+    listTitle = Text(panel, L("Prochains points"), 12, -220, "GameFontNormal")
     scroll = CreateFrame("ScrollFrame", "ArkannsQOLTalentOrder", panel, "UIPanelScrollFrameTemplate")
     listBody = CreateFrame("Frame", nil, scroll); listBody:SetSize(278, 60); scroll:SetScrollChild(listBody)
     scroll:SetScript("OnSizeChanged", function(_, width) listBody:SetWidth(math.max(1, width)) end)
-    emptyText = Text(listBody, "Ton build est vide.", 8, -16); emptyText:SetWidth(262)
+    emptyText = Text(listBody, L("Ton build est vide."), 8, -16); emptyText:SetWidth(262)
     footer = Text(panel, "", 12, -550, "GameFontDisableSmall")
     footer:ClearAllPoints(); footer:SetPoint("BOTTOMLEFT", 12, 12)
 
     options = CreateFrame("Frame", "ArkannsQOLTalentSettings", UIParent, "BackdropTemplate"); options:Hide()
-    Text(options, "Builds de talents", 16, -16, "GameFontNormalLarge")
+    Text(options, L("Builds de talents"), 16, -16, "GameFontNormalLarge")
     local updates = {}
     local function OptionButton(name, label, x, y, width, action)
         local button = CreateFrame("Button", "ArkannsQOLTalent" .. name, options, "UIPanelButtonTemplate")
@@ -699,27 +700,27 @@ function ns.InitializeTalentPlanner(parentCategory)
         end)
         updates[#updates + 1] = function()
             local caption = tostring(db[key]); for _, item in ipairs(values) do if item[1] == db[key] then caption = item[2] end end
-            button:SetText(label .. " : " .. caption)
+            button:SetText(L("%s : %s"):format(label, caption))
         end
     end
-    Text(options, "Fonctionnement", 16, -58, "GameFontNormal")
+    Text(options, L("Fonctionnement"), 16, -58, "GameFontNormal")
     local check = CreateFrame("CheckButton", "ArkannsQOLTalentEnabled", options, "UICheckButtonTemplate")
     check:SetPoint("TOPLEFT", 12, -84)
     local label = check:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    label:SetPoint("LEFT", check, "RIGHT", 2, 0); label:SetText("Afficher avec les talents"); check:SetFontString(label)
+    label:SetPoint("LEFT", check, "RIGHT", 2, 0); label:SetText(L("Afficher avec les talents")); check:SetFontString(label)
     check:SetScript("OnClick", function(self) SetEnabled(self:GetChecked()) end)
-    Choice("FutureSteps", "Étapes visibles", "futureSteps", {{1, "Prochaine seule"}, {3, "3 prochaines"}, {5, "5 prochaines"}, {10, "10 prochaines"}, {0, "Toutes"}}, 16, -128, 290)
-    OptionButton("ResetBehavior", "Réinitialiser", 430, -52, 110, function() db.futureSteps = 0; SetEnabled(true) end)
-    local help = Text(options, "Le build complet reste enregistré. Modifier le build affiche tous ses points.\nAucun talent n’est acheté automatiquement.", 16, -168); help:SetWidth(550)
+    Choice("FutureSteps", L("Étapes visibles"), "futureSteps", {{1, L("Prochaine seule")}, {3, L("3 prochaines")}, {5, L("5 prochaines")}, {10, L("10 prochaines")}, {0, L("Toutes")}}, 16, -128, 290)
+    OptionButton("ResetBehavior", L("Réinitialiser"), 430, -52, 110, function() db.futureSteps = 0; SetEnabled(true) end)
+    local help = Text(options, L("Le build complet reste enregistré. Modifier le build affiche tous ses points.\nAucun talent n’est acheté automatiquement."), 16, -168); help:SetWidth(550)
 
-    Text(options, "Apparence", 16, -224, "GameFontNormal")
-    Choice("Glow", "Intensité du halo", "glowIntensity", {{0, "Aucun"}, {0.25, "25 %"}, {0.5, "50 %"}, {0.75, "75 %"}, {1, "100 %"}}, 16, -256, 260)
+    Text(options, L("Apparence"), 16, -224, "GameFontNormal")
+    Choice("Glow", L("Intensité du halo"), "glowIntensity", {{0, L("Aucun")}, {0.25, "25 %"}, {0.5, "50 %"}, {0.75, "75 %"}, {1, "100 %"}}, 16, -256, 260)
     local compact = CreateFrame("CheckButton", "ArkannsQOLTalentCompact", options, "UICheckButtonTemplate")
     compact:SetPoint("TOPLEFT", 300, -254)
     local compactLabel = compact:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    compactLabel:SetPoint("LEFT", compact, "RIGHT", 2, 0); compactLabel:SetText("Panneau compact")
+    compactLabel:SetPoint("LEFT", compact, "RIGHT", 2, 0); compactLabel:SetText(L("Panneau compact"))
     compact:SetScript("OnClick", function(self) db.compact = self:GetChecked() == true; SettingsChanged() end)
-    for index, item in ipairs({{"nextColor", "Prochain"}, {"futureColor", "Suivants"}, {"errorColor", "Erreur"}}) do
+    for index, item in ipairs({{"nextColor", L("Prochain")}, {"futureColor", L("Suivants")}, {"errorColor", L("Erreur")}}) do
         local key, label = item[1], item[2]
         OptionButton("Color" .. key, label, 16 + (index - 1) * 180, -296, 165, function()
             if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
@@ -741,34 +742,39 @@ function ns.InitializeTalentPlanner(parentCategory)
         local own = CreateFrame("CheckButton", "ArkannsQOLTalentOwnStyle", options, "UICheckButtonTemplate")
         own:SetPoint("TOPLEFT", 12, -334)
         local ownLabel = own:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        ownLabel:SetPoint("LEFT", own, "RIGHT", 2, 0); ownLabel:SetText("Apparence propre à ce module")
+        ownLabel:SetPoint("LEFT", own, "RIGHT", 2, 0); ownLabel:SetText(L("Apparence propre à ce module"))
         own:SetScript("OnClick", function(self) ns.UI.SetOverride("talents", self:GetChecked() == true) end)
         updates[#updates + 1] = function() own:SetChecked(ns.UI.IsOverride("talents")) end
     end
-    OptionButton("Preview", "Aperçu · 12 s", 16, -378, 260, Preview)
-    OptionButton("StopPreview", "Arrêter l’aperçu", 296, -378, 240, StopPreview)
-    OptionButton("ResetAppearance", "Réinitialiser", 430, -218, 110, function()
+    OptionButton("Preview", L("Aperçu · 12 s"), 16, -378, 260, Preview)
+    OptionButton("StopPreview", L("Arrêter l’aperçu"), 296, -378, 240, StopPreview)
+    OptionButton("ResetAppearance", L("Réinitialiser"), 430, -218, 110, function()
         for _, key in ipairs({"compact", "glowIntensity", "nextColor", "futureColor", "errorColor"}) do db[key] = Copy(defaults[key]) end
         if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("talents", false) end
         SettingsChanged()
     end)
 
-    Text(options, "Disposition", 16, -438, "GameFontNormal")
-    OptionButton("Reposition", "Replacer près des talents", 16, -466, 260, function() db.x, db.y = nil, nil; SettingsChanged() end)
-    local tip = Text(options, "Ouvre les talents (N). Glisse le titre pour déplacer le panneau.\n/aqbuild réaffiche le panneau fermé.\nLes profils généraux copient les réglages, jamais tes builds.", 16, -510); tip:SetWidth(550)
+    Text(options, L("Disposition"), 16, -438, "GameFontNormal")
+    OptionButton("Reposition", L("Replacer près des talents"), 16, -466, 260, function() db.x, db.y = nil, nil; SettingsChanged() end)
+    local tip = Text(options, L("Ouvre les talents (N). Glisse le titre pour déplacer le panneau.\n/aqbuild réaffiche le panneau fermé.\nLes profils généraux copient les réglages, jamais tes builds."), 16, -510); tip:SetWidth(550)
     options.OnRefresh = function()
         check:SetChecked(db.enabled); compact:SetChecked(db.compact)
         for _, update in ipairs(updates) do update() end
     end
     options:SetScript("OnShow", options.OnRefresh); options:SetScript("OnHide", StopPreview)
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(options) end
-    ns.talentCategory = Settings.RegisterCanvasLayoutSubcategory(parentCategory, options, "Builds de talents")
+    ns.talentCategory = Settings.RegisterCanvasLayoutSubcategory(parentCategory, options, L("Builds de talents"))
     if ns.RegisterModule then ns.RegisterModule("talents", {
-        label = "Builds de talents", icon = "Interface\\Buttons\\UI-MicroButton-Talents-Up", iconAtlas = "UI-HUD-MicroMenu-SpecTalents-Up", category = function() return ns.talentCategory end,
+        label = L("Builds de talents"), icon = "Interface\\Buttons\\UI-MicroButton-Talents-Up", iconAtlas = "UI-HUD-MicroMenu-SpecTalents-Up", category = function() return ns.talentCategory end,
         profileClassIndependent = true,
         frame = panel, GetPosition = GetPosition, SetPosition = SetPosition,
         IsEnabled = function() return db.enabled end, SetEnabled = SetEnabled,
-        Summary = function() return (db.compact and "Compact" or "Confort") .. " · " .. (db.futureSteps == 0 and "toutes les étapes" or db.futureSteps .. " étape(s)") end,
+        Summary = function()
+            local mode = db.compact and "Compact" or L("Confort")
+            if db.futureSteps == 0 then return L("%s · toutes les étapes"):format(mode) end
+            if db.futureSteps == 1 then return L("%s · 1 étape"):format(mode) end
+            return L("%s · %d étapes"):format(mode, db.futureSteps)
+        end,
         Preview = Preview, StopPreview = StopPreview, Refresh = SettingsChanged,
         ExportSettings = function()
             local result = {}; for key in pairs(defaults) do result[key] = Copy(db[key]) end
@@ -788,7 +794,7 @@ function ns.InitializeTalentPlanner(parentCategory)
     SLASH_ARKANNSQOLTALENTS1 = "/aqbuild"
     SlashCmdList.ARKANNSQOLTALENTS = function()
         dismissed = false; Attach(); Refresh()
-        if not panel:IsShown() then print("|cff33ccffQoL Toolkit :|r Ouvre tes talents (N) et active le module dans /aqol.") end
+        if not panel:IsShown() then print(L("|cff33ccffQoL Toolkit :|r Ouvre tes talents (N) et active le module dans /aqol.")) end
     end
     local events = CreateFrame("Frame", "ArkannsQOLTalentEvents")
     for _, event in ipairs({"ADDON_LOADED", "PLAYER_ENTERING_WORLD", "TRAIT_CONFIG_UPDATED", "TRAIT_NODE_CHANGED", "TRAIT_NODE_CHANGED_PARTIAL", "TRAIT_NODE_ENTRY_UPDATED", "TRAIT_TREE_CURRENCY_INFO_UPDATED", "TRAIT_SUB_TREE_CHANGED", "TRAIT_TREE_CHANGED", "SPELL_DATA_LOAD_RESULT", "PLAYER_LEVEL_UP", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED"}) do events:RegisterEvent(event) end

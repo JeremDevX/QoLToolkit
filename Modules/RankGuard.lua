@@ -1,5 +1,6 @@
 -- Module Rangs de sorts : lecture seule des boutons et du grimoire.
 local _, ns = ...
+local L = ns.L
 local ReadAPI, Read = ns.WoW.Read, ns.WoW.ReadValue
 local Public, FiniteNumber = ns.WoW.IsPublic, ns.WoW.IsFiniteNumber
 local db, initialized
@@ -299,7 +300,7 @@ local function RegisterSettings(rootCategory)
     panel:Hide()
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -20)
-    title:SetText("Rangs de sorts")
+    title:SetText(L("Rangs de sorts"))
     local updates = {}
     local function Text(text, x, y)
         local label = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -334,21 +335,21 @@ local function RegisterSettings(rootCategory)
         end)
         updates[#updates + 1] = function()
             local caption = tostring(db[key]); for _, item in ipairs(values) do if item[1] == db[key] then caption = item[2] end end
-            button:SetText(label .. " : " .. caption)
+            button:SetText(string.format(L("%s : %s"), label, caption))
         end
     end
-    Text("Fonctionnement", 24, -62)
-    Check("Enabled", "Avertissements de rang", "enabled", 20, -86)
-    Choice("Interval", "Actualisation", "interval", {{0.5, "0,5 s"}, {1, "1 s"}, {2, "2 s"}, {5, "5 s"}, {10, "10 s"}}, 320, -88, 220)
-    Text("Rang supérieur appris uniquement. Macros ignorées. Aucun sort remplacé.", 24, -128)
-    Button("ResetBehavior", "Réinitialiser", 430, -54, 110, function() db.interval = 2; SetEnabled(true) end)
+    Text(L("Fonctionnement"), 24, -62)
+    Check("Enabled", L("Avertissements de rang"), "enabled", 20, -86)
+    Choice("Interval", L("Actualisation"), "interval", {{0.5, L("0,5 s")}, {1, "1 s"}, {2, "2 s"}, {5, "5 s"}, {10, "10 s"}}, 320, -88, 220)
+    Text(L("Rang supérieur appris uniquement. Macros ignorées. Aucun sort remplacé."), 24, -128)
+    Button("ResetBehavior", L("Réinitialiser"), 430, -54, 110, function() db.interval = 2; SetEnabled(true) end)
 
-    Text("Apparence", 24, -176)
-    Choice("Style", "Badge", "style", {{"mark", "!"}, {"dot", "Point"}, {"border", "Bordure"}}, 24, -204)
-    Choice("Corner", "Coin", "corner", {{"BOTTOMLEFT", "Bas gauche"}, {"BOTTOMRIGHT", "Bas droite"}, {"TOPLEFT", "Haut gauche"}, {"TOPRIGHT", "Haut droite"}}, 224, -204, 190)
-    Choice("Size", "Taille", "size", {{10, "10"}, {14, "14"}, {18, "18"}, {24, "24"}, {32, "32"}}, 24, -240)
-    Choice("Opacity", "Opacité", "opacity", {{0.25, "25 %"}, {0.5, "50 %"}, {0.75, "75 %"}, {1, "100 %"}}, 224, -240, 190)
-    Button("Color", "Couleur", 430, -240, 110, function()
+    Text(L("Apparence"), 24, -176)
+    Choice("Style", L("Badge"), "style", {{"mark", "!"}, {"dot", L("Point")}, {"border", L("Bordure")}}, 24, -204)
+    Choice("Corner", L("Coin"), "corner", {{"BOTTOMLEFT", L("Bas gauche")}, {"BOTTOMRIGHT", L("Bas droite")}, {"TOPLEFT", L("Haut gauche")}, {"TOPRIGHT", L("Haut droite")}}, 224, -204, 190)
+    Choice("Size", L("Taille"), "size", {{10, "10"}, {14, "14"}, {18, "18"}, {24, "24"}, {32, "32"}}, 24, -240)
+    Choice("Opacity", L("Opacité"), "opacity", {{0.25, L("25 %")}, {0.5, L("50 %")}, {0.75, L("75 %")}, {1, L("100 %")}}, 224, -240, 190)
+    Button("Color", L("Couleur"), 430, -240, 110, function()
         if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
         local old = Copy(db.color)
         local oldOverride = ns.UI and ns.UI.IsOverride and ns.UI.IsOverride("ranks")
@@ -364,22 +365,22 @@ local function RegisterSettings(rootCategory)
                 Changed()
             end})
     end)
-    Button("Preview", "Aperçu · 12 s", 24, -278, 185, Preview)
-    Button("StopPreview", "Arrêter l’aperçu", 224, -278, 190, StopPreview)
-    Button("ResetAppearance", "Réinitialiser", 430, -168, 110, function()
+    Button("Preview", L("Aperçu · 12 s"), 24, -278, 185, Preview)
+    Button("StopPreview", L("Arrêter l’aperçu"), 224, -278, 190, StopPreview)
+    Button("ResetAppearance", L("Réinitialiser"), 430, -168, 110, function()
         for _, key in ipairs({"style", "corner", "size", "opacity", "color"}) do db[key] = Copy(defaults[key]) end
         if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("ranks", false) end
         Changed()
     end)
 
-    Text("Visibilité", 24, -356)
-    Check("Combat", "En combat", "showCombat", 20, -380)
-    Check("Rest", "Hors combat", "showRest", 224, -380)
-    Button("ResetVisibility", "Réinitialiser", 430, -348, 110, function() db.showCombat, db.showRest = true, true; Changed() end)
+    Text(L("Visibilité"), 24, -356)
+    Check("Combat", L("En combat"), "showCombat", 20, -380)
+    Check("Rest", L("Hors combat"), "showRest", 224, -380)
+    Button("ResetVisibility", L("Réinitialiser"), 430, -348, 110, function() db.showCombat, db.showRest = true, true; Changed() end)
 
-    Text("Rangs inférieurs volontaires", 24, -436)
-    Text("Ajoute un sort signalé ou saisis son identifiant exact de rang.", 24, -462)
-    Button("AddException", "Ignorer un sort signalé", 24, -492, 240, function(self)
+    Text(L("Rangs inférieurs volontaires"), 24, -436)
+    Text(L("Ajoute un sort signalé ou saisis son identifiant exact de rang."), 24, -462)
+    Button("AddException", L("Ignorer un sort signalé"), 24, -492, 240, function(self)
         if not MenuUtil then return end
         MenuUtil.CreateContextMenu(self, function(_, menu)
             local seen, count = {}, 0
@@ -388,21 +389,21 @@ local function RegisterSettings(rootCategory)
                 if id and not seen[id] then
                     seen[id], count = true, count + 1
                     local name = C_Spell and Read(C_Spell.GetSpellName, id)
-                    menu:CreateButton((name or "Sort") .. " · " .. id, function() db.exceptions[id] = true; Changed() end)
+                    menu:CreateButton((name or L("Sort")) .. " · " .. id, function() db.exceptions[id] = true; Changed() end)
                 end
             end
-            if count == 0 then menu:CreateTitle("Aucun ancien rang détecté") end
+            if count == 0 then menu:CreateTitle(L("Aucun ancien rang détecté")) end
         end)
     end)
-    Button("RemoveException", "Retirer une exception", 280, -492, 260, function(self)
+    Button("RemoveException", L("Retirer une exception"), 280, -492, 260, function(self)
         if not MenuUtil then return end
         MenuUtil.CreateContextMenu(self, function(_, menu)
             local ids = {}; for id in pairs(db.exceptions) do ids[#ids + 1] = id end; table.sort(ids)
             for _, id in ipairs(ids) do
                 local chosen = id; local name = C_Spell and Read(C_Spell.GetSpellName, id)
-                menu:CreateButton((name or "Sort") .. " · " .. id, function() db.exceptions[chosen] = nil; Changed() end)
+                menu:CreateButton((name or L("Sort")) .. " · " .. id, function() db.exceptions[chosen] = nil; Changed() end)
             end
-            if #ids == 0 then menu:CreateTitle("Aucune exception") end
+            if #ids == 0 then menu:CreateTitle(L("Aucune exception")) end
         end)
     end)
     local input = CreateFrame("EditBox", "ArkannsQOLRankExceptionID", panel, "InputBoxTemplate")
@@ -411,18 +412,18 @@ local function RegisterSettings(rootCategory)
     local status = Text("", 24, -570)
     local function AddID()
         local id = tonumber(input:GetText())
-        if not Identifier(id) then status:SetText("Saisis un identifiant numérique valide."); return end
-        db.exceptions[id] = true; input:SetText(""); input:ClearFocus(); status:SetText("Exception ajoutée : " .. id); Changed()
+        if not Identifier(id) then status:SetText(L("Saisis un identifiant numérique valide.")); return end
+        db.exceptions[id] = true; input:SetText(""); input:ClearFocus(); status:SetText(string.format(L("Exception ajoutée : %s"), tostring(id))); Changed()
     end
     input:SetScript("OnEnterPressed", AddID)
     input:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    Button("AddID", "Ajouter l’identifiant", 200, -530, 180, AddID)
-    Button("ResetExceptions", "Tout retirer", 400, -530, 140, function() db.exceptions = {}; status:SetText(""); Changed() end)
+    Button("AddID", L("Ajouter l’identifiant"), 200, -530, 180, AddID)
+    Button("ResetExceptions", L("Tout retirer"), 400, -530, 140, function() db.exceptions = {}; status:SetText(""); Changed() end)
     if ns.UI and ns.UI.IsOverride and ns.UI.SetOverride then
         local own = CreateFrame("CheckButton", "ArkannsQOLRankOwnStyle", panel, "UICheckButtonTemplate")
         own:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -312)
         local ownLabel = own:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        ownLabel:SetPoint("LEFT", own, "RIGHT", 4, 0); ownLabel:SetText("Apparence propre à ce module")
+        ownLabel:SetPoint("LEFT", own, "RIGHT", 4, 0); ownLabel:SetText(L("Apparence propre à ce module"))
         own:SetScript("OnClick", function(self) ns.UI.SetOverride("ranks", self:GetChecked() == true) end)
         updates[#updates + 1] = function() own:SetChecked(ns.UI.IsOverride("ranks")) end
     end
@@ -430,7 +431,7 @@ local function RegisterSettings(rootCategory)
     panel:SetScript("OnShow", panel.OnRefresh)
     panel:SetScript("OnHide", StopPreview)
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel) end
-    ns.rankGuardCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, "Rangs de sorts")
+    ns.rankGuardCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Rangs de sorts"))
     settingsPanel = panel
 end
 
@@ -453,9 +454,9 @@ function ns.InitializeRankGuard(rootCategory)
     Invalidate()
     elapsed = REFRESH_INTERVAL
     if ns.RegisterModule then ns.RegisterModule("ranks", {
-        label = "Rangs de sorts", icon = "Interface\\Icons\\INV_Misc_Book_11", iconAtlas = "UI-HUD-MicroMenu-SpellbookAbilities-Up", category = function() return ns.rankGuardCategory end,
+        label = L("Rangs de sorts"), icon = "Interface\\Icons\\INV_Misc_Book_11", iconAtlas = "UI-HUD-MicroMenu-SpellbookAbilities-Up", category = function() return ns.rankGuardCategory end,
         IsEnabled = function() return enabled end, SetEnabled = SetEnabled,
-        Summary = function() local count = 0; for _ in pairs(db.exceptions) do count = count + 1 end; return count .. " exception(s) · " .. db.interval .. " s" end,
+        Summary = function() local count = 0; for _ in pairs(db.exceptions) do count = count + 1 end; return string.format(L("%d exception(s) · %s s"), count, tostring(db.interval)) end,
         Preview = Preview, StopPreview = StopPreview, Refresh = Changed,
         ExportSettings = function() local result = {}; for key in pairs(defaults) do result[key] = Copy(db[key]) end; return result end,
         ImportSettings = function(config)
@@ -519,9 +520,9 @@ SlashCmdList.ARKANNSRANKGUARD = function(message)
     local command = (message or ""):lower():match("^%s*(.-)%s*$")
     if command == "on" or command == "activer" then SetEnabled(true)
     elseif command == "off" or command == "desactiver" or command == "désactiver" then SetEnabled(false) end
-    print("|cffffb829QoL Toolkit — Rangs de sorts|r : " .. (enabled and "activé." or "désactivé."))
-    print("Un ! orange indique un rang supérieur déjà appris. /arkrang on ou /arkrang off.")
+    print(string.format(L("|cffffb829QoL Toolkit — Rangs de sorts|r : %s"), enabled and L("activé.") or L("désactivé.")))
+    print(L("Un ! orange indique un rang supérieur déjà appris. /arkrang on ou /arkrang off."))
     if not C_SpellBook or not C_SpellBook.IsSpellBookItemLowRank then
-        print("API de rangs Forever indisponible : aucun avertissement affiché.")
+        print(L("API de rangs Forever indisponible : aucun avertissement affiché."))
     end
 end

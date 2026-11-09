@@ -1,4 +1,5 @@
 local addonName, ns = ...
+local L = ns.L
 local db, panel, check, qualityCheck, status, category, homeCategory, refreshAppearance
 local quick, quickBag, refreshQuick, ToggleQuickSettings
 local listening, bankOpen, failed, scheduled
@@ -192,9 +193,9 @@ local function IsBankOpen()
 end
 
 local function Unavailable()
-    if failed then return "Tri suspendu jusqu’au rechargement de l’interface." end
+    if failed then return L("Tri suspendu jusqu’au rechargement de l’interface.") end
     if not listening or not C_Container or type(C_Container.SortBags) ~= "function" then
-        return "Tri automatique indisponible sur ce client."
+        return L("Tri automatique indisponible sur ce client.")
     end
 end
 
@@ -266,8 +267,8 @@ local function AttachShortcut(frame)
             if not GameTooltip or GameTooltip:IsForbidden() then return end
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
             GameTooltip:SetText("QoL Toolkit")
-            GameTooltip:AddLine("Clic gauche · Réglages rapides", 1, 1, 1)
-            GameTooltip:AddLine("Clic droit · Accueil de l’addon", 1, 1, 1)
+            GameTooltip:AddLine(L("Clic gauche · Réglages rapides"), 1, 1, 1)
+            GameTooltip:AddLine(L("Clic droit · Accueil de l’addon"), 1, 1, 1)
             GameTooltip:Show()
         end)
         button:SetScript("OnLeave", function(self)
@@ -301,7 +302,7 @@ local sampleIcons = {
     "Interface\\Icons\\INV_Misc_Gem_Amethyst_01",
     "Interface\\Icons\\INV_Misc_Gem_Topaz_01",
 }
-local qualityLabels = {"Médiocre", "Commun", "Peu commun", "Rare", "Épique", "Légendaire"}
+local qualityLabels = {L("Médiocre"), L("Commun"), L("Peu commun"), L("Rare"), L("Épique"), L("Légendaire")}
 
 local function ChooseColor(quality)
     if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
@@ -326,7 +327,7 @@ local function BuildAppearance(body, compact)
     local UI = ns.UI
     local prefix = compact and "ArkannsQOLBagQuick" or "ArkannsQOLBag"
     local syncing
-    local filterLabel = compact and "Masquer gris et blancs" or "Masquer les contours gris et blancs"
+    local filterLabel = compact and L("Masquer gris et blancs") or L("Masquer les contours gris et blancs")
     local filter = UI.Check(body, prefix .. "UncommonOnly", filterLabel, 16, compact and -88 or -194, function(value)
         db.qualityUncommonOnly = value
         RefreshSamples()
@@ -344,7 +345,7 @@ local function BuildAppearance(body, compact)
         slider:SetBackdrop({bgFile = "Interface\\Buttons\\UI-SliderBar-Background", edgeFile = "Interface\\Buttons\\UI-SliderBar-Border", edgeSize = 8})
         slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
         slider:GetThumbTexture():SetSize(28, 28)
-        local function Caption() label:SetText(name .. " · " .. db[key] .. " %") end
+        local function Caption() label:SetText(string.format(L("%s · %d %%"), name, db[key])) end
         slider:SetScript("OnValueChanged", function(_, value)
             if syncing then return end
             db[key] = math.floor(value + .5)
@@ -353,11 +354,11 @@ local function BuildAppearance(body, compact)
         end)
         return function() slider:SetValue(db[key]); Caption() end
     end
-    local opacity = Slider("qualityOpacity", "Opacité du contour", compact and -124 or -234)
-    local outerGlow = Slider("qualityGlow", "Halo extérieur", compact and -170 or -290)
-    local innerGlow = Slider("qualityInnerGlow", "Halo intérieur", compact and -216 or -346)
-    UI.Label(body, "Couleurs et aperçu", 20, compact and -262 or -402, 15)
-    if not compact then UI.Label(body, "Clic gauche · Couleur   Clic droit · Couleur WoW", 20, -428) end
+    local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -124 or -234)
+    local outerGlow = Slider("qualityGlow", L("Halo extérieur"), compact and -170 or -290)
+    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -216 or -346)
+    UI.Label(body, L("Couleurs et aperçu"), 20, compact and -262 or -402, 15)
+    if not compact then UI.Label(body, L("Clic gauche · Couleur   Clic droit · Couleur WoW"), 20, -428) end
     local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -286 or -456
     local count = 0
     for quality = 0, 8 do
@@ -381,7 +382,7 @@ local function BuildAppearance(body, compact)
                 if not GameTooltip or GameTooltip:IsForbidden() then return end
                 GameTooltip:SetOwner(self, "ANCHOR_TOP")
                 GameTooltip:SetText(name)
-                if compact then GameTooltip:AddLine("Clic droit · Couleur WoW", 1, 1, 1) end
+                if compact then GameTooltip:AddLine(L("Clic droit · Couleur WoW"), 1, 1, 1) end
                 GameTooltip:Show()
             end)
             sample:SetScript("OnLeave", function(self)
@@ -393,7 +394,7 @@ local function BuildAppearance(body, compact)
     end
     local footerY = top - math.ceil(count / 6) * (size + 9) - 4
     if not compact then
-        UI.Button(body, "ArkannsQOLBagAppearanceDefaults", "Apparence par défaut", 18, footerY, 190, function()
+        UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
             for key, value in pairs(defaults) do if key ~= "enabled" then db[key] = value end end
             db.qualityColors = {}
             Refresh()
@@ -430,21 +431,21 @@ local function CreateQuickSettings()
         self:ClearAllPoints()
     end)
     UI.StylePanel(quick)
-    UI.Label(quick, "Réglages des sacs", 18, -14, 15)
+    UI.Label(quick, L("Réglages des sacs"), 18, -14, 15)
     local close = CreateFrame("Button", name .. "Close", quick, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", quick, "TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function() CloseQuickSettings() end)
-    local sort = UI.Check(quick, "ArkannsQOLBagQuickSort", "Tri à l’ouverture", 14, -37, SetEnabled)
-    local borders = UI.Check(quick, "ArkannsQOLBagQuickBorders", "Contours de rareté", 14, -62, SetQualityBorders)
+    local sort = UI.Check(quick, "ArkannsQOLBagQuickSort", L("Tri à l’ouverture"), 14, -37, SetEnabled)
+    local borders = UI.Check(quick, "ArkannsQOLBagQuickBorders", L("Contours de rareté"), 14, -62, SetQualityBorders)
     local appearance, footerY
     if qualityListening then
         appearance, footerY = BuildAppearance(quick, true)
     else
         borders:Disable()
-        UI.Label(quick, "Bordures indisponibles sur ce client.", 18, -96)
+        UI.Label(quick, L("Bordures indisponibles sur ce client."), 18, -96)
         footerY = -122
     end
-    UI.Button(quick, "ArkannsQOLBagQuickMore", "Plus de réglages", 18, footerY, 140, function() OpenSettings(category) end)
+    UI.Button(quick, "ArkannsQOLBagQuickMore", L("Plus de réglages"), 18, footerY, 140, function() OpenSettings(category) end)
     quick:SetSize(260, -footerY + 41)
     refreshQuick = function()
         sort:SetChecked(db.enabled)
@@ -543,20 +544,20 @@ function ns.InitializeBagSort(rootCategory)
     local body = CreateFrame("Frame", nil, scroll)
     body:SetSize(282, qualityListening and 586 or 225)
     scroll:SetScrollChild(body)
-    ns.UI.Label(body, "Sacs", 16, -16, 20)
-    check = ns.UI.Check(body, "ArkannsQOLBagsEnabled", "Trier à l’ouverture manuelle", 16, -54, SetEnabled)
-    ns.UI.Label(body, "Hors combat et hors banque.", 20, -89)
+    ns.UI.Label(body, L("Sacs"), 16, -16, 20)
+    check = ns.UI.Check(body, "ArkannsQOLBagsEnabled", L("Trier à l’ouverture manuelle"), 16, -54, SetEnabled)
+    ns.UI.Label(body, L("Hors combat et hors banque."), 20, -89)
     status = ns.UI.Label(body, "", 20, -112)
-    ns.UI.Label(body, "Bordures de rareté", 20, -140, 15)
-    qualityCheck = ns.UI.Check(body, "ArkannsQOLBagQualityBorders", "Bordure selon la rareté", 16, -163, SetQualityBorders)
+    ns.UI.Label(body, L("Bordures de rareté"), 20, -140, 15)
+    qualityCheck = ns.UI.Check(body, "ArkannsQOLBagQualityBorders", L("Bordure selon la rareté"), 16, -163, SetQualityBorders)
     if qualityListening then
         refreshAppearance = BuildAppearance(body)
     else
         qualityCheck:Disable()
-        ns.UI.Label(body, "Bordures indisponibles sur ce client.", 20, -196)
+        ns.UI.Label(body, L("Bordures indisponibles sur ce client."), 20, -196)
     end
     panel:SetScript("OnShow", function() CloseQuickSettings(); Refresh() end)
-    category = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, "Sacs")
+    category = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Sacs"))
     AttachShortcut(ContainerFrameCombinedBags)
     if hooksecurefunc and type(ContainerFrame_GenerateFrame) == "function" then
         hooksecurefunc("ContainerFrame_GenerateFrame", AttachShortcut)
@@ -601,9 +602,9 @@ function ns.InitializeBagSort(rootCategory)
     end
 
     ns.RegisterModule("bags", {
-        label = "Sacs", icon = "Interface\\Icons\\INV_Misc_Bag_08", category = function() return category end,
+        label = L("Sacs"), icon = "Interface\\Icons\\INV_Misc_Bag_08", category = function() return category end,
         IsEnabled = function() return db.enabled end, SetEnabled = SetEnabled, Refresh = Refresh,
-        Summary = function() return Unavailable() or "Tri à l’ouverture manuelle" end,
+        Summary = function() return Unavailable() or L("Tri à l’ouverture manuelle") end,
         ExportSettings = function()
             local config = {qualityColors = CopyColors(db.qualityColors)}
             for key in pairs(defaults) do config[key] = db[key] end

@@ -1,4 +1,5 @@
 local addonName, ns = ...
+local L = ns.L
 
 local function BuildFallbackHome(home)
     local function HomeText(text, y, font)
@@ -9,7 +10,7 @@ local function BuildFallbackHome(home)
         label:SetText(text)
     end
     HomeText("QoL Toolkit", -16, "GameFontNormalLarge")
-    HomeText("Choisis un module.", -52)
+    HomeText(L("Choisis un module."), -52)
     local function HomeButton(name, text, y, callback)
         local button = CreateFrame("Button", name, home, "UIPanelButtonTemplate")
         button:SetPoint("TOPLEFT", 16, y)
@@ -18,31 +19,31 @@ local function BuildFallbackHome(home)
         button:SetScript("OnClick", callback)
         return button
     end
-    local remindersButton = HomeButton("ArkannsQOLHomeReminders", "Rappels d'effets", -94, function()
+    local remindersButton = HomeButton("ArkannsQOLHomeReminders", L("Rappels d'effets"), -94, function()
         if ns.reminderCategory then Settings.OpenToCategory(ns.reminderCategory:GetID()) end
     end)
-    HomeText("Auras, buffs et suivis manquants.", -132)
-    HomeButton("ArkannsQOLHomeTooltips", "Infobulles", -164, function()
+    HomeText(L("Auras, buffs et suivis manquants."), -132)
+    HomeButton("ArkannsQOLHomeTooltips", L("Infobulles"), -164, function()
         SlashCmdList.FOREVERTOOLTIPLIBRE("options")
     end)
-    HomeText("Échelle, ancrage et suivi du curseur.", -202)
-    local sessionButton = HomeButton("ArkannsQOLHomeSession", "Journal de session", -234, function()
+    HomeText(L("Échelle, ancrage et suivi du curseur."), -202)
+    local sessionButton = HomeButton("ArkannsQOLHomeSession", L("Journal de session"), -234, function()
         if ns.sessionCategory then Settings.OpenToCategory(ns.sessionCategory:GetID()) end
     end)
-    HomeText("Temps de jeu, XP, or et morts.", -272)
-    local talentsButton = HomeButton("ArkannsQOLHomeTalents", "Builds de talents", -304, function()
+    HomeText(L("Temps de jeu, XP, or et morts."), -272)
+    local talentsButton = HomeButton("ArkannsQOLHomeTalents", L("Builds de talents"), -304, function()
         if ns.talentCategory then Settings.OpenToCategory(ns.talentCategory:GetID()) end
     end)
-    HomeText("Ton build, point par point et niveau par niveau.", -342)
-    local advancedButton = HomeButton("ArkannsQOLHomeAdvanced", "Réglages avancés", -374, function()
+    HomeText(L("Ton build, point par point et niveau par niveau."), -342)
+    local advancedButton = HomeButton("ArkannsQOLHomeAdvanced", L("Réglages avancés"), -374, function()
         if ns.advancedCategory then Settings.OpenToCategory(ns.advancedCategory:GetID()) end
     end)
-    HomeText("Options hors menus, par catégorie et inventaire du client.", -412)
-    local ranksButton = HomeButton("ArkannsQOLHomeRanks", "Rangs de sorts", -444, function()
+    HomeText(L("Options hors menus, par catégorie et inventaire du client."), -412)
+    local ranksButton = HomeButton("ArkannsQOLHomeRanks", L("Rangs de sorts"), -444, function()
         if ns.rankGuardCategory then Settings.OpenToCategory(ns.rankGuardCategory:GetID()) end
     end)
-    HomeText("Un ! sur les sorts dont un meilleur rang est déjà appris.", -482)
-    HomeText("/aqol : accueil • /ft options : infobulles\n/aqsession : journal • /aqbuild : talents • /arkrang : rangs", -524)
+    HomeText(L("Un ! sur les sorts dont un meilleur rang est déjà appris."), -482)
+    HomeText(L("/aqol : accueil • /ft options : infobulles\n/aqsession : journal • /aqbuild : talents • /arkrang : rangs"), -524)
     home:SetScript("OnShow", function()
         remindersButton:SetEnabled(ns.reminderCategory ~= nil)
         sessionButton:SetEnabled(ns.sessionCategory ~= nil)
@@ -103,5 +104,5 @@ events:SetScript("OnEvent", function(self, event, name)
         end
     end
     if #failures > 0 then error(table.concat(failures, "\n")) end
-    if firstRun then print("|cff33ccffQoL Toolkit :|r /aqol : options.") end
+    if firstRun then print(L("|cff33ccffQoL Toolkit :|r /aqol : options.")) end
 end)

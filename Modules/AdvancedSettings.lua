@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local catalog, categories = ns.AdvancedSettingsCatalog, ns.AdvancedSettingsCategories
 local byName = {}
 for _, option in ipairs(catalog) do byName[option.name:lower()] = option end
@@ -28,26 +29,26 @@ end
 function api.Read(name)
     local state = {name = name, native = api.IsNative(name)}
     if not C_CVar or type(C_CVar.GetCVarInfo) ~= "function" then
-        state.reason = "Lecture indisponible"
+        state.reason = L("Lecture indisponible")
         return state
     end
     local ok, value, default, account, character, locked, secure, readOnly = pcall(C_CVar.GetCVarInfo, name)
     if not ok or not Text(value) then
-        state.reason = "Indisponible sur ce client"
+        state.reason = L("Indisponible sur ce client")
         return state
     end
     state.value, state.default = Text(value), Text(default)
     state.present = true
-    if Public(character) and character == true then state.scope = "Personnage"
-    elseif Public(account) and account == true then state.scope = "Compte"
-    else state.scope = "Client" end
-    if state.native then state.reason = "Déjà dans les menus du jeu"
+    if Public(character) and character == true then state.scope = L("Personnage")
+    elseif Public(account) and account == true then state.scope = L("Compte")
+    else state.scope = L("Client") end
+    if state.native then state.reason = L("Déjà dans les menus du jeu")
     elseif not Public(locked) or not Public(secure) or not Public(readOnly)
         or type(locked) ~= "boolean" or type(secure) ~= "boolean" or type(readOnly) ~= "boolean" then
-        state.reason = "Restrictions inconnues"
-    elseif locked or readOnly then state.reason = "Verrouillé par le client"
-    elseif not state.default then state.reason = "Défaut indisponible"
-    elseif type(C_CVar.SetCVar) ~= "function" then state.reason = "Modification indisponible"
+        state.reason = L("Restrictions inconnues")
+    elseif locked or readOnly then state.reason = L("Verrouillé par le client")
+    elseif not state.default then state.reason = L("Défaut indisponible")
+    elseif type(C_CVar.SetCVar) ~= "function" then state.reason = L("Modification indisponible")
     else state.writable = true end
     -- Keep the security flag separate from read-only. The client can still refuse a write.
     state.secure = Public(secure) and secure == true
@@ -94,10 +95,10 @@ function api.ExportSettings()
 end
 
 function api.ImportSettings(settings)
-    if not Public(settings) or type(settings) ~= "table" or not Public(settings.favorites) or type(settings.favorites) ~= "table" then return false, "Favoris invalides." end
+    if not Public(settings) or type(settings) ~= "table" or not Public(settings.favorites) or type(settings.favorites) ~= "table" then return false, L("Favoris invalides.") end
     local favorites = {}
     for name, enabled in pairs(settings.favorites) do
-        if not Public(name) or not Public(enabled) or type(name) ~= "string" or type(enabled) ~= "boolean" then return false, "Favoris invalides." end
+        if not Public(name) or not Public(enabled) or type(name) ~= "string" or type(enabled) ~= "boolean" then return false, L("Favoris invalides.") end
         local option = byName[name:lower()]
         if option and enabled then favorites[option.name] = true end
     end
@@ -123,8 +124,8 @@ function api.ReviewReset(selected)
 end
 
 function api.ApplyReset(review)
-    if InCombatLockdown and InCombatLockdown() then return false, "Disponible hors combat." end
-    if not Public(review) or type(review) ~= "table" then return false, "Sélection invalide. Revois les options." end
+    if InCombatLockdown and InCombatLockdown() then return false, L("Disponible hors combat.") end
+    if not Public(review) or type(review) ~= "table" then return false, L("Sélection invalide. Revois les options.") end
     local function Current(change)
         if not Public(change) or type(change) ~= "table" or not Public(change.name)
             or not Public(change.before) or not Public(change.after) then return false end
@@ -135,26 +136,26 @@ function api.ApplyReset(review)
     -- Validate the complete review before the first write; never accept stale consent.
     for _, change in ipairs(review) do
         if not Current(change) then
-            return false, "Les valeurs ont changé. Revois la sélection avant de confirmer."
+            return false, L("Les valeurs ont changé. Revois la sélection avant de confirmer.")
         end
     end
     local applied = 0
     for _, change in ipairs(review) do
         -- A previous write can update another CVar or its default synchronously.
-        if not Current(change) then return false, applied .. " réinitialisation(s) effectuée(s). Les valeurs ont changé : revois la sélection." end
+        if not Current(change) then return false, L("%d réinitialisation(s) effectuée(s). Les valeurs ont changé : revois la sélection."):format(applied) end
         local ok, message = api.Write(change.name, nil, true)
-        if not ok then return false, applied .. " réinitialisation(s) effectuée(s). " .. change.name .. " : " .. message end
+        if not ok then return false, L("%d réinitialisation(s) effectuée(s). %s : %s"):format(applied, change.name, message) end
         applied = applied + 1
     end
-    return true, applied .. " option(s) réinitialisée(s)."
+    return true, (applied == 1 and L("%d option réinitialisée.") or L("%d options réinitialisées.")):format(applied)
 end
 
 function api.Write(name, input, reset)
     -- Only the reviewed catalog can write. The inventory is always read-only.
-    if not Public(name) or (not reset and not Public(input)) then return false, "Valeur privée non modifiable." end
+    if not Public(name) or (not reset and not Public(input)) then return false, L("Valeur privée non modifiable.") end
     local option = byName[type(name) == "string" and name:lower() or ""]
-    if not option then return false, "Option non documentée : lecture seule." end
-    if InCombatLockdown and InCombatLockdown() then return false, "Disponible hors combat." end
+    if not option then return false, L("Option non documentée : lecture seule.") end
+    if InCombatLockdown and InCombatLockdown() then return false, L("Disponible hors combat.") end
     local state = api.Read(option.name)
     if not state.writable then return false, state.reason end
     local value
@@ -162,17 +163,17 @@ function api.Write(name, input, reset)
         -- The client's real default may be outside our input range.
         value = state.default
     elseif option.kind == "boolean" then
-        if input ~= true and input ~= false then return false, "Choisis activé ou désactivé." end
+        if input ~= true and input ~= false then return false, L("Choisis activé ou désactivé.") end
         value = input and "1" or "0"
     elseif option.kind == "choice" then
         for _, choice in ipairs(option.choices) do if input == choice[1] then value = input end end
-        if not value then return false, "Valeur non proposée." end
+        if not value then return false, L("Valeur non proposée.") end
     else
         local str = Text(input)
         local number = str and tonumber((str:gsub(",", ".")))
         if not number or number ~= number or number == math.huge or number == -math.huge
             or number < option.min or number > option.max or (option.integer and number % 1 ~= 0) then
-            return false, string.format("Saisis %s entre %s et %s.", option.integer and "un entier" or "un nombre", option.min, option.max)
+            return false, (option.integer and L("Saisis un entier entre %s et %s.") or L("Saisis un nombre entre %s et %s.")):format(option.min, option.max)
         end
         value = tostring(number)
         -- Keep paired bounds coherent without silently changing the other option.
@@ -181,24 +182,24 @@ function api.Write(name, input, reset)
         local pair = pairs[option.name]
         local other = pair and tonumber(api.Read(pair[1]).value)
         if other and ((pair[2] and number > other) or (not pair[2] and number < other)) then
-            return false, "Le minimum doit rester inférieur ou égal au maximum."
+            return false, L("Le minimum doit rester inférieur ou égal au maximum.")
         end
     end
     local ok, result = pcall(C_CVar.SetCVar, option.name, value)
-    if not ok or not Public(result) or result ~= true then return false, "Modification refusée par le client." end
+    if not ok or not Public(result) or result ~= true then return false, L("Modification refusée par le client.") end
     local after = api.Read(option.name)
-    if not after.value then return false, "Valeur appliquée non vérifiable." end
-    if not Equal(after.value, value) then return false, "Le client a retenu : " .. after.value .. "." end
+    if not after.value then return false, L("Valeur appliquée non vérifiable.") end
+    if not Equal(after.value, value) then return false, L("Le client a retenu : %s."):format(after.value) end
     if option.category == "graphics" then
-        return true, reset and "Valeur par défaut confirmée par WoW." or "Valeur confirmée par WoW."
+        return true, reset and L("Valeur par défaut confirmée par WoW.") or L("Valeur confirmée par WoW.")
     end
-    return true, reset and "Valeur par défaut rétablie." or "Appliqué."
+    return true, reset and L("Valeur par défaut rétablie.") or L("Appliqué.")
 end
 
 function api.Inventory()
-    if type(ConsoleGetAllCommands) ~= "function" then return {}, "Inventaire indisponible sur ce client." end
+    if type(ConsoleGetAllCommands) ~= "function" then return {}, L("Inventaire indisponible sur ce client.") end
     local ok, commands = pcall(ConsoleGetAllCommands)
-    if not ok or not Public(commands) or type(commands) ~= "table" then return {}, "Inventaire indisponible sur ce client." end
+    if not ok or not Public(commands) or type(commands) ~= "table" then return {}, L("Inventaire indisponible sur ce client.") end
     local entries, seen = {}, {}
     for _, command in ipairs(commands) do
         if Public(command) and type(command) == "table" and Public(command.commandType) and command.commandType == 0 then
@@ -209,7 +210,7 @@ function api.Inventory()
                 if state.present then
                     state.option = byName[name:lower()]
                     local help = Text(command.help)
-                    state.help = help and help ~= "" and help or "Aucune description fournie par le client."
+                    state.help = help and help ~= "" and help or L("Aucune description fournie par le client.")
                     state.consoleCategory = Public(command.category) and command.category or nil
                     entries[#entries + 1] = state
                 end
@@ -245,16 +246,16 @@ end
 local function GraphicsHint(option)
     if not option or option.category ~= "graphics" then return nil end
     if option.group == "Raid" and Equal(api.Read("RAIDsettingsEnabled").value, "0") then
-        return "Profil raid désactivé dans WoW."
+        return L("Profil raid désactivé dans WoW.")
     end
     if option.name == "CMAA2Quality" or option.name == "CMAA2ExtraSharpness" then
         local mode = tonumber(api.Read("ffxAntiAliasingMode").value)
-        if mode and mode ~= 4 then return "CMAA2 désactivé dans WoW." end
+        if mode and mode ~= 4 then return L("CMAA2 désactivé dans WoW.") end
     end
     if option.name == "shadowBlendCascades" or option.name == "RAIDshadowBlendCascades" then
         local cvar = option.group == "Raid" and "RAIDshadowNumCascades" or "shadowNumCascades"
         local cascades = tonumber(api.Read(cvar).value)
-        if cascades and cascades < 2 then return "Nécessite plusieurs cascades d’ombres." end
+        if cascades and cascades < 2 then return L("Nécessite plusieurs cascades d’ombres.") end
     end
 end
 
@@ -287,25 +288,25 @@ function ns.InitializeAdvancedSettings(rootCategory)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button, "advanced") end
         return button
     end
-    Label(panel, "Réglages avancés", 16, -16, "GameFontNormalLarge")
+    Label(panel, L("Réglages avancés"), 16, -16, "GameFontNormalLarge")
     local intro = Label(panel, "", 16, -44)
     intro:SetPoint("TOPRIGHT", -16, -44)
     intro:SetHeight(28)
-    local searchLabel = Label(panel, "Rechercher", 16, 0)
+    local searchLabel = Label(panel, L("Rechercher"), 16, 0)
     local search = CreateFrame("EditBox", "ArkannsQOLAdvancedSearch", panel, "InputBoxTemplate")
     search:SetAutoFocus(false)
     search:SetMaxLetters(80)
     search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    local filterButton = Button(panel, "ArkannsQOLAdvancedFilter", filters[filter], 130, function()
+    local filterButton = Button(panel, "ArkannsQOLAdvancedFilter", L(filters[filter]), 130, function()
         if tab == "graphics" then graphicsFilter = graphicsFilter % #graphicsFilters + 1
         else filter = filter % #filters + 1 end
         refresh(true)
     end)
-    local favoritesButton = Button(panel, "ArkannsQOLAdvancedFavorites", "Favoris", 94, function()
+    local favoritesButton = Button(panel, "ArkannsQOLAdvancedFavorites", L("Favoris"), 94, function()
         favoritesOnly, resetReview = not favoritesOnly, nil
         refresh(true)
     end)
-    local modifiedButton = Button(panel, "ArkannsQOLAdvancedModified", "Modifiés", 94, function()
+    local modifiedButton = Button(panel, "ArkannsQOLAdvancedModified", L("Modifiés"), 94, function()
         modifiedOnly, resetReview = not modifiedOnly, nil
         refresh(true)
     end)
@@ -326,14 +327,15 @@ function ns.InitializeAdvancedSettings(rootCategory)
     scroll:SetScrollChild(content)
 
     local function Instructions()
-        status:SetText("Étoile : favori • Case : sélectionner pour réinitialiser • Défaut : cette ligne.")
+        status:SetText(L("Étoile : favori • Case : sélectionner pour réinitialiser • Défaut : cette ligne."))
     end
-    reviewButton = Button(panel, "ArkannsQOLAdvancedReviewReset", "Revoir la sélection", 142, function()
+    reviewButton = Button(panel, "ArkannsQOLAdvancedReviewReset", L("Revoir la sélection"), 142, function()
         resetReview = api.ReviewReset(selected)
         refresh(true)
-        status:SetText(#resetReview .. " option(s) : compare Actuel et Défaut, puis confirme.")
+        status:SetText((#resetReview == 1 and L("%d option : compare Actuel et Défaut, puis confirme.")
+            or L("%d options : compare Actuel et Défaut, puis confirme.")):format(#resetReview))
     end)
-    confirmButton = Button(panel, "ArkannsQOLAdvancedConfirmReset", "Confirmer", 100, function()
+    confirmButton = Button(panel, "ArkannsQOLAdvancedConfirmReset", L("Confirmer"), 100, function()
         if not resetReview then return end
         local ok, message = api.ApplyReset(resetReview)
         resetReview = nil
@@ -341,7 +343,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         refresh()
         status:SetText(message)
     end)
-    cancelButton = Button(panel, "ArkannsQOLAdvancedCancelReset", "Annuler", 80, function()
+    cancelButton = Button(panel, "ArkannsQOLAdvancedCancelReset", L("Annuler"), 80, function()
         resetReview = nil
         Instructions()
         refresh(true)
@@ -356,7 +358,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         refresh(true)
     end
     for index = 1, #categories + 1 do
-        local category = categories[index] or {id = "inventory", label = "Inventaire"}
+        local category = categories[index] or {id = "inventory", label = L("Inventaire")}
         local button = CreateFrame("Button", "ArkannsQOLAdvancedTab" .. index, panel)
         local background = button:CreateTexture(nil, "BACKGROUND")
         background:SetAllPoints()
@@ -386,7 +388,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         else
             drafts[option.name] = row.input:GetText()
         end
-        status:SetText(SafeLabel(option.label .. " : " .. message))
+        status:SetText(SafeLabel(L("%s : %s"):format(option.label, message)))
         refresh()
     end
     local function CreateRow(index)
@@ -403,7 +405,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         row.info:SetHeight(15)
         row.check = CreateFrame("CheckButton", nil, row, "InterfaceOptionsCheckButtonTemplate")
         row.check:SetPoint("TOPLEFT", -3, -57)
-        row.check.Text:SetText("Activé")
+        row.check.Text:SetText(L("Activé"))
         row.check:SetScript("OnClick", function(self) Commit(row, self:GetChecked() and true or false) end)
         row.input = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
         row.input:SetPoint("TOPLEFT", 5, -60)
@@ -422,7 +424,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
             self:ClearFocus()
             render()
         end)
-        row.apply = Button(row, nil, "Appliquer", 84, function() Commit(row, row.input:GetText()) end)
+        row.apply = Button(row, nil, L("Appliquer"), 84, function() Commit(row, row.input:GetText()) end)
         row.apply:SetPoint("TOPLEFT", 90, -60)
         row.choice = Button(row, nil, "", 130, function()
             if not row.option then return end
@@ -432,7 +434,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
             Commit(row, row.option.choices[selected % #row.option.choices + 1][1])
         end)
         row.choice:SetPoint("TOPLEFT", 0, -60)
-        row.default = Button(row, nil, "Défaut", 80, function() Commit(row, nil, true) end)
+        row.default = Button(row, nil, L("Défaut"), 80, function() Commit(row, nil, true) end)
         row.default:SetPoint("TOPRIGHT", 0, -60)
         row.favorite = Button(row, nil, "", 32, function()
             if row.option then api.ToggleFavorite(row.option.name) end
@@ -453,11 +455,11 @@ function ns.InitializeAdvancedSettings(rootCategory)
             GameTooltip:SetText(SafeLabel(self.state.name))
             GameTooltip:AddLine(SafeLabel(self.help), 1, 1, 1, true)
             if self.option and self.option.kind == "number" then
-                GameTooltip:AddLine("Plage proposée : " .. self.option.min .. " à " .. self.option.max, 1, 1, 1, true)
+                GameTooltip:AddLine(L("Plage proposée : %s à %s"):format(self.option.min, self.option.max), 1, 1, 1, true)
             end
-            GameTooltip:AddLine("Actuel : " .. SafeLabel(self.state.value) .. "\nDéfaut : " .. SafeLabel(self.state.default), 1, 1, 1, true)
+            GameTooltip:AddLine(L("Actuel : %s\nDéfaut : %s"):format(SafeLabel(self.state.value), SafeLabel(self.state.default)), 1, 1, 1, true)
             if self.state.reason then GameTooltip:AddLine(self.state.reason, 1, .8, .3, true) end
-            if self.state.secure then GameTooltip:AddLine("Réglage protégé par WoW.", 1, .8, .3, true) end
+            if self.state.secure then GameTooltip:AddLine(L("Réglage protégé par WoW."), 1, .8, .3, true) end
             if self.state.graphicsHint then GameTooltip:AddLine(self.state.graphicsHint, 1, .8, .3, true) end
             GameTooltip:Show()
         end)
@@ -494,9 +496,9 @@ function ns.InitializeAdvancedSettings(rootCategory)
                 row.help = description
                 if option and option.kind == "number" then description = description .. " [" .. option.min .. "–" .. option.max .. "]" end
                 row.description:SetText(SafeLabel(description))
-                local summary = state.reason or (combat and option and "Disponible hors combat") or state.graphicsHint
-                if not option and not summary then summary = entry.option and "Documenté dans les catégories" or "Non documenté : lecture seule" end
-                row.info:SetText(SafeLabel(summary or ("Actuel : " .. (state.value or "—") .. " • Défaut : " .. (state.default or "—") .. " • " .. (state.scope or ""))))
+                local summary = state.reason or (combat and option and L("Disponible hors combat")) or state.graphicsHint
+                if not option and not summary then summary = entry.option and L("Documenté dans les catégories") or L("Non documenté : lecture seule") end
+                row.info:SetText(SafeLabel(summary or L("Actuel : %s • Défaut : %s • %s"):format(state.value or "—", state.default or "—", state.scope or "")))
                 row.check:SetShown(option ~= nil and option.kind == "boolean")
                 row.input:SetShown(option ~= nil and option.kind == "number")
                 row.apply:SetShown(option ~= nil and option.kind == "number")
@@ -522,11 +524,11 @@ function ns.InitializeAdvancedSettings(rootCategory)
                     -- Do not reset the caret while typing or during unrelated CVar updates.
                     if row.input:GetText() ~= inputText then row.input:SetText(inputText) end
                     if option.choices then
-                        local label = state.value or "Indisponible"
+                        local label = state.value or L("Indisponible")
                         for _, choice in ipairs(option.choices) do if Equal(state.value, choice[1]) then label = choice[2] end end
                         row.choice:SetText(SafeLabel(label))
                     end
-                else row.choice:SetText("Lecture seule") end
+                else row.choice:SetText(L("Lecture seule")) end
             else row.option, row.state, row.dirty = nil, nil, nil end
         end
     end
@@ -573,17 +575,17 @@ function ns.InitializeAdvancedSettings(rootCategory)
         refreshing = true
         listing = {}
         local isInventory = tab == "inventory" and not favoritesOnly and not resetReview
-        favoritesButton:SetText(favoritesOnly and "Favoris seuls" or "Favoris")
-        modifiedButton:SetText(modifiedOnly and "Modifiés seuls" or "Modifiés")
+        favoritesButton:SetText(favoritesOnly and L("Favoris seuls") or L("Favoris"))
+        modifiedButton:SetText(modifiedOnly and L("Modifiés seuls") or L("Modifiés"))
         confirmButton:SetShown(resetReview ~= nil)
         cancelButton:SetShown(resetReview ~= nil)
         confirmButton:SetEnabled(resetReview ~= nil and #resetReview > 0 and not (InCombatLockdown and InCombatLockdown()))
         local selectionCount = 0
         for _ in pairs(selected) do selectionCount = selectionCount + 1 end
-        reviewButton:SetText("Revoir (" .. selectionCount .. ")")
+        reviewButton:SetText(L("Revoir (%d)"):format(selectionCount))
         reviewButton:SetEnabled(selectionCount > 0)
         filterButton:SetShown(isInventory or (tab == "graphics" and not favoritesOnly and not resetReview))
-        filterButton:SetText(tab == "graphics" and graphicsFilters[graphicsFilter] or filters[filter])
+        filterButton:SetText(L(tab == "graphics" and graphicsFilters[graphicsFilter] or filters[filter]))
         for _, item in ipairs(tabs) do
             local active = tab == item.id
             item.button:SetEnabled(not active)
@@ -593,7 +595,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         end
         if resetReview then
             for _, change in ipairs(resetReview) do listing[#listing + 1] = byName[change.name:lower()] end
-            intro:SetText("Réinitialisation sélectionnée : seules ces options seront remises à leur défaut. Aucun changement avant confirmation.")
+            intro:SetText(L("Réinitialisation sélectionnée : seules ces options seront remises à leur défaut. Aucun changement avant confirmation."))
         elseif isInventory then
             if not inventory then inventory, inventoryError = api.Inventory() end
             for _, entry in ipairs(inventory) do
@@ -605,10 +607,10 @@ function ns.InitializeAdvancedSettings(rootCategory)
                 if matches and (not modifiedOnly or (state.value and state.default and not Equal(state.value, state.default)))
                     and (query == "" or SearchText(entry.name .. " " .. entry.help):find(query, 1, true)) then listing[#listing + 1] = entry end
             end
-            intro:SetText(inventoryError or "Inventaire du client, en lecture seule. « Hors menus » : aucun menu natif identifié.")
+            intro:SetText(inventoryError or L("Inventaire du client, en lecture seule. « Hors menus » : aucun menu natif identifié."))
         else
-            intro:SetText(tab == "graphics" and "Le rendu dépend du mode actif. Les préréglages de WoW peuvent remplacer ces valeurs. L’inventaire liste les variables du client."
-                or "Réglages hors menus. Chaque bouton Défaut reprend la valeur du client.")
+            intro:SetText(tab == "graphics" and L("Le rendu dépend du mode actif. Les préréglages de WoW peuvent remplacer ces valeurs. L’inventaire liste les variables du client.")
+                or L("Réglages hors menus. Chaque bouton Défaut reprend la valeur du client."))
             for _, option in ipairs(catalog) do
                 local state = api.Read(option.name)
                 if ((favoritesOnly and Preferences().favorites[option.name]) or (not favoritesOnly and option.category == tab)) and not state.native
@@ -618,7 +620,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
             end
         end
         layout()
-        count:SetText(string.format("%d résultat%s", #listing, #listing > 1 and "s" or ""))
+        count:SetText(L("Résultats : %d"):format(#listing))
         content:SetHeight(math.max(1, #listing * rowHeight))
         local maximum = math.max(0, #listing * rowHeight - scroll:GetHeight())
         scroll:SetVerticalScroll(resetScroll and 0 or math.min(scroll:GetVerticalScroll(), maximum))
@@ -650,7 +652,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         end
         if C_Timer and C_Timer.After then C_Timer.After(0, Update) else Update() end
     end)
-    ns.advancedCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, "Réglages avancés")
+    ns.advancedCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Réglages avancés"))
     api.Refresh = function()
         if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel, "advanced") end
         if panel:IsShown() then refresh() end
@@ -667,8 +669,8 @@ function ns.InitializeAdvancedSettings(rootCategory)
     end
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel, "advanced") end
     if ns.RegisterModule then
-        ns.RegisterModule("advanced", {label = "Réglages avancés", icon = "Interface\\Icons\\Trade_Engineering", category = function() return ns.advancedCategory end,
-            Summary = function() return #api.GetFavorites() .. " favori(s) • " .. #catalog .. " options documentées" end,
+        ns.RegisterModule("advanced", {label = L("Réglages avancés"), icon = "Interface\\Icons\\Trade_Engineering", category = function() return ns.advancedCategory end,
+            Summary = function() return L("%d favori(s) • %d options documentées"):format(#api.GetFavorites(), #catalog) end,
             Favorites = api.GetFavorites, OpenFavorites = api.OpenFavorites, Refresh = api.Refresh,
             ExportSettings = api.ExportSettings, ImportSettings = api.ImportSettings})
     end

@@ -1,0 +1,12 @@
+# Local editor and OS files
+/.idea/
+/.vscode/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Local test and distribution output
+__pycache__/
+/.pytest_cache/
+/dist/
+*.zip

@@ -1,8 +1,9 @@
 local addonName, ns = ...
+local L = ns.L
 local ReadAPI, Read = ns.WoW.Read, ns.WoW.ReadValue
 local IsPublic, IsFiniteNumber = ns.WoW.IsPublic, ns.WoW.IsFiniteNumber
 
-local title = "Distance de la cible"
+local title = L("Distance de la cible")
 local directInterval, estimateInterval, hiddenInterval = .05, .10, .20
 local maxProbeRange = 100 -- Ignore global or unlimited-range spells.
 local refreshInterval = directInterval
@@ -308,13 +309,13 @@ local function RegisterSettings(root)
     toggle:SetScript("OnClick", function(self) SetEnabled(self:GetChecked()) end)
     local caption = toggle:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     caption:SetPoint("LEFT", toggle, "RIGHT", 4, 0)
-    caption:SetText("Afficher la distance en mètres")
+    caption:SetText(L("Afficher la distance en mètres"))
 
     local detail = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     detail:SetPoint("TOPLEFT", 24, -108)
     detail:SetPoint("RIGHT", panel, "RIGHT", -24, 0)
     detail:SetJustifyH("LEFT")
-    detail:SetText("Au-dessus du nom de la cible. Vert jusqu’à 10 m, jaune jusqu’à 30 m, rouge au-delà. Jaune aussi si la fourchette chevauche un seuil. 28+ indique une borne basse seule.")
+    detail:SetText(L("Au-dessus du nom de la cible. Vert jusqu’à 10 m, jaune jusqu’à 30 m, rouge au-delà. Jaune aussi si la fourchette chevauche un seuil. 28+ indique une borne basse seule."))
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel) end
     return Settings.RegisterCanvasLayoutSubcategory(root, panel, title)
 end
@@ -330,7 +331,7 @@ function ns.InitializeTargetDistance(root)
         label = title, icon = "Interface\\Icons\\INV_Misc_Spyglass_02",
         category = function() return category end,
         IsEnabled = function() return db.enabled end, SetEnabled = SetEnabled,
-        Summary = function() return "Au-dessus du nom · mètres" end,
+        Summary = function() return L("Au-dessus du nom · mètres") end,
         ExportSettings = function() return {enabled = db.enabled} end,
         ImportSettings = function(config)
             if type(config) ~= "table" or type(config.enabled) ~= "boolean" then return false end

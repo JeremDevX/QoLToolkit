@@ -155,7 +155,7 @@ function M.RemoveLast(catalog, order, nodeID, firstLevel)
         if index ~= found then candidate[#candidate + 1] = order[index] end
     end
     local state = M.Replay(catalog, candidate, firstLevel)
-    if state.error then return false, "Retrait impossible : " .. state.error end
+    if state.error then return false, "Retrait impossible : " .. state.error, state.error end
     table.remove(order, found)
     return true
 end

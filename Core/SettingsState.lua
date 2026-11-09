@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local api = {}
 ns.SettingsState = api
 
@@ -37,7 +38,7 @@ function api.Initialize()
         local version = data[schemaKey]
         if version == nil then version = 0 end
         if type(version) ~= "number" or version % 1 ~= 0 or version < 0 or version > store.version then
-            return false, "Version des réglages non prise en charge. Utilise une version compatible de l’addon."
+            return false, L("Version des réglages non prise en charge. Utilise une version compatible de l’addon.")
         end
         if version < store.version then pending[variable] = {data = data, version = version} end
     end
@@ -55,7 +56,7 @@ function api.Initialize()
             end
             entry.data = draft
         end)
-        if not ok then return false, "Impossible de mettre à jour les réglages. Les données enregistrées sont intactes." end
+        if not ok then return false, L("Impossible de mettre à jour les réglages. Les données enregistrées sont intactes.") end
     end
 
     for variable, entry in pairs(pending) do

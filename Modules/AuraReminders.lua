@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local Model, WoW = ns.AuraReminderModel, ns.WoW
 local db, reminder, message, category, manualInput, status, enabled, list, listBody, emptyList
 local apiNotice
@@ -10,35 +11,40 @@ local expanded, effectiveAppearance, activeStyle = false, nil, nil
 local RestorePosition
 local events, observingEffects
 local effectEvents = {"UNIT_AURA", "MINIMAP_UPDATE_TRACKING", "UPDATE_SHAPESHIFT_FORM", "UPDATE_SHAPESHIFT_FORMS", "SPELLS_CHANGED"}
-local priorityLabels = {[1] = "Haute", [2] = "Normale", [3] = "Basse"}
-local labels = {aura = "Auras / postures", buff = "Buffs", tracking = "Minicarte"}
+local priorityLabels = {[1] = L("Haute"), [2] = L("Normale"), [3] = L("Basse")}
+local labels = {aura = L("Auras / postures"), buff = "Buffs", tracking = L("Minicarte")}
 local order = Model.KindOrder
 
 local defaults = {
     layout = "vertical", columns = 2, width = 400, gap = 6, padding = 12,
     font = "standard", fontSize = 16, titleSize = 18, outline = "", align = "LEFT",
-    iconSize = 28, showIcons = true, showTitle = true, title = "À réactiver",
+    iconSize = 28, showIcons = true, showTitle = true, title = "À réactiver", customTitle = false,
     background = "140803", backgroundAlpha = 85, border = "tooltip", borderSize = 12,
     borderColor = "FFCC44", textColor = "FF6633", titleColor = "FFCC44", shadow = true,
 }
 local ranges = {columns = {1, 6}, width = {180, 1000}, gap = {0, 30}, padding = {4, 40},
     fontSize = {10, 32}, titleSize = {10, 40}, iconSize = {16, 64}, backgroundAlpha = {0, 100}, borderSize = {1, 24}}
 local choices = {
-    layout = {{"vertical", "Liste verticale"}, {"horizontal", "Ligne"}, {"grid", "Grille"}},
-    font = {{"standard", "Classique"}, {"narrow", "Arial"}, {"fantasy", "Morpheus"}},
-    outline = {{"", "Aucun contour"}, {"OUTLINE", "Contour fin"}, {"THICKOUTLINE", "Contour épais"}},
-    align = {{"LEFT", "Gauche"}, {"CENTER", "Centre"}, {"RIGHT", "Droite"}},
-    border = {{"none", "Sans bordure"}, {"tooltip", "Classique"}, {"flat", "Trait simple"}},
+    layout = {{"vertical", L("Liste verticale")}, {"horizontal", L("Ligne")}, {"grid", L("Grille")}},
+    font = {{"standard", L("Classique")}, {"narrow", "Arial"}, {"fantasy", "Morpheus"}},
+    outline = {{"", L("Aucun contour")}, {"OUTLINE", L("Contour fin")}, {"THICKOUTLINE", L("Contour épais")}},
+    align = {{"LEFT", L("Gauche")}, {"CENTER", L("Centre")}, {"RIGHT", L("Droite")}},
+    border = {{"none", L("Sans bordure")}, {"tooltip", L("Classique")}, {"flat", L("Trait simple")}},
 }
 local themes = {
-    {"Classique", {}},
-    {"Sobre", {background = "101820", backgroundAlpha = 80, textColor = "FFFFFF", titleColor = "82D8FF", borderColor = "477082", border = "flat", borderSize = 1}},
-    {"Lumineux", {background = "EEE8D8", backgroundAlpha = 95, textColor = "302820", titleColor = "943600", borderColor = "806B50", border = "flat", borderSize = 2, shadow = false}},
-    {"Compact", {width = 280, fontSize = 12, titleSize = 14, iconSize = 20, gap = 2, padding = 6, background = "101010", textColor = "FFFFFF", border = "none"}},
+    {L("Classique"), {}},
+    {L("Sobre"), {background = "101820", backgroundAlpha = 80, textColor = "FFFFFF", titleColor = "82D8FF", borderColor = "477082", border = "flat", borderSize = 1}},
+    {L("Lumineux"), {background = "EEE8D8", backgroundAlpha = 95, textColor = "302820", titleColor = "943600", borderColor = "806B50", border = "flat", borderSize = 2, shadow = false}},
+    {L("Compact"), {width = 280, fontSize = 12, titleSize = 14, iconSize = 20, gap = 2, padding = 6, background = "101010", textColor = "FFFFFF", border = "none"}},
 }
 
 local function ValidID(value)
     return WoW.IsFiniteNumber(value) and value >= 1 and value <= 2147483647 and value == math.floor(value)
+end
+
+local function TitleText(appearance)
+    if appearance.title == defaults.title and not appearance.customTitle then return L(defaults.title) end
+    return appearance.title
 end
 
 local function NormalizeAppearance()
@@ -52,6 +58,7 @@ local function NormalizeAppearance()
             for _, choice in ipairs(choices[key]) do if value == choice[1] then valid = true end end
         elseif key == "title" then
             valid = type(value) == "string" and #value > 0 and #value <= 120 and not value:find("[|\r\n]")
+            if not valid then db.appearance.customTitle = false end
         elseif type(default) == "boolean" then valid = type(value) == "boolean"
         else valid = type(value) == "string" and value:match("^%x%x%x%x%x%x$") ~= nil end
         if valid then db.appearance[key] = value else db.appearance[key] = default end
@@ -111,7 +118,7 @@ local function DisplayEffects(effects)
         if db.grouped and kind ~= lastKind then result[#result + 1] = {name = labels[kind], heading = true}; lastKind = kind end
         result[#result + 1] = effect
     end
-    if remaining > 0 then result[#result + 1] = {name = "+" .. remaining .. " restants", heading = true} end
+    if remaining > 0 then result[#result + 1] = {name = ("+" .. remaining), heading = true} end
     return result
 end
 
@@ -141,7 +148,7 @@ local function Render(effects)
     message:SetPoint("TOPLEFT", a.padding, -a.padding - testHeight)
     message:SetWidth(a.width - 2 * a.padding)
     StyleText(message, a.titleSize, a.titleColor)
-    message:SetText(a.title)
+    message:SetText(TitleText(a))
     message:SetShown(a.showTitle)
     local y = a.padding + testHeight + (a.showTitle and message:GetStringHeight() + a.gap or 0)
     local available = a.width - 2 * a.padding
@@ -233,9 +240,13 @@ local function Spell(value)
     return info.name, info.spellID, WoW.IsPublic(info.iconID) and info.iconID or nil
 end
 
+local function RuleName(rule)
+    return rule.spellID and Spell(rule.spellID) or rule.name
+end
+
 local function EffectIcon(rule)
     if not rule.icon then
-        local _, _, icon = Spell(rule.name)
+        local _, _, icon = Spell(rule.spellID or rule.name)
         return SafeIcon(icon)
     end
     return SafeIcon(rule.icon)
@@ -254,8 +265,10 @@ local function Tracking()
     for index = 1, count do
         local info = WoW.ReadValue(C_Minimap.GetTrackingInfo, index)
         if type(info) == "table" and WoW.IsPublic(info.name) and type(info.name) == "string" then
-            result[info.name:lower()] = {name = info.name, active = ActiveFlag(info.active),
-                spellID = WoW.IsPublic(info.spellID) and info.spellID or nil, texture = WoW.IsPublic(info.texture) and info.texture or nil}
+            local tracking = {name = info.name, active = ActiveFlag(info.active),
+                spellID = ValidID(info.spellID) and info.spellID or nil, texture = WoW.IsPublic(info.texture) and info.texture or nil}
+            result[info.name:lower()] = tracking
+            if tracking.spellID then result[tracking.spellID] = tracking end
         end
     end
     return result
@@ -270,10 +283,12 @@ local function Forms()
     local forms, count = {}, FormCount()
     local known = count ~= nil
     for index = 1, count or 0 do
-        local name, active = FormInfo(index)
+        local name, active, spellID = FormInfo(index)
+        local form = {active = active}
+        if spellID then forms[spellID] = form end
         if name then
             local key = name:lower()
-            if not forms[key] then forms[key] = {active = active} end
+            if not forms[key] then forms[key] = form end
         else
             known = false
         end
@@ -290,6 +305,7 @@ local function Buffs()
         if aura == nil then break end
         if type(aura) == "table" and WoW.IsPublic(aura.name) and type(aura.name) == "string" then
             buffs[aura.name:lower()] = true
+            if ValidID(aura.spellId) then buffs[aura.spellId] = true end
         else
             known = false
         end
@@ -358,16 +374,16 @@ Update = function()
         local samples = {}
         for _, key in ipairs({"auras", "tracking"}) do
             for _, rule in ipairs(db[key]) do
-                if #samples < 8 then samples[#samples + 1] = {name = rule.name, icon = EffectIcon(rule), priority = rule.priority, kind = key == "tracking" and "tracking" or rule.kind or "buff"} end
+                if #samples < 8 then samples[#samples + 1] = {name = RuleName(rule), icon = EffectIcon(rule), priority = rule.priority, kind = key == "tracking" and "tracking" or rule.kind or "buff"} end
             end
         end
         if #samples == 0 then
-            samples = {{name = "Aura de dévotion", icon = 135893, kind = "aura", priority = 1}, {name = "Bénédiction de puissance", icon = 135906, kind = "buff", priority = 1}, {name = "Bénédiction de sagesse", icon = 135970, kind = "buff"}, {name = "Détection des minerais", icon = 136025, kind = "tracking"}, {name = "Détection des herbes", icon = 133939, kind = "tracking"}, {name = "Élixir", icon = 134838, kind = "buff"}, {name = "Nourriture", icon = 133971, kind = "buff", priority = 3}}
+            samples = {{name = L("Aura de dévotion"), icon = 135893, kind = "aura", priority = 1}, {name = L("Bénédiction de puissance"), icon = 135906, kind = "buff", priority = 1}, {name = L("Bénédiction de sagesse"), icon = 135970, kind = "buff"}, {name = L("Détection des minerais"), icon = 136025, kind = "tracking"}, {name = L("Détection des herbes"), icon = 133939, kind = "tracking"}, {name = L("Élixir"), icon = 134838, kind = "buff"}, {name = L("Nourriture"), icon = 133971, kind = "buff", priority = 3}}
         end
         Render(samples)
         return
     end
-    local observed = {tracking = #db.tracking > 0 and Tracking() or {}}
+    local observed = {tracking = #db.tracking > 0 and Tracking() or {}, resolveName = RuleName}
     if #db.auras > 0 then
         observed.buffs, observed.buffsKnown = Buffs()
         observed.forms, observed.formsKnown = Forms()
@@ -380,9 +396,9 @@ Update = function()
     Render(missing)
 end
 
-local function Kind(rule, key, forms)
+local function Kind(rule, key, forms, name)
     if key == "tracking" then return "tracking" end
-    if rule.kind == "aura" or forms[rule.name:lower()] then return "aura" end
+    if rule.kind == "aura" or Model.Match(rule, forms, name) then return "aura" end
     return "buff"
 end
 
@@ -392,20 +408,23 @@ Refresh = function()
     local tracking = #db.tracking > 0 and Tracking() or {}
     local forms = #db.auras > 0 and Forms() or {}
     local unavailable = {}
-    if not HasSpellLookup() then unavailable[#unavailable + 1] = "recherche par ID" end
-    if not HasForms() then unavailable[#unavailable + 1] = "auras / postures" end
+    if not HasSpellLookup() then unavailable[#unavailable + 1] = L("recherche par ID") end
+    if not HasForms() then unavailable[#unavailable + 1] = L("auras / postures") end
     if not HasBuffs() then unavailable[#unavailable + 1] = "buffs" end
-    if not HasTracking() then unavailable[#unavailable + 1] = "minicarte" end
+    if not HasTracking() then unavailable[#unavailable + 1] = L("minicarte") end
     if not HasMenus() then unavailable[#unavailable + 1] = "menus" end
-    apiNotice:SetText(#unavailable > 0 and "Indisponible : " .. table.concat(unavailable, ", ") or "")
+    apiNotice:SetText(#unavailable > 0 and L("Indisponible : %s"):format(table.concat(unavailable, ", ")) or "")
     for _, key in ipairs({"auras", "tracking"}) do
         for _, rule in ipairs(db[key]) do
-            entries[#entries + 1] = {rule = rule, key = key, kind = Kind(rule, key, forms)}
+            local name = RuleName(rule)
+            local track = key == "tracking" and Model.Match(rule, tracking, name)
+            entries[#entries + 1] = {rule = rule, key = key, kind = Kind(rule, key, forms, name),
+                name = track and track.name or name, track = track}
         end
     end
     table.sort(entries, function(a, b)
         if a.kind ~= b.kind then return order[a.kind] < order[b.kind] end
-        return a.rule.name:lower() < b.rule.name:lower()
+        return a.name:lower() < b.name:lower()
     end)
     for index, entry in ipairs(entries) do
         local row = rows[index]
@@ -435,7 +454,7 @@ Refresh = function()
                 for itemIndex, rule in ipairs(db[row.key]) do
                     if rule == row.rule then
                         table.remove(db[row.key], itemIndex)
-                        status:SetText(rule.name .. " : rappel supprimé.")
+                        status:SetText(L("%s : rappel supprimé."):format(row.nameLabel:GetText()))
                         Refresh(); Update(); break
                     end
                 end
@@ -443,11 +462,9 @@ Refresh = function()
             rows[index] = row
         end
         row.rule, row.key = entry.rule, entry.key
-        local _, _, spellIcon = Spell(entry.rule.name)
-        local track = entry.key == "tracking" and tracking[entry.rule.name:lower()]
-        local icon = track and track.texture or entry.rule.icon or spellIcon
+        local icon = entry.track and entry.track.texture or EffectIcon(entry.rule)
         row.icon:SetTexture(SafeIcon(icon))
-        row.nameLabel:SetText(entry.rule.name)
+        row.nameLabel:SetText(entry.name)
         row.kindLabel:SetText(labels[entry.kind])
         row.priority:SetText(priorityLabels[entry.rule.priority or 2])
         row:Show()
@@ -464,48 +481,49 @@ local function AddEffect(name, kind, spellID, icon)
     icon = ValidID(icon) and icon or nil
     local key = kind == "tracking" and "tracking" or "auras"
     for _, rule in ipairs(db[key]) do
-        if rule.name:lower() == name:lower() then
+        if (spellID and spellID == rule.spellID) or RuleName(rule):lower() == name:lower() then
             -- Enrich older saved entries without creating duplicates.
-            rule.kind, rule.icon = kind, icon or rule.icon
-            Refresh(); status:SetText(name .. " est déjà dans la liste.")
+            rule.kind, rule.spellID, rule.icon = kind, rule.spellID or spellID, icon or rule.icon
+            Refresh(); Update(); status:SetText(L("%s est déjà dans la liste."):format(name))
             return
         end
     end
     db[key][#db[key] + 1] = {name = name, kind = kind, spellID = spellID, icon = icon, priority = 2}
     Refresh(); Update()
-    status:SetText(name .. " : rappel ajouté.")
+    status:SetText(L("%s : rappel ajouté."):format(name))
 end
 
 local function AddManual()
     local value = manualInput:GetText():match("^%s*(.-)%s*$")
     if value == "" or #value > 160 or value:find("[|\r\n]") then
-        status:SetText("Nom exact ou ID du sort requis."); return
+        status:SetText(L("Nom exact ou ID du sort requis.")); return
     end
     local id = tonumber(value)
     if id and (id ~= id or id < 1 or id > 2147483647 or id ~= math.floor(id)) then
-        status:SetText("ID de sort invalide."); return
+        status:SetText(L("ID de sort invalide.")); return
     end
-    if id and not HasSpellLookup() then status:SetText("Recherche par ID indisponible."); return end
+    if id and not HasSpellLookup() then status:SetText(L("Recherche par ID indisponible.")); return end
     local name, spellID, icon = Spell(id or value)
-    if id and not name then status:SetText("Sort introuvable."); return end
+    if id and not name then status:SetText(L("Sort introuvable.")); return end
     name = id and name or value
-    local track = Tracking()[name:lower()]
+    local rule = {name = name, spellID = spellID}
+    local track = Model.Match(rule, Tracking())
     local forms = not track and Forms()
-    local kind = track and "tracking" or (forms[name:lower()] and "aura" or "buff")
-    if track then icon = track.texture or icon end
+    local kind = track and "tracking" or (Model.Match(rule, forms) and "aura" or "buff")
+    if track then spellID, icon = track.spellID or spellID, track.texture or icon end
     AddEffect(name, kind, spellID, icon)
     manualInput:SetText(""); manualInput:ClearFocus()
 end
 
 local function ChooseEffect(owner, kind)
     if Blocked() then
-        status:SetText("Indisponible en combat ou à la mort.")
+        status:SetText(L("Indisponible en combat ou à la mort."))
         return
     end
-    if not HasMenus() then status:SetText("Menu indisponible. Ajoute l’effet par nom."); return end
+    if not HasMenus() then status:SetText(L("Menu indisponible. Ajoute l’effet par nom.")); return end
     if (kind == "tracking" and not HasTracking()) or (kind == "aura" and not HasForms())
         or (kind == "buff" and not HasBuffs()) then
-        status:SetText(labels[kind] .. " : lecture indisponible.")
+        status:SetText(L("%s : lecture indisponible."):format(labels[kind]))
         return
     end
     local choices, seen = {}, {}
@@ -518,7 +536,9 @@ local function ChooseEffect(owner, kind)
         end
     end
     if kind == "tracking" then
-        for _, info in pairs(Tracking()) do Add(info.name, info.spellID, info.texture) end
+        for key, info in pairs(Tracking()) do
+            if type(key) == "string" then Add(info.name, info.spellID, info.texture) end
+        end
     elseif kind == "aura" then
         for index = 1, FormCount() or 0 do
             local name, _, spellID, icon = FormInfo(index)
@@ -538,7 +558,7 @@ local function ChooseEffect(owner, kind)
         return a.name:lower() < b.name:lower()
     end)
     if #choices == 0 then
-        status:SetText(kind == "tracking" and "Aucun suivi disponible." or (kind == "aura" and "Aucune aura ou posture." or "Active le buff, puis rouvre le menu."))
+        status:SetText(kind == "tracking" and L("Aucun suivi disponible.") or (kind == "aura" and L("Aucune aura ou posture.") or L("Active le buff, puis rouvre le menu.")))
         return
     end
     MenuUtil.CreateContextMenu(owner, function(_, root)
@@ -553,7 +573,7 @@ end
 
 local function Place()
     if Blocked() then
-        status:SetText("Indisponible en combat ou à la mort.")
+        status:SetText(L("Indisponible en combat ou à la mort."))
         return
     end
     EndTest()
@@ -585,9 +605,9 @@ local function BuildAppearance(body, visibilityBody)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button) end
         return button
     end
-    local note = Text("Aperçu immédiat • Données de jeu conservées.", 16, -44, "GameFontHighlightSmall")
+    local note = Text(L("Aperçu immédiat • Données de jeu conservées."), 16, -44, "GameFontHighlightSmall")
     local function Changed()
-        note:SetText("Aperçu immédiat • Données de jeu conservées.")
+        note:SetText(L("Aperçu immédiat • Données de jeu conservées."))
         if not testMode and body:IsVisible() then Preview() end
         Update()
         if appearanceRefresh then appearanceRefresh() end
@@ -595,7 +615,7 @@ local function BuildAppearance(body, visibilityBody)
     local function Choice(key, label, x, y)
         Text(label, x, y)
         local button = Button(key, "", x, y - 22, function(self)
-            if not HasMenus() then note:SetText("Menu indisponible."); return end
+            if not HasMenus() then note:SetText(L("Menu indisponible.")); return end
             MenuUtil.CreateContextMenu(self, function(_, root)
                 root:CreateTitle(label)
                 for _, option in ipairs(choices[key]) do
@@ -623,7 +643,7 @@ local function BuildAppearance(body, visibilityBody)
             Changed()
         end)
         refreshers[#refreshers + 1] = function()
-            slider:SetValue(db.appearance[key]); caption:SetText(label .. " : " .. db.appearance[key] .. (suffix or ""))
+            slider:SetValue(db.appearance[key]); caption:SetText(L("%s : %d%s"):format(label, db.appearance[key], suffix or ""))
         end
     end
     local function Check(key, label, x, y)
@@ -635,6 +655,9 @@ local function BuildAppearance(body, visibilityBody)
         refreshers[#refreshers + 1] = function() check:SetChecked(db.appearance[key]) end
     end
     local function Input(key, label, x, y, color)
+        local function SavedText()
+            return color and db.appearance[key] or TitleText(db.appearance)
+        end
         Text(label, x, y)
         local input = CreateFrame("EditBox", "ArkannsQOLAppearance" .. key, body, "InputBoxTemplate")
         input:SetPoint("TOPLEFT", x + 6, y - 24); input:SetSize(color and 180 or 554, 26)
@@ -662,34 +685,38 @@ local function BuildAppearance(body, visibilityBody)
             local value = self:GetText():match("^%s*(.-)%s*$")
             if color then value = value:gsub("^#", ""):upper() end
             if (color and value:match("^%x%x%x%x%x%x$")) or (not color and #value > 0 and #value <= 120 and not value:find("[|\r\n]")) then
+                if not color then
+                    if value == SavedText() then return end
+                    db.appearance.customTitle = true
+                end
                 db.appearance[key] = value; Changed()
             else
-                self:SetText(db.appearance[key])
-                note:SetText(color and "Code hex invalide. Exemple : FFCC44." or "Titre : 1 à 48 caractères, sans balises.")
+                self:SetText(SavedText())
+                note:SetText(color and L("Code hex invalide. Exemple : FFCC44.") or L("Titre : 1 à 48 caractères, sans balises."))
             end
         end
         input:SetScript("OnEnterPressed", function(self) Save(self); self:ClearFocus() end)
         input:SetScript("OnEditFocusLost", Save)
-        input:SetScript("OnEscapePressed", function(self) self:SetText(db.appearance[key]); self:ClearFocus() end)
+        input:SetScript("OnEscapePressed", function(self) self:SetText(SavedText()); self:ClearFocus() end)
         refreshers[#refreshers + 1] = function()
             -- Do not replace an unfinished title/color while another control refreshes.
-            if not input:HasFocus() then input:SetText(db.appearance[key]) end
+            if not input:HasFocus() then input:SetText(SavedText()) end
             if swatch then swatch:SetColorTexture(RGB(db.appearance[key])) end
         end
     end
-    Text("Apparence", 16, -16, "GameFontNormalLarge")
+    Text(L("Apparence"), 16, -16, "GameFontNormalLarge")
     local override = Button("Override", "", 326, -12, function()
         if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("reminders", not ns.UI.IsOverride("reminders")) end
         Changed()
     end)
     refreshers[#refreshers + 1] = function()
-        override:SetText(ns.UI and ns.UI.IsOverride and ns.UI.IsOverride("reminders") and "Apparence personnalisée" or "Apparence commune")
+        override:SetText(ns.UI and ns.UI.IsOverride and ns.UI.IsOverride("reminders") and L("Apparence personnalisée") or L("Apparence commune"))
     end
-    Text("Thème", 16, -84)
-    Button("Theme", "Choisir…", 16, -106, function(self)
-        if not HasMenus() then note:SetText("Menu indisponible."); return end
+    Text(L("Thème"), 16, -84)
+    Button("Theme", L("Choisir…"), 16, -106, function(self)
+        if not HasMenus() then note:SetText(L("Menu indisponible.")); return end
         MenuUtil.CreateContextMenu(self, function(_, root)
-            root:CreateTitle("Thèmes")
+            root:CreateTitle(L("Thèmes"))
             for _, theme in ipairs(themes) do
                 local selected = theme
                 root:CreateButton(theme[1], function()
@@ -700,49 +727,49 @@ local function BuildAppearance(body, visibilityBody)
             end
         end)
     end)
-    local previewButton = Button("Preview", "Tester", 326, -106, function()
+    local previewButton = Button("Preview", L("Tester"), 326, -106, function()
         if testMode then EndTest(); return end
         if Blocked() then
-            note:SetText("Indisponible en combat ou à la mort."); return
+            note:SetText(L("Indisponible en combat ou à la mort.")); return
         end
         testMode = "preview"
         reminder:EnableMouse(true)
         reminder:SetFrameStrata("FULLSCREEN_DIALOG")
         Changed()
     end)
-    refreshers[#refreshers + 1] = function() previewButton:SetText(testMode and "Fermer le test" or "Tester") end
-    Text("Cadre", 16, -154, "GameFontNormalLarge")
-    Choice("layout", "Disposition", 16, -182); Choice("align", "Alignement", 326, -182)
-    Slider("width", "Largeur", 16, -246, " px"); Slider("columns", "Colonnes (grille)", 326, -246)
-    Slider("gap", "Espacement", 16, -308, " px"); Slider("padding", "Marges", 326, -308, " px")
-    Text("Texte et icônes", 16, -376, "GameFontNormalLarge")
-    Choice("font", "Police", 16, -402); Choice("outline", "Contour", 326, -402)
-    Slider("fontSize", "Taille du texte", 16, -466, " px"); Slider("titleSize", "Taille du titre", 326, -466, " px")
-    Slider("iconSize", "Taille des icônes", 16, -528, " px"); Check("showIcons", "Afficher les icônes", 326, -548)
-    Check("showTitle", "Afficher le titre", 16, -590); Check("shadow", "Ombre du texte", 326, -590)
-    Input("title", "Titre personnalisé", 16, -636)
-    Text("Couleurs : clic sur le carré ou code hex + Entrée.", 16, -692, "GameFontNormal")
-    Input("background", "Fond", 16, -720, true); Input("textColor", "Texte", 326, -720, true)
-    Input("titleColor", "Titre", 16, -790, true); Input("borderColor", "Bordure", 326, -790, true)
-    Slider("backgroundAlpha", "Opacité du fond", 16, -860, " %"); Slider("borderSize", "Épaisseur de bordure", 326, -860, " px")
-    Choice("border", "Bordure", 16, -924)
-    local placeButton = Button("Place", "Déplacer", 326, -946, function()
-        if Blocked() then note:SetText("Indisponible en combat ou à la mort."); return end
+    refreshers[#refreshers + 1] = function() previewButton:SetText(testMode and L("Fermer le test") or L("Tester")) end
+    Text(L("Cadre"), 16, -154, "GameFontNormalLarge")
+    Choice("layout", L("Disposition"), 16, -182); Choice("align", L("Alignement"), 326, -182)
+    Slider("width", L("Largeur"), 16, -246, " px"); Slider("columns", L("Colonnes (grille)"), 326, -246)
+    Slider("gap", L("Espacement"), 16, -308, " px"); Slider("padding", L("Marges"), 326, -308, " px")
+    Text(L("Texte et icônes"), 16, -376, "GameFontNormalLarge")
+    Choice("font", L("Police"), 16, -402); Choice("outline", L("Contour"), 326, -402)
+    Slider("fontSize", L("Taille du texte"), 16, -466, " px"); Slider("titleSize", L("Taille du titre"), 326, -466, " px")
+    Slider("iconSize", L("Taille des icônes"), 16, -528, " px"); Check("showIcons", L("Afficher les icônes"), 326, -548)
+    Check("showTitle", L("Afficher le titre"), 16, -590); Check("shadow", L("Ombre du texte"), 326, -590)
+    Input("title", L("Titre personnalisé"), 16, -636)
+    Text(L("Couleurs : clic sur le carré ou code hex + Entrée."), 16, -692, "GameFontNormal")
+    Input("background", L("Fond"), 16, -720, true); Input("textColor", L("Texte"), 326, -720, true)
+    Input("titleColor", L("Titre"), 16, -790, true); Input("borderColor", L("Bordure"), 326, -790, true)
+    Slider("backgroundAlpha", L("Opacité du fond"), 16, -860, " %"); Slider("borderSize", L("Épaisseur de bordure"), 326, -860, " px")
+    Choice("border", L("Bordure"), 16, -924)
+    local placeButton = Button("Place", L("Déplacer"), 326, -946, function()
+        if Blocked() then note:SetText(L("Indisponible en combat ou à la mort.")); return end
         Place()
     end)
-    local centerButton = Button("Center", "Recentrer", 326, -986, function()
-        if Blocked() then note:SetText("Indisponible en combat ou à la mort."); return end
+    local centerButton = Button("Center", L("Recentrer"), 326, -986, function()
+        if Blocked() then note:SetText(L("Indisponible en combat ou à la mort.")); return end
         EndTest()
         db.x, db.y = 0.5, 0.7; Place()
     end)
     placeButton:SetParent(visibilityBody); placeButton:ClearAllPoints(); placeButton:SetPoint("TOPLEFT", 16, -240); placeButton:SetWidth(190)
     centerButton:SetParent(visibilityBody); centerButton:ClearAllPoints(); centerButton:SetPoint("TOPLEFT", 218, -240); centerButton:SetWidth(190)
-    Button("Defaults", "Défauts de cette section", 16, -986, function()
+    Button("Defaults", L("Défauts de cette section"), 16, -986, function()
         for key, value in pairs(defaults) do db.appearance[key] = value end
         if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("reminders", false) end
         Changed()
     end)
-    Text("Réglages locaux : active Apparence personnalisée.\nGlisser : déplacer • ×, clic droit ou Échap : fermer le test.", 16, -1032, "GameFontHighlightSmall")
+    Text(L("Réglages locaux : active Apparence personnalisée.\nGlisser : déplacer • ×, clic droit ou Échap : fermer le test."), 16, -1032, "GameFontHighlightSmall")
     appearanceRefresh = function()
         syncing = true
         for _, refresh in ipairs(refreshers) do refresh() end
@@ -815,9 +842,9 @@ function ns.InitializeReminders(parentCategory)
             if appearanceRefresh then appearanceRefresh() end
         end)
     end
-    Tab("ArkannsQOLEffectsTab", "Fonctionnement", 16, effectsPage)
-    Tab("ArkannsQOLAppearanceTab", "Apparence", 216, appearancePage)
-    Tab("ArkannsQOLReminderVisibilityTab", "Visibilité", 416, visibilityPage)
+    Tab("ArkannsQOLEffectsTab", L("Fonctionnement"), 16, effectsPage)
+    Tab("ArkannsQOLAppearanceTab", L("Apparence"), 216, appearancePage)
+    Tab("ArkannsQOLReminderVisibilityTab", L("Visibilité"), 416, visibilityPage)
     local function Text(text, y, font)
         local label = panel:CreateFontString(nil, "ARTWORK", font or "GameFontHighlightSmall")
         label:SetPoint("TOPLEFT", 16, y); label:SetPoint("TOPRIGHT", -16, y)
@@ -831,38 +858,38 @@ function ns.InitializeReminders(parentCategory)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button) end
         return button
     end
-    Text("Rappels d'effets", -16, "GameFontNormalLarge")
-    Text("Par personnage • Masqué en combat et à la mort.", -44)
+    Text(L("Rappels d'effets"), -16, "GameFontNormalLarge")
+    Text(L("Par personnage • Masqué en combat et à la mort."), -44)
     apiNotice = Text("", -72)
     enabled = CreateFrame("CheckButton", "ArkannsQOLReminderEnabled", panel, "UICheckButtonTemplate")
     enabled:SetPoint("TOPLEFT", 12, -82)
     local label = enabled:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    label:SetPoint("LEFT", enabled, "RIGHT", 2, 0); label:SetText("Activer les rappels")
+    label:SetPoint("LEFT", enabled, "RIGHT", 2, 0); label:SetText(L("Activer les rappels"))
     enabled:SetFontString(label)
     enabled:SetScript("OnClick", function(self)
         db.enabled = self:GetChecked() == true
         EndTest(); Update()
     end)
-    Button("ArkannsQOLChooseAura", "+ Auras / postures", 16, -120, function(self) ChooseEffect(self, "aura") end)
+    Button("ArkannsQOLChooseAura", L("+ Auras / postures"), 16, -120, function(self) ChooseEffect(self, "aura") end)
     Button("ArkannsQOLChooseBuff", "+ Buffs", 216, -120, function(self) ChooseEffect(self, "buff") end)
-    Button("ArkannsQOLChooseTracking", "+ Minicarte", 416, -120, function(self) ChooseEffect(self, "tracking") end)
-    Text("Effets suivis", -160, "GameFontNormal")
+    Button("ArkannsQOLChooseTracking", L("+ Minicarte"), 416, -120, function(self) ChooseEffect(self, "tracking") end)
+    Text(L("Effets suivis"), -160, "GameFontNormal")
     list = CreateFrame("ScrollFrame", "ArkannsQOLEffectsList", panel, "UIPanelScrollFrameTemplate")
     list:SetPoint("TOPLEFT", 16, -184); list:SetPoint("TOPRIGHT", -36, -184); list:SetHeight(170)
     listBody = CreateFrame("Frame", nil, list)
     listBody:SetSize(580, 1)
     list:SetScrollChild(listBody)
     list:SetScript("OnSizeChanged", function(_, width) listBody:SetWidth(math.max(1, width)) end)
-    emptyList = Text("Aucun effet. Ajoute une aura, un buff ou un suivi.", -198)
+    emptyList = Text(L("Aucun effet. Ajoute une aura, un buff ou un suivi."), -198)
     rows = {}
     manualInput = CreateFrame("EditBox", "ArkannsQOLManualInput", panel, "InputBoxTemplate")
     manualInput:SetPoint("TOPLEFT", 22, -370); manualInput:SetSize(370, 26)
     manualInput:SetAutoFocus(false); manualInput:SetMaxLetters(160)
     manualInput:SetScript("OnEnterPressed", AddManual)
     manualInput:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    Button("ArkannsQOLAddManual", "Ajouter par nom / ID", 416, -370, AddManual)
+    Button("ArkannsQOLAddManual", L("Ajouter par nom / ID"), 416, -370, AddManual)
     status = Text("", -408)
-    Text("Buff absent du menu ? Active-le ou saisis son nom / ID.\nPlacement : onglet Visibilité.", -446)
+    Text(L("Buff absent du menu ? Active-le ou saisis son nom / ID.\nPlacement : onglet Visibilité."), -446)
     local behaviorControls = {}
     local function BehaviorCheck(key, text, y)
         local box = CreateFrame("CheckButton", "ArkannsQOLReminder_" .. key, panel, "UICheckButtonTemplate")
@@ -872,9 +899,9 @@ function ns.InitializeReminders(parentCategory)
         behaviorControls[#behaviorControls + 1] = function() box:SetChecked(db[key]) end
         box:SetScript("OnClick", function(self) db[key] = self:GetChecked() == true; Update() end)
     end
-    BehaviorCheck("grouped", "Regrouper par type d'effet", -496)
-    Text("Priorité : clique Haute, Normale ou Basse dans la liste.", -538)
-    Button(nil, "Défauts de cette section", 16, -574, function()
+    BehaviorCheck("grouped", L("Regrouper par type d'effet"), -496)
+    Text(L("Priorité : clique Haute, Normale ou Basse dans la liste."), -538)
+    Button(nil, L("Défauts de cette section"), 16, -574, function()
         db.grouped = false
         for _, key in ipairs({"auras", "tracking"}) do for _, rule in ipairs(db[key]) do rule.priority = 2 end end
         for _, sync in ipairs(behaviorControls) do sync() end
@@ -883,26 +910,26 @@ function ns.InitializeReminders(parentCategory)
     local effectsBody = panel
     panel = visibilityBody
     enabled:SetParent(panel); enabled:ClearAllPoints(); enabled:SetPoint("TOPLEFT", 12, -48)
-    Text("Visibilité", -16, "GameFontNormalLarge")
-    Text("Masqué en combat et à la mort. Aucun rappel pour un effet inconnu.", -88)
-    BehaviorCheck("compact", "Mode compact : 2 effets", -116)
-    BehaviorCheck("expandOnHover", "Développer au survol", -148)
+    Text(L("Visibilité"), -16, "GameFontNormalLarge")
+    Text(L("Masqué en combat et à la mort. Aucun rappel pour un effet inconnu."), -88)
+    BehaviorCheck("compact", L("Mode compact : 2 effets"), -116)
+    BehaviorCheck("expandOnHover", L("Développer au survol"), -148)
     local limitButton = Button(nil, "", 16, -194, function(self)
         if not HasMenus() then return end
         MenuUtil.CreateContextMenu(self, function(_, root)
             for count = 1, 20 do
                 local value = count
-                root:CreateButton(tostring(value) .. " effets", function() db.visibleLimit = value; self:SetText("Limite : " .. value); Update() end)
+                root:CreateButton(L("Afficher %d"):format(value), function() db.visibleLimit = value; self:SetText(L("Limite : %d"):format(value)); Update() end)
             end
         end)
     end)
-    Button(nil, "Défauts de cette section", 218, -194, function()
+    Button(nil, L("Défauts de cette section"), 218, -194, function()
         db.enabled, db.compact, db.expandOnHover, db.visibleLimit = true, false, true, 6
         EndTest(); db.x, db.y = 0.5, 0.7; RestorePosition()
         for _, sync in ipairs(behaviorControls) do sync() end
-        limitButton:SetText("Limite : 6"); Refresh(); Update()
+        limitButton:SetText(L("Limite : %d"):format(db.visibleLimit)); Refresh(); Update()
     end)
-    Text("Les effets restants sont indiqués par +N.\nL'aperçu disparaît à la fermeture des réglages.", -284)
+    Text(L("Les effets restants sont indiqués par +N.\nL'aperçu disparaît à la fermeture des réglages."), -284)
     panel = effectsBody
     BuildAppearance(appearanceBody, visibilityBody)
     settingsPanel:SetScript("OnShow", function()
@@ -913,11 +940,11 @@ function ns.InitializeReminders(parentCategory)
         Refresh(); status:SetText("")
         appearanceRefresh()
         for _, sync in ipairs(behaviorControls) do sync() end
-        limitButton:SetText("Limite : " .. db.visibleLimit)
+        limitButton:SetText(L("Limite : %d"):format(db.visibleLimit))
         if appearancePage:IsShown() then Preview() end
     end)
     settingsPanel:SetScript("OnHide", EndTest)
-    category = Settings.RegisterCanvasLayoutSubcategory(parentCategory, settingsPanel, "Rappels d'effets")
+    category = Settings.RegisterCanvasLayoutSubcategory(parentCategory, settingsPanel, L("Rappels d'effets"))
     ns.reminderCategory = category
     Refresh()
 
@@ -925,14 +952,14 @@ function ns.InitializeReminders(parentCategory)
         local function RefreshAll()
             Refresh(); Update(); appearanceRefresh()
             for _, sync in ipairs(behaviorControls) do sync() end
-            limitButton:SetText("Limite : " .. db.visibleLimit)
+            limitButton:SetText(L("Limite : %d"):format(db.visibleLimit))
         end
         local configKeys = {"enabled", "grouped", "compact", "expandOnHover", "visibleLimit", "x", "y"}
         ns.RegisterModule("reminders", {
-            label = "Rappels d'effets", icon = "Interface\\Icons\\Spell_Holy_SealOfWisdom", category = function() return category end,
+            label = L("Rappels d'effets"), icon = "Interface\\Icons\\Spell_Holy_SealOfWisdom", category = function() return category end,
             frame = reminder, IsEnabled = function() return db.enabled end,
             SetEnabled = function(value) db.enabled = value == true; EndTest(); RefreshAll() end,
-            Summary = function() return (#db.auras + #db.tracking) .. " effets surveillés" end,
+            Summary = function() return L("Effets surveillés : %d"):format(#db.auras + #db.tracking) end,
             Preview = Preview, StopPreview = EndTest, Refresh = RefreshAll,
             GetPosition = function() return db.x, db.y end,
             SetPosition = function(x, y)
@@ -950,11 +977,24 @@ function ns.InitializeReminders(parentCategory)
                 end
                 return result
             end,
+            ProfileDisplay = function(config)
+                if type(config.appearance) == "table" then
+                    config.appearance.title = TitleText(config.appearance)
+                end
+            end,
+            profileMigrations = {
+                function(config)
+                    if type(config.appearance) == "table" and config.appearance.customTitle == nil then
+                        config.appearance.customTitle = false
+                    end
+                end,
+            },
             ImportSettings = function(config)
-                if type(config) ~= "table" then return false, "Réglages des rappels invalides." end
+                if type(config) ~= "table" then return false, L("Réglages des rappels invalides.") end
                 EndTest()
                 for _, key in ipairs(configKeys) do if config[key] ~= nil then db[key] = config[key] end end
                 if type(config.appearance) == "table" then
+                    if config.appearance.title ~= nil then db.appearance.customTitle = config.appearance.customTitle == true end
                     for key in pairs(defaults) do if config.appearance[key] ~= nil then db.appearance[key] = config.appearance[key] end end
                 end
                 for _, key in ipairs({"auras", "tracking"}) do

@@ -1,25 +1,26 @@
 local _, ns = ...
+local L = ns.L
 local api = {}
 ns.Profiles = api
 local profileVersion = 2
 
 local function Copy(value, seen, depth, budget)
-    if issecretvalue and issecretvalue(value) then error("Valeur privée non transférable.") end
+    if issecretvalue and issecretvalue(value) then error(L("Valeur privée non transférable.")) end
     budget = budget or {items = 0, bytes = 0}
     budget.items = budget.items + 1
     if type(value) == "string" then budget.bytes = budget.bytes + #value end
-    if budget.items > 10000 or budget.bytes > 1048576 then error("Configuration trop volumineuse.") end
+    if budget.items > 10000 or budget.bytes > 1048576 then error(L("Configuration trop volumineuse.")) end
     local kind = type(value)
     if kind == "nil" or kind == "boolean" or kind == "string" then return value end
     if kind == "number" and value == value and math.abs(value) < math.huge then return value end
-    if kind ~= "table" or (depth or 0) > 16 then error("Configuration invalide.") end
+    if kind ~= "table" or (depth or 0) > 16 then error(L("Configuration invalide.")) end
     seen = seen or {}
-    if seen[value] then error("Configuration circulaire.") end
+    if seen[value] then error(L("Configuration circulaire.")) end
     seen[value] = true
     local result = {}
     for key, item in pairs(value) do
-        if issecretvalue and issecretvalue(key) then error("Clé privée non transférable.") end
-        if type(key) ~= "string" and type(key) ~= "number" then error("Clé de configuration invalide.") end
+        if issecretvalue and issecretvalue(key) then error(L("Clé privée non transférable.")) end
+        if type(key) ~= "string" and type(key) ~= "number" then error(L("Clé de configuration invalide.")) end
         Copy(key, seen, (depth or 0) + 1, budget)
         result[key] = Copy(item, seen, (depth or 0) + 1, budget)
     end
@@ -58,7 +59,7 @@ end
 
 local function Export(module)
     local ok, result = pcall(function() return Copy(module.ExportSettings()) end)
-    if not ok or type(result) ~= "table" then return nil, "Configuration illisible : " .. (module.label or "module") end
+    if not ok or type(result) ~= "table" then return nil, L("Configuration illisible : ") .. (module.label or "module") end
     return result
 end
 
@@ -66,7 +67,7 @@ local function Migrate(module, config, before, version)
     local migrations = module.profileMigrations or {}
     local label = module.label or "module"
     if type(version) ~= "number" or version % 1 ~= 0 or version < 0 or version > #migrations then
-        return nil, "Version de configuration non prise en charge pour « " .. label .. " »."
+        return nil, L("Version de configuration non prise en charge pour « ") .. label .. L(" ».")
     end
     if version == #migrations then return config end
     local ok, result = pcall(function()
@@ -74,15 +75,15 @@ local function Migrate(module, config, before, version)
         for step = version + 1, #migrations do migrations[step](candidate, current) end
         return Copy(candidate)
     end)
-    if not ok then return nil, "Impossible de mettre à jour la configuration de « " .. label .. " »." end
+    if not ok then return nil, L("Impossible de mettre à jour la configuration de « ") .. label .. L(" ».") end
     return result
 end
 
 local function Safe(value)
-    if value == nil then return "(absent)" end
-    if value == true then return "activé" end
-    if value == false then return "désactivé" end
-    if type(value) == "table" then return "(liste vide)" end
+    if value == nil then return L("(absent)") end
+    if value == true then return L("activé") end
+    if value == false then return L("désactivé") end
+    if type(value) == "table" then return L("(liste vide)") end
     return (tostring(value):gsub("|", "||"):gsub("[\r\n]", " "))
 end
 
@@ -111,11 +112,11 @@ function api.List()
 end
 
 function api.Save(name, overwrite)
-    if type(name) ~= "string" then return false, "Donne un nom au profil." end
+    if type(name) ~= "string" then return false, L("Donne un nom au profil.") end
     name = name:match("^%s*(.-)%s*$")
     local _, letters = name:gsub("[^\128-\191]", "")
-    if name == "" or #name > 400 or letters > 100 or name:find("[%c|]") then return false, "Nom invalide (100 caractères maximum)." end
-    if Store()[name] ~= nil and not overwrite then return false, "Ce profil existe déjà. Clique sur « Remplacer » pour confirmer.", "exists" end
+    if name == "" or #name > 400 or letters > 100 or name:find("[%c|]") then return false, L("Nom invalide (100 caractères maximum).") end
+    if Store()[name] ~= nil and not overwrite then return false, L("Ce profil existe déjà. Clique sur « Remplacer » pour confirmer."), "exists" end
     local profile = {version = profileVersion, class = Class(), modules = {}, moduleVersions = {}}
     for _, id in ipairs(Modules()) do
         local module = ns.modules[id]
@@ -125,27 +126,27 @@ function api.Save(name, overwrite)
         if module.profileMigrations then profile.moduleVersions[id] = #module.profileMigrations end
     end
     local ok = pcall(Copy, profile)
-    if not ok then return false, "Configuration trop volumineuse ou invalide." end
+    if not ok then return false, L("Configuration trop volumineuse ou invalide.") end
     Store()[name] = profile
-    return true, "Profil « " .. name .. " » enregistré pour le compte."
+    return true, L("Profil « ") .. name .. L(" » enregistré pour le compte.")
 end
 
 function api.Preview(name, selected)
     local ok, profile = pcall(Copy, Store()[name])
     if not ok or type(profile) ~= "table" or (profile.version ~= 1 and profile.version ~= profileVersion)
         or type(profile.modules) ~= "table" or (profile.version == profileVersion and type(profile.moduleVersions) ~= "table") then
-        return nil, "Profil invalide ou version non prise en charge."
+        return nil, L("Profil invalide ou version non prise en charge.")
     end
-    if type(selected) ~= "table" then return nil, "Sélectionne les modules à copier." end
+    if type(selected) ~= "table" then return nil, L("Sélectionne les modules à copier.") end
     local plan = {name = name, modules = {}, changes = {}, warnings = {}, class = Class(), source = profile}
     for _, id in ipairs(Modules()) do
         if selected[id] then
             local module, config = ns.modules[id], profile.modules[id]
             if config == nil then
-                plan.warnings[#plan.warnings + 1] = module.label .. " : absent du profil, conservé."
+                plan.warnings[#plan.warnings + 1] = module.label .. L(" : absent du profil, conservé.")
             elseif id == "talents" and not module.profileClassIndependent and (not profile.class or not plan.class or profile.class ~= plan.class) then
-                plan.warnings[#plan.warnings + 1] = "Talents : classe différente ou inconnue, configuration actuelle conservée."
-            elseif type(config) ~= "table" then return nil, "Configuration invalide : " .. module.label
+                plan.warnings[#plan.warnings + 1] = L("Talents : classe différente ou inconnue, configuration actuelle conservée.")
+            elseif type(config) ~= "table" then return nil, L("Configuration invalide : ") .. module.label
             else
                 local before, message = Export(module)
                 if not before then return nil, message end
@@ -157,25 +158,32 @@ function api.Preview(name, selected)
                 if not config then return nil, message end
                 if not Same(before, config) then
                     plan.modules[#plan.modules + 1] = {id = id, before = before, after = config}
-                    Differences(before, config, module.label or id, plan.changes)
+                    if module.ProfileDisplay then
+                        local beforeView, afterView = Copy(before), Copy(config)
+                        module.ProfileDisplay(beforeView)
+                        module.ProfileDisplay(afterView)
+                        Differences(beforeView, afterView, module.label or id, plan.changes)
+                    else
+                        Differences(before, config, module.label or id, plan.changes)
+                    end
                 end
             end
         end
     end
     for id in pairs(profile.modules) do
-        if selected[id] and not (ns.modules and ns.modules[id]) then plan.warnings[#plan.warnings + 1] = Safe(id) .. " : module indisponible, ignoré." end
+        if selected[id] and not (ns.modules and ns.modules[id]) then plan.warnings[#plan.warnings + 1] = Safe(id) .. L(" : module indisponible, ignoré.") end
     end
     return plan
 end
 
 local function Import(id, config)
     local module = ns.modules and ns.modules[id]
-    if not module or type(module.ImportSettings) ~= "function" then return false, "Module indisponible : " .. id end
+    if not module or type(module.ImportSettings) ~= "function" then return false, L("Module indisponible : ") .. id end
     local ok, accepted, message = pcall(function() return module.ImportSettings(Copy(config)) end)
-    if not ok or accepted ~= true then return false, type(message) == "string" and message or ((module.label or id) .. " : configuration refusée.") end
+    if not ok or accepted ~= true then return false, type(message) == "string" and message or ((module.label or id) .. L(" : configuration refusée.")) end
     if module.Refresh then pcall(module.Refresh) end
     local actual = Export(module)
-    if not actual or not Same(actual, config) then return false, (module.label or id) .. " : résultat différent de l’aperçu ou non vérifiable." end
+    if not actual or not Same(actual, config) then return false, (module.label or id) .. L(" : résultat différent de l’aperçu ou non vérifiable.") end
     return true
 end
 
@@ -202,17 +210,17 @@ local function RemainingUndo(changes)
 end
 
 function api.Apply(plan)
-    if type(plan) ~= "table" or type(plan.modules) ~= "table" or plan.class ~= Class() then return false, "Recrée l’aperçu du profil." end
-    if InCombatLockdown and InCombatLockdown() then return false, "Disponible hors combat." end
+    if type(plan) ~= "table" or type(plan.modules) ~= "table" or plan.class ~= Class() then return false, L("Recrée l’aperçu du profil.") end
+    if InCombatLockdown and InCombatLockdown() then return false, L("Disponible hors combat.") end
     local ok, source = pcall(Copy, Store()[plan.name])
-    if not ok or not Same(source, plan.source) then return false, "Profil modifié depuis l’aperçu. Revois les changements." end
-    if #plan.modules == 0 then return false, "Aucun changement sélectionné." end
+    if not ok or not Same(source, plan.source) then return false, L("Profil modifié depuis l’aperçu. Revois les changements.") end
+    if #plan.modules == 0 then return false, L("Aucun changement sélectionné.") end
     -- Closing the layout preview may restore saved positions. Validate afterwards.
     if ns.StopAllPreviews then ns.StopAllPreviews() end
     for _, change in ipairs(plan.modules) do
         local module = ns.modules and ns.modules[change.id]
         local current = module and Export(module)
-        if not current or not Same(current, change.before) then return false, "Configuration modifiée depuis l’aperçu. Revois les changements." end
+        if not current or not Same(current, change.before) then return false, L("Configuration modifiée depuis l’aperçu. Revois les changements.") end
     end
     local attempted = {}
     for _, change in ipairs(plan.modules) do
@@ -223,7 +231,7 @@ function api.Apply(plan)
             if not restored then
                 api.undo = RemainingUndo(attempted)
             end
-            return false, message .. (restored and " Configuration initiale restaurée." or " Restauration incomplète : " .. failure)
+            return false, message .. (restored and L(" Configuration initiale restaurée.") or L(" Restauration incomplète : ") .. failure)
         end
     end
     local undo = {modules = {}}
@@ -232,20 +240,20 @@ function api.Apply(plan)
         undo.modules[#undo.modules + 1] = {id = change.id, before = Copy(change.before), after = after}
     end
     api.undo = undo
-    return true, "Profil appliqué. Les modules non sélectionnés sont conservés."
+    return true, L("Profil appliqué. Les modules non sélectionnés sont conservés.")
 end
 
 function api.Undo()
-    if not api.undo then return false, "Aucun profil à annuler." end
-    if InCombatLockdown and InCombatLockdown() then return false, "Disponible hors combat." end
+    if not api.undo then return false, L("Aucun profil à annuler.") end
+    if InCombatLockdown and InCombatLockdown() then return false, L("Disponible hors combat.") end
     if ns.StopAllPreviews then ns.StopAllPreviews() end
     for _, change in ipairs(api.undo.modules) do
         local current = ns.modules[change.id] and Export(ns.modules[change.id])
-        if not current or not Same(current, change.after) then return false, "Configuration modifiée depuis l’application : annulation bloquée pour préserver tes changements." end
+        if not current or not Same(current, change.after) then return false, L("Configuration modifiée depuis l’application : annulation bloquée pour préserver tes changements.") end
     end
     local ok, message = Restore(api.undo.modules)
     if ok then api.undo = nil else api.undo = RemainingUndo(api.undo.modules) end
-    return ok, ok and "Configuration initiale restaurée." or ("Restauration incomplète : " .. message)
+    return ok, ok and L("Configuration initiale restaurée.") or (L("Restauration incomplète : ") .. message)
 end
 
 function ns.InitializeProfiles(rootCategory)
@@ -264,8 +272,8 @@ function ns.InitializeProfiles(rootCategory)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button, "profiles") end
         return button
     end
-    Label("Profils du compte", 16, -16, "GameFontNormalLarge")
-    local intro = Label("Réglages des modules et apparence, partagés entre tes personnages.\nCompteurs, builds de talents et valeurs du jeu (CVars/graphismes) exclus. Favoris inclus.", 16, -46)
+    Label(L("Profils du compte"), 16, -16, "GameFontNormalLarge")
+    local intro = Label(L("Réglages des modules et apparence, partagés entre tes personnages.\nCompteurs, builds de talents et valeurs du jeu (CVars/graphismes) exclus. Favoris inclus."), 16, -46)
     intro:SetPoint("TOPRIGHT", -16, -46); intro:SetHeight(44)
     local name = CreateFrame("EditBox", "ArkannsQOLProfileName", panel, "InputBoxTemplate")
     name:SetPoint("TOPLEFT", 22, -100); name:SetSize(220, 24); name:SetAutoFocus(false); name:SetMaxLetters(100)
@@ -279,27 +287,27 @@ function ns.InitializeProfiles(rootCategory)
     local apply, undo, choose, save, overwriteName
     local function CancelOverwrite()
         overwriteName = nil
-        if save then save:SetText("Enregistrer") end
+        if save then save:SetText(L("Enregistrer")) end
     end
     local function Invalidate()
-        plan = nil; apply:SetEnabled(false); preview:SetText("Choisis les modules puis clique sur « Voir les changements ». Aucun réglage n’est appliqué pendant l’aperçu.")
+        plan = nil; apply:SetEnabled(false); preview:SetText(L("Choisis les modules puis clique sur « Voir les changements ». Aucun réglage n’est appliqué pendant l’aperçu."))
         content:SetHeight(math.max(1, preview:GetStringHeight() + 20)); scroll:SetVerticalScroll(0)
     end
-    save = Button("ArkannsQOLProfileSave", "Enregistrer", 110, 254, -100, function()
+    save = Button("ArkannsQOLProfileSave", L("Enregistrer"), 110, 254, -100, function()
         local entered = name:GetText():match("^%s*(.-)%s*$")
         local ok, message, reason = api.Save(entered, overwriteName == entered)
         status:SetText(Safe(message))
-        if reason == "exists" then overwriteName = entered; save:SetText("Remplacer")
+        if reason == "exists" then overwriteName = entered; save:SetText(L("Remplacer"))
         else CancelOverwrite() end
         if ok then profileName = entered; choose:SetText(Safe(profileName)); name:ClearFocus(); Invalidate() end
     end)
     name:SetScript("OnTextChanged", CancelOverwrite)
-    choose = Button("ArkannsQOLProfileChoose", "Choisir un profil", 220, 16, -134, function()
+    choose = Button("ArkannsQOLProfileChoose", L("Choisir un profil"), 220, 16, -134, function()
         local names, index = api.List(), 0
         local function Select(saved)
             CancelOverwrite()
             profileName = saved
-            choose:SetText(profileName and Safe(profileName) or "Aucun profil enregistré")
+            choose:SetText(profileName and Safe(profileName) or L("Aucun profil enregistré"))
             if profileName then name:SetText(profileName) end
             Invalidate()
         end
@@ -313,24 +321,24 @@ function ns.InitializeProfiles(rootCategory)
         for i, saved in ipairs(names) do if saved == profileName then index = i end end
         Select(#names > 0 and names[index % #names + 1] or nil)
     end)
-    Button("ArkannsQOLProfileReview", "Voir les changements", 180, 16, -246, function()
+    Button("ArkannsQOLProfileReview", L("Voir les changements"), 180, 16, -246, function()
         local message
         plan, message = api.Preview(profileName, selected)
         if not plan then status:SetText(message); apply:SetEnabled(false); return end
-        local lines = {"Profil : " .. Safe(profileName), ""}
+        local lines = {L("Profil : ") .. Safe(profileName), ""}
         for _, warning in ipairs(plan.warnings) do lines[#lines + 1] = warning end
         for _, change in ipairs(plan.changes) do lines[#lines + 1] = change end
-        if #plan.changes == 0 then lines[#lines + 1] = "Aucun changement pour les modules sélectionnés." end
+        if #plan.changes == 0 then lines[#lines + 1] = L("Aucun changement pour les modules sélectionnés.") end
         preview:SetText(table.concat(lines, "\n"))
         content:SetHeight(math.max(1, preview:GetStringHeight() + 20)); scroll:SetVerticalScroll(0)
         apply:SetEnabled(#plan.modules > 0)
-        status:SetText(#plan.modules .. " module(s), " .. #plan.changes .. " valeur(s) à modifier. Vérifie la liste avant d’appliquer.")
+        status:SetText(#plan.modules .. L(" module(s), ") .. #plan.changes .. L(" valeur(s) à modifier. Vérifie la liste avant d’appliquer."))
     end)
-    apply = Button("ArkannsQOLProfileApply", "Appliquer", 100, 202, -246, function()
+    apply = Button("ArkannsQOLProfileApply", L("Appliquer"), 100, 202, -246, function()
         local ok, message = api.Apply(plan)
         Invalidate(); status:SetText(Safe(message)); undo:SetEnabled(api.undo ~= nil)
     end)
-    undo = Button("ArkannsQOLProfileUndo", "Annuler l’application", 166, 308, -246, function()
+    undo = Button("ArkannsQOLProfileUndo", L("Annuler l’application"), 166, 308, -246, function()
         local ok, message = api.Undo()
         Invalidate(); status:SetText(Safe(message)); undo:SetEnabled(api.undo ~= nil)
     end)
@@ -371,5 +379,5 @@ function ns.InitializeProfiles(rootCategory)
     end)
     panel:SetScript("OnHide", function() name:ClearFocus(); CancelOverwrite(); Invalidate() end)
     Invalidate(); undo:SetEnabled(false)
-    ns.profilesCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, "Profils")
+    ns.profilesCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Profils"))
 end

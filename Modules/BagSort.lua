@@ -488,6 +488,7 @@ local function SortOpenedBags()
     for frame, confirmed in pairs(opened) do
         local visible = frame:IsVisible()
         if confirmed and not Secret(visible) and visible and IsPersonalBag(frame) then
+            if ns.Diagnostics then ns.Diagnostics.Note("bags.sort.request") end
             if not pcall(C_Container.SortBags) then Suspend() end
             return
         end

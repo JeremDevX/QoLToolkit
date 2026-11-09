@@ -79,6 +79,7 @@ local initializers = {
     "InitializeBagSort",
     "InitializeInterface",
     "InitializeProfiles",
+    "InitializeDiagnostics",
 }
 
 local events = CreateFrame("Frame", "ArkannsQOLBootstrapEvents")

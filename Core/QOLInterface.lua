@@ -251,6 +251,7 @@ function UI.EndLayout(cancel)
         elseif module and module.SetPosition then module.SetPosition(position[1], position[2]) end
     end else for id,position in pairs(positions) do ns.modules[id].SetPosition(position[1],position[2]) end end
     endingLayout = nil
+    if ns.Diagnostics then ns.Diagnostics.Note(cancel and "layout.cancel" or "layout.apply") end
 end
 function UI.StartLayout()
     if InCombatLockdown and InCombatLockdown() then return false, L("Disposition disponible hors combat.") end

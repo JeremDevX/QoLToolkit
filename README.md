@@ -27,6 +27,12 @@ The addon follows the game client language. A French client uses French. English
 
 When updating, keep the folder name and your existing SavedVariables.
 
+## Local diagnostics
+
+Type `/aqlog start`, reproduce the behavior manually, then use `/aqlog stop`. Open `/aqlog show` out of combat and copy the selected trace with Ctrl+C. Use `/aqlog mark` during capture to mark a step or `/aqlog clear` to erase the trace.
+
+The addon samples frame geometry and selected events twice per second for up to two minutes. The trace includes visibility, anchors, scale, strata, and frame level. It stores the latest capture in WoW's local addon settings and starts a fresh trace on each explicit start. Copy the trace from the export window to share it.
+
 ## Development
 
 - [QoLToolkit.toc](QoLToolkit.toc) defines the WoW interface version, saved variables, and Lua load order. [Core/](Core/) contains startup, shared UI, and settings. [Modules/](Modules/) contains the gameplay features.

@@ -162,6 +162,17 @@ for source, translation in pairs({
     ["Échelle : %s %%. Exemple : /ft taille 120 (50 à 200)."] = "Scale: %s%%. Example: /ft scale 120 (50 to 200).",
     ["Échelle, ancrage et suivi du curseur."] = "Scale, position, and cursor tracking.",
     ["Épaisseur de bordure"] = "Border thickness",
+    ["Une capture est déjà en cours."] = "A capture is already running.",
+    ["Capture indisponible sur ce client."] = "Capture unavailable on this client.",
+    ["Capture terminée. /aqlog show pour la copier."] = "Capture finished. Use /aqlog show to copy it.",
+    ["Capture démarrée pour 2 min. /aqlog stop pour l’arrêter."] = "Capture started for 2 minutes. Use /aqlog stop to end it.",
+    ["Trace de diagnostic"] = "Diagnostic Trace",
+    ["Sélectionne la trace et copie-la avec Ctrl+C."] = "Select the trace and copy it with Ctrl+C.",
+    ["Aucune trace. Utilise /aqlog start pour commencer."] = "No trace yet. Use /aqlog start to begin.",
+    ["Ouvre la trace hors combat."] = "Open the trace out of combat.",
+    ["Aucune capture en cours."] = "No capture is running.",
+    ["Trace effacée."] = "Trace cleared.",
+    ["/aqlog start : enregistrer • mark : marquer • stop : arrêter • show : copier • clear : effacer"] = "/aqlog start to record • mark to bookmark • stop to end • show to copy • clear to erase",
 }) do
     ns.English[source] = translation
 end

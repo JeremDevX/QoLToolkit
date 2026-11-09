@@ -330,6 +330,7 @@ function ns.InitializeTargetDistance(root)
     ns.RegisterModule("distance", {
         label = title, icon = "Interface\\Icons\\INV_Misc_Spyglass_02",
         category = function() return category end,
+        DiagnosticFrame = function() return badge end,
         IsEnabled = function() return db.enabled end, SetEnabled = SetEnabled,
         Summary = function() return L("Au-dessus du nom · mètres") end,
         ExportSettings = function() return {enabled = db.enabled} end,

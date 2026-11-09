@@ -218,6 +218,18 @@ INSTALLATION
 Dossier : World of Warcraft\_forever_\Interface\AddOns\QoLToolkit
 Relance WoW après l’installation. Ouvre les réglages avec /aqol.
 
+DIAGNOSTIC LOCAL
+- /aqlog start : démarre une capture de deux minutes et remplace la trace précédente.
+- /aqlog mark : ajoute un repère au moment où tu observes le comportement.
+- /aqlog stop : termine la capture.
+- /aqlog show : ouvre la trace hors combat. Copie le texte sélectionné avec Ctrl+C.
+- /aqlog clear : efface la trace.
+
+La trace relève deux fois par seconde les changements de position, d’ancrage,
+de taille, de visibilité et de couche des cadres suivis. Elle note certains
+événements et les blocages signalés pour QoL Toolkit. WoW sauvegarde la trace
+locale lors d’un rechargement ou d’une déconnexion normale.
+
 RÉGLAGES AVANCÉS
 /aqol > Réglages avancés.
 Onglets en haut : Caméra, Plaques, Combat, Interface, Graphismes, Captures et Sons.

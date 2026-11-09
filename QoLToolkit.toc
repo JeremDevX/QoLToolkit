@@ -29,4 +29,5 @@ Modules\RankGuard.lua
 Modules\TargetDistance.lua
 Modules\BagSort.lua
 Core\Profiles.lua
+Core\Diagnostics.lua
 Core\Bootstrap.lua

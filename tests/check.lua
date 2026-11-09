@@ -80,3 +80,117 @@ observed.buffs = {}
 observed.buffsKnown = false
 assert(#model.Missing(settings, observed) == 0, "Unavailable aura data should stay silent")
 print("PASS: cross-locale effect IDs, name fallback, and unavailable aura data")
+
+local diagnosticNS = {L = function(text) return text end}
+chunks["Core/WoWRuntime.lua"]("QoLToolkit", diagnosticNS)
+chunks["Core/Diagnostics.lua"]("QoLToolkit", diagnosticNS)
+local now, combat, callback, cancelled, eventFrame, exportBox = 0, false, nil, 0
+local screen = {width = 1440, height = 900}
+function screen:GetWidth() return self.width end
+function screen:GetHeight() return self.height end
+function screen:GetEffectiveScale() return 0.9 end
+local frame = {left = 10, visible = true}
+function frame:IsForbidden() return false end
+function frame:IsShown() return self.visible end
+function frame:IsVisible() return self.visible end
+function frame:GetRect() return self.left, 20, 300, 180 end
+function frame:GetEffectiveScale() return 0.9 end
+function frame:GetEffectiveAlpha() return 0.75 end
+function frame:GetFrameStrata() return "DIALOG" end
+function frame:GetFrameLevel() return 4 end
+function frame:GetPoint() return "CENTER", screen, "BOTTOMLEFT", self.left, 20 end
+
+UIParent, GameTooltip = screen, frame
+diagnosticNS.modules = {session = {frame = frame, IsEnabled = function() return true end}}
+diagnosticNS.UI = {StylePanel = function() end, Label = function() end}
+ForeverTooltipLibreDB, SlashCmdList = {userSetting = true}, {}
+GetTime = function() return now end
+GetBuildInfo = function() return "1.60.1", "70862", "Nov 2026", 16001 end
+InCombatLockdown = function() return combat end
+issecretvalue = function(value) return value == "secret" end
+C_AddOns = {GetAddOnMetadata = function() return "0.1.0" end}
+local noop = function() end
+CreateFrame = function(kind, name)
+    local mock = setmetatable({
+        SetScript = function(self, key, value) self[key] = value end,
+        RegisterEvent = function(self, event) self[event] = true end,
+        UnregisterAllEvents = function(self) self.eventsCleared = true end,
+        SetText = function(self, text) self.text = text end,
+        Show = function(self) self.shown = true end,
+        Hide = function(self) self.shown = false end,
+    }, {__index = function() return noop end})
+    if kind == "Frame" and not name then eventFrame = mock end
+    if kind == "EditBox" then exportBox = mock end
+    return mock
+end
+
+local previousPrint = print
+print = noop
+diagnosticNS.InitializeDiagnostics()
+local command = SlashCmdList.QOLTOOLKITDIAGNOSTICS
+C_Timer = nil
+command("start")
+assert(not eventFrame and not ForeverTooltipLibreDB.diagnostics, "No work without a timer")
+C_Timer = {NewTicker = function(seconds, fn)
+    assert(seconds == 0.5)
+    callback = fn
+    return {Cancel = function() cancelled = cancelled + 1 end}
+end}
+assert(not callback and not eventFrame, "Registration must stay idle")
+local nativeTimer = C_Timer.NewTicker
+C_Timer.NewTicker = function() error("timer unavailable") end
+command("start")
+assert(rawget(eventFrame, "PLAYER_LOGOUT") == nil and not ForeverTooltipLibreDB.diagnostics)
+C_Timer.NewTicker = nativeTimer
+
+command("start")
+local trace = ForeverTooltipLibreDB.diagnostics
+assert(trace.header:find("build=70862 interface=16001", 1, true))
+assert(trace.rows[1]:find("session.enabled 1", 1, true))
+assert(trace.rows[1]:find("rect=10.0,20.0,300.0,180.0", 1, true))
+assert(trace.rows[1]:find("strata=DIALOG level=4 anchor=CENTER/BOTTOMLEFT:10.0,20.0", 1, true))
+now = 0.5
+callback()
+assert(#trace.rows == 1, "Unchanged samples should be skipped")
+
+eventFrame:OnEvent("UNIT_AURA", "target")
+eventFrame:OnEvent("PLAYER_XP_UPDATE", "secret")
+eventFrame:OnEvent("ADDON_ACTION_BLOCKED", "AnotherAddon")
+callback()
+assert(#trace.rows == 1, "Ignore unrelated and secret arguments")
+
+frame.left, now, combat = 45, 1, true
+eventFrame:OnEvent("PLAYER_REGEN_DISABLED")
+eventFrame:OnEvent("UNIT_AURA", "player")
+callback()
+assert(trace.rows[2]:find("events PLAYER_REGEN_DISABLED UNIT_AURA", 1, true))
+assert(trace.rows[2]:find("tooltip.native unavailable in combat", 1, true))
+assert(trace.rows[2]:find("rect=45.0,20.0,300.0,180.0", 1, true))
+frame.GetRect = function() return "secret", 20, 300, 180 end
+diagnosticNS.Diagnostics.Note("layout.cancel")
+command("mark")
+assert(trace.rows[3]:find("rect=?,?,?,?", 1, true))
+assert(trace.rows[3]:find("events layout.cancel", 1, true))
+assert(not trace.rows[3]:find("rect=secret", 1, true))
+
+for _ = 1, 300 do command("mark") end
+assert(#trace.rows == 260, "Trace must stay bounded")
+now = 120
+callback()
+assert(cancelled == 1 and eventFrame.eventsCleared == true)
+assert(trace.rows[#trace.rows]:find("timeout", 1, true))
+callback()
+assert(cancelled == 1)
+combat = false
+command("show")
+assert(exportBox.text:find(trace.header, 1, true))
+command("clear")
+assert(not ForeverTooltipLibreDB.diagnostics and ForeverTooltipLibreDB.userSetting and exportBox.text == "")
+command("start")
+eventFrame:OnEvent("PLAYER_LOGOUT")
+trace = ForeverTooltipLibreDB.diagnostics
+assert(cancelled == 2 and trace.rows[#trace.rows]:find("logout", 1, true))
+diagnosticNS.InitializeDiagnostics()
+assert(ForeverTooltipLibreDB.diagnostics == trace, "Keep the saved capture on startup")
+print = previousPrint
+print("PASS: opt-in diagnostics, geometry, filtered events, export, and limits")

@@ -9,7 +9,9 @@ local maxProbeRange = 100 -- Ignore global or unlimited-range spells.
 local refreshInterval = directInterval
 local db, toggle, badge, label, anchor, rejectedAnchor, spellRanges
 local closeRange, mediumRange = 10, 30
-local closeColor, mediumColor, farColor = {.10, .38, .19, .97}, {.52, .34, .07, .97}, {.47, .10, .10, .97}
+local closeColor = {background = {.10, .38, .19, .97}, text = {.48, .92, .55}}
+local mediumColor = {background = {.52, .34, .07, .97}, text = {1, .82, .28}}
+local farColor = {background = {.47, .10, .10, .97}, text = {1, .45, .45}}
 local activeColor
 local itemBands, checkingItemUnit
 local blockedItemChecks = {}
@@ -193,9 +195,16 @@ local function GetDistance(unit)
     end
 end
 
+local function GetDistanceColor(lower, upper)
+    if upper <= closeRange then return closeColor end
+    if lower >= mediumRange and upper > mediumRange then return farColor end
+    -- Yellow also covers estimates that cross a color threshold.
+    return mediumColor
+end
+
 function ns.GetMouseoverDistance()
-    local text = GetDistance("mouseover")
-    return text
+    local text, lower, upper = GetDistance("mouseover")
+    if text then return text, GetDistanceColor(lower, upper).text end
 end
 
 local function UpdateDistance()
@@ -234,15 +243,9 @@ local function UpdateDistance()
         end
         anchor = relativeTo
     end
-    -- Yellow also covers estimates that cross a color threshold.
-    local color = mediumColor
-    if upper <= closeRange then
-        color = closeColor
-    elseif lower >= mediumRange and upper > mediumRange then
-        color = farColor
-    end
+    local color = GetDistanceColor(lower, upper)
     if color ~= activeColor then
-        badge:SetBackdropColor(unpack(color))
+        badge:SetBackdropColor(unpack(color.background))
         activeColor = color
     end
     if text ~= label:GetText() then

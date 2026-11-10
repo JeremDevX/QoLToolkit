@@ -356,8 +356,15 @@ end
 print("PASS: minimap artwork, mask, fallback, click, scaled drag, reload, and map resize")
 
 do
-    local hook, bagModule
-    local bag = {GetBagID = function() return 0 end}
+    local hook, bagModule, shortcut, opened
+    local bag = {GetBagID = function() return 0 end, GetFrameLevel = function() return 1 end}
+    ContainerFrameCombinedBags = bag
+    local createWidget = CreateFrame
+    CreateFrame = function(kind, name, parent)
+        local widget = createWidget(kind, name)
+        if parent == bag then shortcut = widget end
+        return widget
+    end
     local slot = CreateFrame("ItemButton")
     slot.containerFrame, slot.IconBorder, slot.icon = bag, CreateFrame("Texture"), CreateFrame("Texture")
     slot.IconBorder.alpha = .8
@@ -372,14 +379,22 @@ do
     C_Container = {GetContainerItemInfo = noop}
     C_Item = {GetItemQualityColor = function() return .64, .21, .93 end}
     CreateColor = function(...) return {...} end
-    Settings.RegisterCanvasLayoutSubcategory = noop
+    local bagsCategory = {GetID = function() return 2 end}
+    Settings.RegisterCanvasLayoutSubcategory = function() return bagsCategory end
+    Settings.OpenToCategory = function(id) opened = id end
     local function Control() return CreateFrame("Frame") end
+    local function Check(_, name) return CreateFrame("CheckButton", name) end
+    local function Button(_, name, _, _, _, _, callback)
+        local button = CreateFrame("Button", name)
+        button:SetScript("OnClick", callback)
+        return button
+    end
     local bagNS = {L = distanceNS.L, WoW = distanceNS.WoW,
-        UI = {StylePanel = noop, Label = Control, Check = Control, Button = Control, Refresh = noop},
+        UI = {StylePanel = noop, Label = Control, Check = Check, Button = Button, Refresh = noop},
         RegisterModule = function(_, module) bagModule = module end}
     ForeverTooltipLibreDB.bagSort = {qualityInnerGlow = 100}
     chunks["Modules/BagSort.lua"]("QoLToolkit", bagNS)
-    bagNS.InitializeBagSort()
+    bagNS.InitializeBagSort({GetID = function() return 1 end})
     SetItemButtonQuality(slot, 4)
     local outline, glow = slot.textures[1], slot.textures[2]
     assert(outline.points.TOPLEFT[1] == slot.IconBorder and outline.points.BOTTOMRIGHT[2] == "BOTTOMRIGHT")
@@ -395,8 +410,27 @@ do
     assert(slot.IconBorder.alpha == 0)
     SetItemButtonQuality(slot, "secret")
     assert(not outline.shown and slot.IconBorder.alpha == .8)
+
+    local tooltip = GameTooltip
+    GameTooltip = nil
+    shortcut:OnClick("LeftButton")
+    local quick = frames.ArkannsQOLBagQuickSettings
+    assert(quick.shown and quick.points.TOPRIGHT[1] == bag)
+    assert(frames.ArkannsQOLBagQuickUncommonOnly and frames.ArkannsQOLBagQuickColor4,
+        "The backpack shortcut must expose the rarity filter and colors")
+    for key, value in pairs({qualityOpacity = 75, qualityThickness = 3, qualityInnerGlow = 40}) do
+        local slider = assert(frames["ArkannsQOLBagQuick_" .. key], "Missing backpack slider " .. key)
+        slider:OnValueChanged(value)
+        assert(bagModule.ExportSettings()[key] == value, "Backpack controls must update the shared bag settings")
+    end
+    frames.ArkannsQOLBagQuickMore:OnClick()
+    assert(not quick.shown and opened == 2)
+    shortcut:OnClick("RightButton")
+    assert(opened == 1)
+    GameTooltip = tooltip
+    CreateFrame = createWidget
 end
-print("PASS: bag border geometry, inner glow, and native restoration")
+print("PASS: bag border geometry, inner glow, native restoration, and backpack settings")
 
 -- Keep each UI simulation isolated from the globals used above.
 for _, path in ipairs({"tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/ui_utilities.lua","tests/ui_modules.lua"}) do

@@ -21,11 +21,8 @@ local function RegisterMinimapButton(openHome)
     background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
     local icon = button:CreateTexture(nil, "ARTWORK")
     icon:SetAllPoints(background)
-    local texture = C_AddOns and WoW.ReadValue(C_AddOns.GetAddOnMetadata, addonName, "IconTexture")
-    if type(texture) ~= "string" or texture == "" or not icon:SetTexture(texture) then
-        icon:SetTexture("Interface\\Icons\\INV_Misc_Wrench_01")
-        icon:SetTexCoord(.05, .95, .05, .95)
-    end
+    icon:SetTexture("Interface\\Icons\\INV_Misc_Wrench_01")
+    icon:SetTexCoord(.05, .95, .05, .95)
     local mask = button:CreateMaskTexture()
     mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     mask:SetAllPoints(background)

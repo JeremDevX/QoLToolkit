@@ -209,9 +209,9 @@ Le cadre est vert jusqu’à 10 m, jaune jusqu’à 30 m et rouge au-delà.
 SACS
 Le bouton QoL dans l’en-tête ouvre les réglages rapides au clic gauche.
 « Plus de réglages » ouvre la page complète. Le clic droit ouvre l’accueil.
-Personnalise la couleur par rareté, l’opacité et les halos intérieur et extérieur.
+Personnalise la couleur par rareté, l’opacité, l’épaisseur et les halos intérieur et extérieur.
 Une icône en haut à droite signale une apparence de transmogrification à collectionner.
-Tu peux désactiver « Icône des apparences manquantes » dans les réglages rapides.
+Tu peux désactiver « Transmos manquantes » dans les réglages rapides.
 Le tri facultatif se lance à l’ouverture manuelle des sacs, hors combat et hors banque.
 
 RACCOURCIS

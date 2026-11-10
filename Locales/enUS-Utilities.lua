@@ -58,6 +58,7 @@ for source, translation in pairs({
     ["Masquer gris et blancs"] = "Hide gray and white",
     ["Masquer les contours gris et blancs"] = "Hide gray and white borders",
     ["Opacité du contour"] = "Border opacity",
+    ["Épaisseur du contour"] = "Border thickness",
     ["Halo extérieur"] = "Outer glow",
     ["Halo intérieur"] = "Inner glow",
     ["Couleurs et aperçu"] = "Colors and preview",
@@ -124,8 +125,8 @@ for source, translation in pairs({
     ["Session en cours"] = "Session running",
     ["Statut AFK indisponible"] = "AFK status unavailable",
     ["Survole XP gagnée ou Or reçu pour le taux horaire.\nLe démarrage reprend les compteurs. L’option AFK suspend le suivi jusqu’au retour.\nUne nouvelle connexion remet les compteurs à zéro et démarre le suivi.\n/reload conserve les compteurs et l’arrêt manuel. ≥ indique des données XP incomplètes."] = "Hover over XP gained or Gold received to see the hourly rate.\nStarting resumes the counters. The AFK option pauses tracking until you return.\nLogging in resets the counters and starts tracking.\n/reload keeps the counters and manual stop. ≥ means XP data is incomplete.",
-    ["Icône de transmo indisponible"] = "Transmog icon unavailable",
-    ["Icône des apparences manquantes"] = "Uncollected appearance icon",
+    ["Transmo indisponible"] = "Transmog unavailable",
+    ["Transmos manquantes"] = "Missing appearances",
 }) do
     ns.English[source] = translation
 end

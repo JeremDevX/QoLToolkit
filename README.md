@@ -12,7 +12,7 @@ QoL Toolkit is a modular addon for **World of Warcraft Forever 1.60.1**. Build t
 | Tooltips | Move or scale supported tooltips, or have them follow the cursor. Unit tooltips can also show a measured or estimated distance. WoW quest details and tooltip content are preserved. |
 | Spell Rank Guard | Flag spells on supported action bars when a higher rank is already in your spellbook. Add exceptions for ranks you keep on purpose. |
 | Target Distance | Display a color-coded distance or range estimate above the target frame's name. |
-| Bags | Color item borders by rarity, adjust inner and outer glow, mark uncollected appearances, and optionally sort when you manually open your bags outside combat and away from the bank. |
+| Bags | Customize rarity colors, border thickness, and inner and outer glow. Mark uncollected appearances and optionally sort on manual bag opening, outside combat and away from the bank. |
 | Advanced Settings | Browse available client settings and graphics options, check defaults, and reset individual or selected settings. |
 
 Use the dashboard to pin modules, preview appearance changes, and position supported windows. Named profiles share selected module settings across characters on the same account. Talent builds and journal totals stay with their character.

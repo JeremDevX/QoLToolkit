@@ -10,10 +10,11 @@ local qualityBorders, samples, shortcuts = {}, {}, {}
 local transmogIcons = {}
 local shortcutMargins = {}
 local defaults = {
-    enabled = false, qualityBorders = true, qualityOpacity = 100,
+    enabled = false, qualityBorders = true, qualityOpacity = 100, qualityThickness = 1,
     qualityGlow = 25, qualityInnerGlow = 0, qualityUncommonOnly = false, transmogIcons = true,
 }
 local borderTexture = "Interface\\Common\\WhiteIconFrame"
+local maxThickness = 4
 local glowAtlas = "bags-glow-white"
 local transmogAtlas = "lootroll-icon-transmog"
 local transmogRefreshEvents = {
@@ -26,9 +27,11 @@ local outerGlowPadding = 2
 local shortcutWidth, shortcutRight = 42, -32
 local titleRight = shortcutRight - shortcutWidth - 4
 
-local function ValidSetting(value, default)
+local function ValidSetting(key, value, default)
     if type(default) == "boolean" then return type(value) == "boolean" end
-    return type(value) == "number" and value >= 0 and value <= 100 and value % 1 == 0
+    if type(value) ~= "number" or value % 1 ~= 0 then return false end
+    if key == "qualityThickness" then return value >= 1 and value <= maxThickness end
+    return value >= 0 and value <= 100
 end
 
 local function ValidColor(quality, hex)
@@ -47,7 +50,7 @@ end
 local function NormalizeSettings(value)
     if type(value) ~= "table" then value = {} end
     for key, default in pairs(defaults) do
-        if not ValidSetting(value[key], default) then value[key] = default end
+        if not ValidSetting(key, value[key], default) then value[key] = default end
     end
     value.qualityColors = CopyColors(type(value.qualityColors) == "table" and value.qualityColors or {})
     return value
@@ -95,9 +98,52 @@ end
 local function HideBorder(regions)
     if not regions then return end
     regions.border:Hide()
+    if regions.edges then for _, edge in ipairs(regions.edges) do edge:Hide() end end
     if regions.glow then regions.glow:Hide() end
     if regions.innerGlow then regions.innerGlow:Hide() end
     RestoreNativeBorder(regions)
+end
+
+local function PaintBorder(button, regions, r, g, b, alpha)
+    local thickness = db.qualityThickness
+    if thickness == defaults.qualityThickness then
+        if regions.edges then for _, edge in ipairs(regions.edges) do edge:Hide() end end
+        regions.border:SetVertexColor(r, g, b, alpha)
+        regions.border:Show()
+        return
+    end
+
+    regions.border:Hide()
+    if not regions.edges then
+        regions.edges = {}
+        for index = 1, 4 do
+            local edge = button:CreateTexture(nil, "ARTWORK", nil, -3)
+            edge:SetTexture("Interface\\Buttons\\WHITE8X8")
+            regions.edges[index] = edge
+        end
+        local top, bottom = unpack(regions.edges)
+        top:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+        top:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
+        bottom:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
+        bottom:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, 0)
+    end
+    if regions.thickness ~= thickness then
+        -- Keep all four edges inside the slot without overlapping at the corners.
+        local top, bottom, left, right = unpack(regions.edges)
+        top:SetHeight(thickness)
+        bottom:SetHeight(thickness)
+        left:SetWidth(thickness)
+        right:SetWidth(thickness)
+        left:SetPoint("TOPLEFT", button, "TOPLEFT", 0, -thickness)
+        left:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, thickness)
+        right:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, -thickness)
+        right:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, thickness)
+        regions.thickness = thickness
+    end
+    for _, edge in ipairs(regions.edges) do
+        edge:SetVertexColor(r, g, b, alpha)
+        edge:Show()
+    end
 end
 
 local function PaintGlow(button, regions, key, padding, intensity, r, g, b)
@@ -148,8 +194,7 @@ local function PaintQualityBorder(button, quality)
             native:SetAlpha(0)
         end
     end
-    regions.border:SetVertexColor(r, g, b, db.qualityOpacity / 100)
-    regions.border:Show()
+    PaintBorder(button, regions, r, g, b, db.qualityOpacity / 100)
     PaintGlow(button, regions, "glow", outerGlowPadding, db.qualityGlow, r, g, b)
     PaintGlow(button, regions, "innerGlow", -3, db.qualityInnerGlow, r, g, b)
 end
@@ -359,7 +404,11 @@ local function AttachShortcut(frame)
         button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
         shortcuts[frame] = button
         button:SetSize(shortcutWidth, 20)
-        button:SetPoint("TOPRIGHT", frame, "TOPRIGHT", shortcutRight, -3)
+        if frame.CloseButton then
+            button:SetPoint("RIGHT", frame.CloseButton, "LEFT", -4, 0)
+        else
+            button:SetPoint("TOPRIGHT", frame, "TOPRIGHT", shortcutRight, -3)
+        end
         button:SetText("QOL")
         button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         button:SetScript("OnClick", function(self, mouseButton)
@@ -438,18 +487,20 @@ local function BuildAppearance(body, compact)
         RefreshQualityBorders()
     end)
     local function Slider(key, name, y)
+        local isThickness = key == "qualityThickness"
         local label = UI.Label(body, "", 20, y)
         local slider = CreateFrame("Slider", prefix .. "_" .. key, body, "BackdropTemplate")
         slider:SetPoint("TOPLEFT", 18, y - 22)
         slider:SetSize(compact and 222 or 244, 16)
         slider:SetOrientation("HORIZONTAL")
-        slider:SetMinMaxValues(0, 100)
-        slider:SetValueStep(5)
+        slider:SetMinMaxValues(isThickness and 1 or 0, isThickness and maxThickness or 100)
+        slider:SetValueStep(isThickness and 1 or 5)
         slider:SetObeyStepOnDrag(true)
         slider:SetBackdrop({bgFile = "Interface\\Buttons\\UI-SliderBar-Background", edgeFile = "Interface\\Buttons\\UI-SliderBar-Border", edgeSize = 8})
         slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
         slider:GetThumbTexture():SetSize(28, 28)
-        local function Caption() label:SetText(string.format(L("%s · %d %%"), name, db[key])) end
+        local format = isThickness and "%s · %d" or L("%s · %d %%")
+        local function Caption() label:SetText(format:format(name, db[key])) end
         slider:SetScript("OnValueChanged", function(_, value)
             if syncing then return end
             db[key] = math.floor(value + .5)
@@ -459,11 +510,12 @@ local function BuildAppearance(body, compact)
         return function() slider:SetValue(db[key]); Caption() end
     end
     local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -149 or -262)
-    local outerGlow = Slider("qualityGlow", L("Halo extérieur"), compact and -195 or -318)
-    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -241 or -374)
-    UI.Label(body, L("Couleurs et aperçu"), 20, compact and -287 or -430, 15)
-    if not compact then UI.Label(body, L("Clic gauche · Couleur   Clic droit · Couleur WoW"), 20, -456) end
-    local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -311 or -484
+    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and -189 or -318)
+    local outerGlow = Slider("qualityGlow", L("Halo extérieur"), compact and -229 or -374)
+    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -269 or -430)
+    UI.Label(body, L("Couleurs et aperçu"), 20, compact and -311 or -486, 15)
+    if not compact then UI.Label(body, L("Clic gauche · Couleur   Clic droit · Couleur WoW"), 20, -512) end
+    local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -335 or -540
     local count = 0
     for quality = 0, 8 do
         local name = _G["ITEM_QUALITY" .. quality .. "_DESC"] or qualityLabels[quality + 1]
@@ -511,6 +563,7 @@ local function BuildAppearance(body, compact)
         syncing = true
         filter:SetChecked(db.qualityUncommonOnly)
         opacity()
+        thickness()
         outerGlow()
         innerGlow()
         syncing = false
@@ -525,7 +578,7 @@ local function SetEnabled(value)
 end
 
 local function CreateTransmogCheck(body, name, x, y)
-    local label = transmogEvents and L("Icône des apparences manquantes") or L("Icône de transmo indisponible")
+    local label = transmogEvents and L("Transmos manquantes") or L("Transmo indisponible")
     local control = ns.UI.Check(body, name, label, x, y, SetTransmogIcons)
     if not transmogEvents then control:Disable() end
     return control
@@ -670,7 +723,7 @@ function ns.InitializeBagSort(rootCategory)
     scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -4)
     scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -30, 10)
     local body = CreateFrame("Frame", nil, scroll)
-    body:SetSize(282, qualityListening and 614 or 253)
+    body:SetSize(282, qualityListening and 670 or 253)
     scroll:SetScrollChild(body)
     ns.UI.Label(body, L("Sacs"), 16, -16, 20)
     check = ns.UI.Check(body, "ArkannsQOLBagsEnabled", L("Trier à l’ouverture manuelle"), 16, -54, SetEnabled)
@@ -754,11 +807,14 @@ function ns.InitializeBagSort(rootCategory)
             function(config, current)
                 if config.transmogIcons == nil then config.transmogIcons = current.transmogIcons end
             end,
+            function(config, current)
+                if config.qualityThickness == nil then config.qualityThickness = current.qualityThickness end
+            end,
         },
         ImportSettings = function(config)
             if type(config) ~= "table" or type(config.enabled) ~= "boolean" then return false end
             for key, default in pairs(defaults) do
-                if config[key] ~= nil and not ValidSetting(config[key], default) then return false end
+                if config[key] ~= nil and not ValidSetting(key, config[key], default) then return false end
             end
             if config.qualityColors ~= nil then
                 if type(config.qualityColors) ~= "table" then return false end

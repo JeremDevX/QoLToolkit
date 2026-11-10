@@ -118,12 +118,17 @@ local function Stop(reason)
     return true
 end
 
-local function OnEvent(_, event, argument)
+local function OnEvent(_, event, argument, method)
     if event == "PLAYER_LOGOUT" then Stop("logout"); return end
     if event == "UNIT_AURA" or event == "PLAYER_XP_UPDATE" then
         if not WoW.IsPublic(argument) or argument ~= "player" then return end
     elseif event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
         if not WoW.IsPublic(argument) or argument ~= addonName then return end
+        -- Keep the API name supplied by Blizzard, without recording arbitrary event data.
+        local name = WoW.IsPublic(method) and type(method) == "string" and #method <= 160
+            and method:match("^[%w_%.:()]+$") and method or "?"
+        diagnostics.Note(event .. " function=" .. name)
+        return
     end
     diagnostics.Note(event)
 end

@@ -79,6 +79,7 @@ Load("Core/WoWRuntime.lua"); Load("Core/QOLInterface.lua")
 local UI=ns.UI
 UI.Initialize()
 assert(UI.GetStyle().theme == "warm" and UI.GetStyle().bg[1] == .2, "Old settings retain their custom palette")
+assert(UI.GetStyle().border == "theme", "Old settings use the theme border")
 local settings, writes, imports = {},0,0
 local module={label="Talents",frame=Frame()}
 module.GetPosition=function() return settings.x or .7,settings.y or .5 end
@@ -132,7 +133,9 @@ assert(frames.ArkannsQOLCommon_borderSize:GetWidth()<=350,"Appearance controls f
 local appearance=UI.ExportSettings(); appearance.pins.talents=true; UI.ImportSettings(appearance)
 UI.SetOverride("talents", true)
 local themeButton, options = frames.ArkannsQOLCommonTheme, {}
+local borderButton = frames.ArkannsQOLCommonBorder
 assert(themeButton:GetText() == "Thème : Chaleureux" and not themeButton.enabled)
+assert(borderButton:IsShown() and not borderButton.enabled)
 env.MenuUtil = {CreateContextMenu = function(owner, build)
     build(owner, {CreateButton = function(_, label, select) options[label] = select end})
 end}
@@ -144,7 +147,7 @@ Load("Core/Profiles.lua")
 local profiles = ns.Profiles
 assert(profiles.Save("Legacy theme"))
 local legacy = env.ForeverTooltipLibreDB.profiles["Legacy theme"]
-legacy.modules.appearance.theme, legacy.moduleVersions.appearance = nil, nil
+legacy.modules.appearance.theme, legacy.modules.appearance.border, legacy.moduleVersions.appearance = nil, nil, nil
 options["Blizzard classique"]()
 assert(panel.backdrop.edgeFile == "Interface\\DialogFrame\\UI-DialogBox-Border")
 options["Mode sombre moderne"]()
@@ -161,5 +164,32 @@ options["Chaleureux"]()
 assert(panel.backdrop.edgeFile == "Interface\\Tooltips\\UI-Tooltip-Border" and UI.GetStyle().bg[1] == .12)
 assert(profiles.Apply(assert(profiles.Preview("Modern theme", {appearance = true}))))
 assert(panel.backdrop.edgeSize == 1 and UI.GetStyle().theme == "modern")
+local modern = env.ForeverTooltipLibreDB.profiles["Modern theme"]
+modern.moduleVersions.appearance, modern.modules.appearance.border = 1, nil
+
+borderButton.scripts.OnClick(borderButton)
+options["Cadre d’infobulle"]()
+assert(panel.backdrop.edgeFile == "Interface\\Tooltips\\UI-Tooltip-Border" and panel.backdrop.edgeSize == 12)
+options["Cadre Blizzard"]()
+assert(panel.backdrop.edgeFile == "Interface\\DialogFrame\\UI-DialogBox-Border")
+options["Trait simple"]()
+local thickness = frames.ArkannsQOLCommon_borderSize
+thickness.scripts.OnValueChanged(thickness, 3)
+options["Chaleureux"]()
+assert(panel.backdrop.edgeFile == "Interface\\Buttons\\WHITE8X8" and panel.backdrop.edgeSize == 3)
+options["Sans bordure"]()
+assert(panel.backdrop.edgeFile == nil and panel.backdrop.bgFile and not thickness.enabled)
+assert(borderButton:GetText() == "Type de bordure : Sans bordure" and UI.IsOverride("talents"))
+UI.Initialize(); UI.Refresh()
+assert(UI.GetStyle().border == "none" and panel.backdrop.edgeFile == nil)
+assert(profiles.Save("Borderless"))
+assert(profiles.Apply(assert(profiles.Preview("Modern theme", {appearance = true}))))
+assert(UI.GetStyle().border == "theme" and thickness.enabled and panel.backdrop.edgeSize == 1)
+assert(profiles.Undo() and UI.GetStyle().border == "none")
+options["Selon le thème"]()
+assert(panel.backdrop.edgeFile == "Interface\\Tooltips\\UI-Tooltip-Border" and thickness.enabled)
+local borderPlan = assert(profiles.Preview("Borderless", {appearance = true}))
+assert(table.concat(borderPlan.changes, "\n"):find("Selon le thème > Sans bordure", 1, true))
+assert(profiles.Apply(borderPlan) and panel.backdrop.edgeFile == nil)
 assert(ns.home.Refresh)
-print("PASS: layout, previews, confirmation, and shared theme selection, reload, and profiles")
+print("PASS: layout, previews, confirmation, and shared theme and border settings across reload and profiles")

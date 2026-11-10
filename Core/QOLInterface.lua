@@ -6,21 +6,27 @@ ns.UI = UI
 local config, previewBar, previewModule, layout, home, appearanceRefresh
 local styledPanels, styledButtons, styledLabels = {}, {}, {}
 local moduleOrder = {"tooltips", "reminders", "session", "talents", "ranks", "distance", "bags", "advanced"}
-local defaults = {theme = "warm", bg = {.12, .065, .025}, text = {1, .94, .8}, accent = {1, .76, .3},
-    font = "standard", fontSize = 13, scale = 1, opacity = .85, borderSize = 12, padding = 12, gap = 6,
-    overrides = {}, pins = {}, grid = true, snap = true}
 local solidTexture = "Interface\\Buttons\\WHITE8X8"
+local borders = {
+    theme = {label = L("Selon le thème")},
+    tooltip = {label = L("Cadre d’infobulle"), edge = "Interface\\Tooltips\\UI-Tooltip-Border", size = 12, inset = 3},
+    blizzard = {label = L("Cadre Blizzard"), edge = "Interface\\DialogFrame\\UI-DialogBox-Border", size = 20, insetScale = .35},
+    flat = {label = L("Trait simple"), edge = solidTexture, size = 1, insetScale = 1},
+    none = {label = L("Sans bordure")},
+}
+local defaults = {theme = "warm", border = "theme", bg = {.12, .065, .025}, text = {1, .94, .8}, accent = {1, .76, .3},
+    font = "standard", fontSize = 13, scale = 1, opacity = .85, borderSize = borders.tooltip.size, padding = 12, gap = 6,
+    overrides = {}, pins = {}, grid = true, snap = true}
 local themes = {
-    warm = {label = L("Chaleureux"), settings = defaults},
-    blizzard = {label = L("Blizzard classique"),
+    warm = {label = L("Chaleureux"), settings = defaults, border = "tooltip"},
+    blizzard = {label = L("Blizzard classique"), border = "blizzard",
         settings = {bg = {.24, .23, .21}, text = {1, .98, .9}, accent = {1, .82, .45},
-            font = "standard", opacity = .96, borderSize = 20},
-        background = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-        edge = "Interface\\DialogFrame\\UI-DialogBox-Border", tileSize = 32},
-    modern = {label = L("Mode sombre moderne"),
+            font = "standard", opacity = .96},
+        background = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark", tileSize = 32},
+    modern = {label = L("Mode sombre moderne"), border = "flat",
         settings = {bg = {.065, .075, .095}, text = {.92, .94, .98}, accent = {.53, .7, .98},
-            font = "narrow", opacity = .96, borderSize = 1},
-        background = solidTexture, edge = solidTexture},
+            font = "narrow", opacity = .96},
+        background = solidTexture},
 }
 local fonts = {standard = "Fonts\\FRIZQT__.TTF", narrow = "Fonts\\ARIALN.TTF", fantasy = "Fonts\\MORPHEUS.TTF"}
 local bounds = {fontSize = {10, 24}, scale = {.6, 1.6}, opacity = {0, 1}, borderSize = {1, 24}, padding = {4, 24}, gap = {0, 20}}
@@ -46,6 +52,7 @@ local function Normalize(value)
     value = type(value) == "table" and value or {}
     local result = Copy(defaults)
     if themes[value.theme] then result.theme = value.theme end
+    if borders[value.border] then result.border = value.border end
     for key, range in pairs(bounds) do
         if Number(value[key]) and value[key] >= range[1] and value[key] <= range[2] then result[key] = value[key] end
     end
@@ -78,13 +85,15 @@ function UI.GetStyle(id)
     return style
 end
 function UI.ExportSettings() return Copy(config or defaults) end
+local function GetBorder(style)
+    return borders[style.border == "theme" and themes[style.theme].border or style.border]
+end
 local function ApplySkin(frame, style)
     local theme = themes[style.theme]
-    local inset = 3
-    if style.theme == "modern" then inset = style.borderSize
-    elseif style.theme == "blizzard" then inset = math.floor(style.borderSize * .35) end
+    local border = GetBorder(style)
+    local inset = border.inset or math.floor(style.borderSize * (border.insetScale or 0))
     frame:SetBackdrop({bgFile = theme.background or "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = theme.edge or "Interface\\Tooltips\\UI-Tooltip-Border", tile = style.theme ~= "modern",
+        edgeFile = border.edge, tile = style.theme ~= "modern",
         tileSize = theme.tileSize or 16, edgeSize = style.borderSize, insets = {left = inset, right = inset, top = inset, bottom = inset}})
     frame:SetBackdropColor(style.bg[1], style.bg[2], style.bg[3], style.opacity)
     frame:SetBackdropBorderColor(style.accent[1], style.accent[2], style.accent[3], .7)
@@ -438,9 +447,24 @@ local function BuildAppearance(root)
                 local key, theme = id, themes[id]
                 menu:CreateButton(theme.label, function()
                     config.theme = key
-                    for _, field in ipairs({"bg", "text", "accent", "font", "opacity", "borderSize"}) do
+                    for _, field in ipairs({"bg", "text", "accent", "font", "opacity"}) do
                         config[field] = Copy(theme.settings[field])
                     end
+                    if config.border == "theme" then config.borderSize = GetBorder(config).size end
+                    UI.Refresh()
+                end)
+            end
+        end)
+    end)
+    local borderButton = Button(body, "ArkannsQOLCommonBorder", "", 0, -120, 330, function(self)
+        if not MenuUtil or not MenuUtil.CreateContextMenu then return end
+        MenuUtil.CreateContextMenu(self, function(_, menu)
+            for _, id in ipairs({"theme", "tooltip", "blizzard", "flat", "none"}) do
+                local key = id
+                menu:CreateButton(borders[key].label, function()
+                    if config.border == key then return end
+                    config.border = key
+                    config.borderSize = GetBorder(config).size or config.borderSize
                     UI.Refresh()
                 end)
             end
@@ -460,13 +484,13 @@ local function BuildAppearance(root)
         end)
         fields[key] = {slider=slider, caption=caption, title=title, factor=factor}
     end
-    Slider("fontSize", L("Taille du texte des modules"), -128, 10, 24)
-    Slider("scale", L("Échelle (%)"), -198, 60, 160, 100)
-    Slider("opacity", L("Opacité du fond (%)"), -268, 0, 100, 100)
+    Slider("fontSize", L("Taille du texte des modules"), -162, 10, 24)
+    Slider("scale", L("Échelle (%)"), -232, 60, 160, 100)
+    Slider("opacity", L("Opacité du fond (%)"), -302, 0, 100, 100)
     Slider("borderSize", L("Épaisseur de bordure"), -290, 1, 24)
     Slider("padding", L("Marge intérieure"), -360, 4, 24)
     Slider("gap", L("Espacement"), -430, 0, 20)
-    local advancedButton = Button(body, "ArkannsQOLCommonAdvanced", L("Personnalisation avancée"), 0, -338, 260, function()
+    local advancedButton = Button(body, "ArkannsQOLCommonAdvanced", L("Personnalisation avancée"), 0, -372, 260, function()
         advanced = not advanced; LayoutAppearance()
     end)
     local fontButton = Button(body, "ArkannsQOLCommonFont", "", 0, -500, 330, function(self)
@@ -512,8 +536,14 @@ local function BuildAppearance(root)
     appearanceRefresh = function()
         syncing = true
         themeButton:SetText(L("Thème : %s"):format(themes[config.theme].label))
-        themeButton:SetEnabled(MenuUtil and type(MenuUtil.CreateContextMenu) == "function" or false)
+        borderButton:SetText(L("Type de bordure : %s"):format(borders[config.border].label))
+        local menuAvailable = MenuUtil and type(MenuUtil.CreateContextMenu) == "function" or false
+        themeButton:SetEnabled(menuAvailable); borderButton:SetEnabled(menuAvailable)
         for key, field in pairs(fields) do field.slider:SetValue(config[key]*field.factor); field.caption:SetText(field.title .. " : " .. math.floor(config[key]*field.factor+.5)) end
+        local hasBorder = config.border ~= "none"
+        fields.borderSize.slider:SetEnabled(hasBorder)
+        fields.borderSize.slider:SetAlpha(hasBorder and 1 or .5)
+        fields.borderSize.caption:SetAlpha(hasBorder and 1 or .5)
         for key,input in pairs(colors) do if not input.HasFocus or not input:HasFocus() then
             local c=config[key]; input:SetText(string.format("%02X%02X%02X",math.floor(c[1]*255+.5),math.floor(c[2]*255+.5),math.floor(c[3]*255+.5)))
         end end
@@ -524,31 +554,32 @@ local function BuildAppearance(root)
         local width=math.max(270,panel:GetWidth()-50)
         local narrow=width<435
         local extra=narrow and 118 or 0
-        body:SetSize(width,advanced and 868+extra or 468)
+        body:SetSize(width,advanced and 902+extra or 502)
         heading:SetWidth(width); heading:SetHeight(44)
         description:ClearAllPoints(); description:SetPoint("TOPLEFT",0,-48); description:SetWidth(width); description:SetHeight(30)
         for _,field in pairs(fields) do field.slider:SetWidth(math.min(330,width-8)) end
         themeButton:SetWidth(math.min(330,width))
+        borderButton:SetWidth(math.min(330,width))
         fontButton:SetWidth(math.min(330,width))
         fontButton:SetShown(advanced)
         advancedButton:SetText(advanced and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
         advancedButton:SetWidth(math.min(330,width))
         for index,key in ipairs({"borderSize","padding","gap"}) do
             local field=fields[key]
-            local y=-388-(index-1)*70
+            local y=-422-(index-1)*70
             field.caption:ClearAllPoints(); field.caption:SetPoint("TOPLEFT",0,y)
             field.slider:ClearAllPoints(); field.slider:SetPoint("TOPLEFT",4,y-26)
             field.caption:SetShown(advanced); field.slider:SetShown(advanced)
         end
-        fontButton:ClearAllPoints(); fontButton:SetPoint("TOPLEFT",0,-598)
+        fontButton:ClearAllPoints(); fontButton:SetPoint("TOPLEFT",0,-632)
         for index,key in ipairs({"bg","text","accent"}) do
-            local y=-640-(index-1)*(narrow and 70 or 42)
+            local y=-674-(index-1)*(narrow and 70 or 42)
             colorLabels[key]:ClearAllPoints(); colorLabels[key]:SetPoint("TOPLEFT",0,y-5)
             colorLabels[key]:SetShown(advanced); colors[key]:SetShown(advanced); colorButtons[key]:SetShown(advanced)
             colors[key]:ClearAllPoints(); colors[key]:SetPoint("TOPLEFT",narrow and 4 or 240,y-(narrow and 28 or 0))
             colorButtons[key]:ClearAllPoints(); colorButtons[key]:SetPoint("TOPLEFT",narrow and 110 or 340,y-(narrow and 28 or 0))
         end
-        local bottom=advanced and -783-(narrow and 84 or 0) or -388
+        local bottom=advanced and -817-(narrow and 84 or 0) or -422
         reset:ClearAllPoints(); reset:SetPoint("TOPLEFT",0,bottom)
         preview:ClearAllPoints(); preview:SetPoint("TOPLEFT",narrow and 0 or 232,bottom-(narrow and 34 or 0))
     end
@@ -558,8 +589,14 @@ local function BuildAppearance(root)
     ns.appearanceCategory = Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Apparence générale"))
     ns.RegisterModule("appearance", {label = L("Apparence générale"), category = function() return ns.appearanceCategory end,
         ExportSettings = UI.ExportSettings, ImportSettings = UI.ImportSettings,
-        profileMigrations = {function(value) value.theme = value.theme or defaults.theme end},
-        ProfileDisplay = function(value) if themes[value.theme] then value.theme = themes[value.theme].label end end})
+        profileMigrations = {
+            function(value) value.theme = value.theme or defaults.theme end,
+            function(value) value.border = value.border or defaults.border end,
+        },
+        ProfileDisplay = function(value)
+            if themes[value.theme] then value.theme = themes[value.theme].label end
+            if borders[value.border] then value.border = borders[value.border].label end
+        end})
     appearanceRefresh()
 end
 

@@ -266,13 +266,13 @@ function ns.InitializeAdvancedSettings(rootCategory)
     local tab, query, filter = categories[1].id, "", 1
     local inventory, inventoryError, rows, tabs = nil, nil, {}, {}
     local listing, drafts = {}, {}
-    local selected, resetReview = {}, nil
-    local favoritesOnly, modifiedOnly = false, false
+    local selected, resetReview, beforeReview = {}, nil, 0
+    local favoritesOnly, modifiedOnly, expert = false, false, false
     local filters = {"Hors menus", "Tout", "Menus du jeu", "Protégés", "Graphismes", "Graph. hors menus"}
     local graphicsFilters = {"Tout", "Décor", "Ombres", "Effets", "Image", "Raid"}
     local graphicsFilter = 1
     local refresh, render, layout, refreshing
-    local rowHeight = 112
+    local rowHeight, rowSpacing = 112, 0
     local function Label(parent, text, x, y, font)
         local label = parent:CreateFontString(nil, "ARTWORK", font or "GameFontHighlightSmall")
         label:SetPoint("TOPLEFT", x, y)
@@ -288,7 +288,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button, "advanced") end
         return button
     end
-    Label(panel, L("Réglages avancés"), 16, -16, "GameFontNormalLarge")
+    local title = Label(panel, L("Réglages avancés"), 16, -16, "GameFontNormalLarge")
     local intro = Label(panel, "", 16, -44)
     intro:SetPoint("TOPRIGHT", -16, -44)
     intro:SetHeight(28)
@@ -297,10 +297,20 @@ function ns.InitializeAdvancedSettings(rootCategory)
     search:SetAutoFocus(false)
     search:SetMaxLetters(80)
     search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    local filterButton = Button(panel, "ArkannsQOLAdvancedFilter", L(filters[filter]), 130, function()
-        if tab == "graphics" then graphicsFilter = graphicsFilter % #graphicsFilters + 1
-        else filter = filter % #filters + 1 end
-        refresh(true)
+    local filterButton = Button(panel, "ArkannsQOLAdvancedFilter", L(filters[filter]), 130, function(self)
+        if not MenuUtil or not MenuUtil.CreateContextMenu then return end
+        local ownerTab = tab
+        local choices = ownerTab == "graphics" and graphicsFilters or filters
+        MenuUtil.CreateContextMenu(self, function(_, menu)
+            for index, caption in ipairs(choices) do
+                local selected = index
+                menu:CreateButton(L(caption), function()
+                    if tab ~= ownerTab then return end
+                    if tab == "graphics" then graphicsFilter = selected else filter = selected end
+                    refresh(true)
+                end)
+            end
+        end)
     end)
     local favoritesButton = Button(panel, "ArkannsQOLAdvancedFavorites", L("Favoris"), 94, function()
         favoritesOnly, resetReview = not favoritesOnly, nil
@@ -330,35 +340,44 @@ function ns.InitializeAdvancedSettings(rootCategory)
         status:SetText(L("Étoile : favori • Case : sélectionner pour réinitialiser • Défaut : cette ligne."))
     end
     reviewButton = Button(panel, "ArkannsQOLAdvancedReviewReset", L("Revoir la sélection"), 142, function()
+        beforeReview = scroll:GetVerticalScroll()
         resetReview = api.ReviewReset(selected)
-        refresh(true)
         status:SetText((#resetReview == 1 and L("%d option : compare Actuel et Défaut, puis confirme.")
             or L("%d options : compare Actuel et Défaut, puis confirme.")):format(#resetReview))
+        search:ClearFocus()
+        refresh(true)
     end)
     confirmButton = Button(panel, "ArkannsQOLAdvancedConfirmReset", L("Confirmer"), 100, function()
         if not resetReview then return end
         local ok, message = api.ApplyReset(resetReview)
         resetReview = nil
         if ok then selected = {}; drafts = {} end
-        refresh()
         status:SetText(message)
+        refresh(true)
     end)
     cancelButton = Button(panel, "ArkannsQOLAdvancedCancelReset", L("Annuler"), 80, function()
         resetReview = nil
         Instructions()
-        refresh(true)
+        refresh(false, beforeReview)
     end)
     local function SelectTab(id)
         tab, query, drafts = id, "", {}
-        resetReview = nil
+        resetReview, favoritesOnly = nil, false
         search:SetText("")
         search:ClearFocus()
         Instructions()
         if id == "inventory" then inventory, inventoryError = api.Inventory() end
         refresh(true)
     end
-    for index = 1, #categories + 1 do
-        local category = categories[index] or {id = "inventory", label = L("Inventaire")}
+    local expertToggle = CreateFrame("CheckButton", "ArkannsQOLAdvancedExpert", panel, "InterfaceOptionsCheckButtonTemplate")
+    expertToggle.Text:SetText(L("Afficher les graphismes experts"))
+    expertToggle:SetScript("OnClick", function(self)
+        expert = self:GetChecked() == true
+        if not expert and tab == "graphics" then SelectTab(categories[1].id) else refresh(true) end
+    end)
+    local returnButton = Button(panel, "ArkannsQOLAdvancedReturn", L("Revenir aux réglages"), 180, function() SelectTab(categories[1].id) end)
+    for index = 1, #categories do
+        local category = categories[index]
         local button = CreateFrame("Button", "ArkannsQOLAdvancedTab" .. index, panel)
         local background = button:CreateTexture(nil, "BACKGROUND")
         background:SetAllPoints()
@@ -393,22 +412,13 @@ function ns.InitializeAdvancedSettings(rootCategory)
     end
     local function CreateRow(index)
         local row = CreateFrame("Frame", "ArkannsQOLAdvancedRow" .. index, content)
-        row:SetHeight(rowHeight - 4)
         row.title = Label(row, "", 0, 0, "GameFontNormal")
-        row.title:SetPoint("TOPRIGHT", -74, 0)
-        row.title:SetHeight(17)
         row.description = Label(row, "", 0, -21)
-        row.description:SetPoint("TOPRIGHT", 0, -21)
-        row.description:SetHeight(34)
         row.info = Label(row, "", 0, -90)
-        row.info:SetPoint("TOPRIGHT", 0, -90)
-        row.info:SetHeight(15)
         row.check = CreateFrame("CheckButton", nil, row, "InterfaceOptionsCheckButtonTemplate")
-        row.check:SetPoint("TOPLEFT", -3, -57)
         row.check.Text:SetText(L("Activé"))
         row.check:SetScript("OnClick", function(self) Commit(row, self:GetChecked() and true or false) end)
         row.input = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
-        row.input:SetPoint("TOPLEFT", 5, -60)
         row.input:SetSize(74, 24)
         row.input:SetAutoFocus(false)
         row.input:SetMaxLetters(16)
@@ -425,17 +435,20 @@ function ns.InitializeAdvancedSettings(rootCategory)
             render()
         end)
         row.apply = Button(row, nil, L("Appliquer"), 84, function() Commit(row, row.input:GetText()) end)
-        row.apply:SetPoint("TOPLEFT", 90, -60)
-        row.choice = Button(row, nil, "", 130, function()
+        row.choice = Button(row, nil, "", 130, function(self)
             if not row.option then return end
-            local current = api.Read(row.option.name).value
-            local selected = 0
-            for i, choice in ipairs(row.option.choices) do if Equal(current, choice[1]) then selected = i end end
-            Commit(row, row.option.choices[selected % #row.option.choices + 1][1])
+            if not MenuUtil or not MenuUtil.CreateContextMenu then return end
+            local option = row.option
+            MenuUtil.CreateContextMenu(self, function(_, menu)
+                for _, choice in ipairs(option.choices) do
+                    local value = choice[1]
+                    menu:CreateButton(choice[2], function()
+                        if row.option == option then Commit(row, value) end
+                    end)
+                end
+            end)
         end)
-        row.choice:SetPoint("TOPLEFT", 0, -60)
         row.default = Button(row, nil, L("Défaut"), 80, function() Commit(row, nil, true) end)
-        row.default:SetPoint("TOPRIGHT", 0, -60)
         row.favorite = Button(row, nil, "", 32, function()
             if row.option then api.ToggleFavorite(row.option.name) end
         end)
@@ -468,6 +481,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         rows[index] = row
     end
     render = function()
+        local reviewing = resetReview ~= nil
         local offset = scroll:GetVerticalScroll()
         local first = math.floor(offset / rowHeight) + 1
         local needed = math.ceil(scroll:GetHeight() / rowHeight) + 1
@@ -476,18 +490,45 @@ function ns.InitializeAdvancedSettings(rootCategory)
         for index, row in ipairs(rows) do
             local itemIndex = first + index - 1
             local entry = index <= needed and listing[itemIndex] or nil
-            if not entry or not row.state or row.state.name ~= entry.name then
+            if reviewing or not entry or not row.state or row.state.name ~= entry.name then
                 HideRowTooltip(row)
                 row.input:ClearFocus()
             end
             row:SetShown(entry ~= nil)
             if entry then
+                if row.layoutHeight ~= rowHeight then
+                    row.layoutHeight = rowHeight
+                    row:SetHeight(rowHeight - 4)
+                    row.title:ClearAllPoints(); row.title:SetPoint("TOPLEFT")
+                    row.title:SetPoint("TOPRIGHT", reviewing and 0 or -74, 0)
+                    row.title:SetHeight(17 + rowSpacing)
+                    row.description:ClearAllPoints()
+                    row.description:SetPoint("TOPLEFT", 0, -21 - rowSpacing)
+                    row.description:SetPoint("TOPRIGHT", 0, -21 - rowSpacing)
+                    row.description:SetHeight(34 + rowSpacing)
+                    for _, control in ipairs({
+                        {row.check, "TOPLEFT", -3, 3}, {row.input, "TOPLEFT", 5, 0},
+                        {row.apply, "TOPLEFT", 90, 0}, {row.choice, "TOPLEFT", 0, 0},
+                        {row.default, "TOPRIGHT", 0, 0},
+                    }) do
+                        control[1]:ClearAllPoints()
+                        control[1]:SetPoint(control[2], control[3], -60 - 2 * rowSpacing + control[4])
+                    end
+                    local infoY = reviewing and -21 - rowSpacing or -90 - 2 * rowSpacing
+                    row.info:ClearAllPoints()
+                    row.info:SetPoint("TOPLEFT", 0, infoY)
+                    row.info:SetPoint("TOPRIGHT", 0, infoY)
+                    row.info:SetHeight(15 + rowSpacing)
+                end
                 row:ClearAllPoints()
                 row:SetPoint("TOPLEFT", 0, -(itemIndex - 1) * rowHeight)
                 row:SetPoint("TOPRIGHT", 0, -(itemIndex - 1) * rowHeight)
                 local option = (resetReview or favoritesOnly or tab ~= "inventory") and entry or nil
                 local state = api.Read(entry.name)
-                if not resetReview and not state.reason then state.graphicsHint = GraphicsHint(option) end
+                if reviewing then
+                    local change = resetReview[itemIndex]
+                    state.value, state.default = change.before, change.after
+                elseif not state.reason then state.graphicsHint = GraphicsHint(option) end
                 if row.state and (row.state.value ~= state.value or row.state.default ~= state.default or row.state.reason ~= state.reason
                     or row.state.graphicsHint ~= state.graphicsHint) then HideRowTooltip(row) end
                 row.option, row.state = option, state
@@ -496,22 +537,24 @@ function ns.InitializeAdvancedSettings(rootCategory)
                 row.help = description
                 if option and option.kind == "number" then description = description .. " [" .. option.min .. "–" .. option.max .. "]" end
                 row.description:SetText(SafeLabel(description))
-                local summary = state.reason or (combat and option and L("Disponible hors combat")) or state.graphicsHint
+                row.description:SetShown(not reviewing)
+                local summary = not reviewing and (state.reason or (combat and option and L("Disponible hors combat")) or state.graphicsHint)
                 if not option and not summary then summary = entry.option and L("Documenté dans les catégories") or L("Non documenté : lecture seule") end
                 row.info:SetText(SafeLabel(summary or L("Actuel : %s • Défaut : %s • %s"):format(state.value or "—", state.default or "—", state.scope or "")))
-                row.check:SetShown(option ~= nil and option.kind == "boolean")
-                row.input:SetShown(option ~= nil and option.kind == "number")
-                row.apply:SetShown(option ~= nil and option.kind == "number")
-                row.choice:SetShown(option == nil or option.kind == "choice")
-                row.default:SetShown(option ~= nil)
-                row.favorite:SetShown(option ~= nil)
+                local editable = option ~= nil and not reviewing
+                row.check:SetShown(editable and option.kind == "boolean")
+                row.input:SetShown(editable and option.kind == "number")
+                row.apply:SetShown(editable and option.kind == "number")
+                row.choice:SetShown(not reviewing and (option == nil or option.kind == "choice"))
+                row.default:SetShown(editable)
+                row.favorite:SetShown(editable)
                 local favorite = option and Preferences().favorites[option.name]
                 if ns.UI and ns.UI.SetFavoriteIcon then ns.UI.SetFavoriteIcon(row.favorite, favorite)
                 else row.favorite:SetText(favorite and "*" or "+") end
-                row.select:SetShown(option ~= nil)
+                row.select:SetShown(editable)
                 row.select:SetChecked(option and selected[option.name] or false)
-                row.select:SetEnabled(option ~= nil and state.writable and not combat and not Equal(state.value, state.default))
-                local writable = state.writable and not combat and option ~= nil and not resetReview
+                row.select:SetEnabled(editable and state.writable and not combat and not Equal(state.value, state.default))
+                local writable = state.writable and not combat and editable
                 row.check:SetEnabled(writable)
                 row.apply:SetEnabled(writable)
                 row.choice:SetEnabled(writable)
@@ -536,50 +579,80 @@ function ns.InitializeAdvancedSettings(rootCategory)
         local width = math.max(320, panel:GetWidth())
         intro:SetHeight(math.max(28, intro:GetStringHeight()))
         local top = -52 - intro:GetHeight()
-        local columns = math.max(1, math.min(#tabs, math.floor((width - 32) / 72)))
-        local tabRows = math.ceil(#tabs / columns)
+        expertToggle:ClearAllPoints(); expertToggle:SetPoint("TOPLEFT", 12, top)
+        expertToggle.Text:SetWidth(width - 60); expertToggle.Text:SetJustifyH("LEFT")
+        returnButton:ClearAllPoints(); returnButton:SetPoint("TOPLEFT", 16, top)
+        top = top - 34
+        local visibleTabs = {}
+        for _, item in ipairs(tabs) do
+            local visible = not resetReview and tab ~= "inventory" and (item.id ~= "graphics" or expert)
+            item.button:SetShown(visible)
+            if visible then visibleTabs[#visibleTabs + 1] = item end
+        end
+        local columns = math.max(1, math.min(#visibleTabs, math.floor((width - 32) / 72)))
+        local tabRows = math.ceil(#visibleTabs / columns)
         local tabWidth = (width - 32) / columns
-        for index, item in ipairs(tabs) do
+        for index, item in ipairs(visibleTabs) do
             item.button:ClearAllPoints()
             item.button:SetPoint("TOPLEFT", 16 + ((index - 1) % columns) * tabWidth, top - math.floor((index - 1) / columns) * 32)
             item.button:SetSize(tabWidth - 2, 28)
         end
-        local toolbarY = top - 10 - tabRows * 32
-        searchLabel:ClearAllPoints()
-        searchLabel:SetPoint("TOPLEFT", 16, toolbarY - 6)
-        search:ClearAllPoints()
-        search:SetPoint("TOPLEFT", 96, toolbarY)
-        search:SetSize(math.max(70, width - 262), 24)
-        filterButton:ClearAllPoints()
-        filterButton:SetPoint("TOPRIGHT", -16, toolbarY)
-        favoritesButton:SetPoint("TOPLEFT", 16, toolbarY - 31)
-        modifiedButton:SetPoint("TOPLEFT", 116, toolbarY - 31)
-        reviewButton:SetPoint("TOPLEFT", 216, toolbarY - 31)
-        reviewButton:SetWidth(math.max(80, math.min(142, width - 232)))
-        confirmButton:SetPoint("TOPLEFT", 16, toolbarY - 62)
-        cancelButton:SetPoint("TOPLEFT", 122, toolbarY - 62)
-        local reviewHeight = resetReview and 31 or 0
+        if resetReview then
+            local y = -52 - intro:GetHeight()
+            confirmButton:ClearAllPoints(); confirmButton:SetPoint("TOPLEFT", 16, y)
+            cancelButton:ClearAllPoints(); cancelButton:SetPoint("TOPLEFT", 124, y)
+            top = y - 36
+        else
+            local toolbarY = top - 8 - tabRows * 32
+            local filterWidth = filterButton:IsShown() and 138 or 0
+            local stackSearch = width - 112 - filterWidth < 116
+            searchLabel:ClearAllPoints()
+            searchLabel:SetPoint("TOPLEFT", 16, toolbarY - (stackSearch and 0 or 6))
+            if stackSearch then toolbarY = toolbarY - 18 end
+            local searchX = stackSearch and 22 or 96
+            search:ClearAllPoints(); search:SetPoint("TOPLEFT", searchX, toolbarY)
+            search:SetSize(width - searchX - 16 - filterWidth, 24)
+            filterButton:ClearAllPoints(); filterButton:SetPoint("TOPRIGHT", -16, toolbarY)
+            local actionWidth = math.min(142, (width - 48) / 3)
+            local x = 16
+            for _, button in ipairs({favoritesButton, modifiedButton, reviewButton}) do
+                button:ClearAllPoints(); button:SetPoint("TOPLEFT", x, toolbarY - 31)
+                button:SetWidth(actionWidth)
+                if button:IsShown() then x = x + actionWidth + 8 end
+            end
+            top = toolbarY - 64
+        end
         status:ClearAllPoints(); count:ClearAllPoints()
         status:SetPoint("BOTTOMLEFT", width < 460 and 16 or 148, 14)
         status:SetPoint("BOTTOMRIGHT", -16, 14)
-        status:SetHeight(width < 460 and math.max(34, status:GetStringHeight()) or 34)
+        status:SetHeight(math.max(28, status:GetStringHeight()))
         count:SetPoint("BOTTOMLEFT", 16, width < 460 and status:GetHeight() + 22 or 24)
-        local footerHeight = width < 460 and status:GetHeight() + 42 or 62
+        local footerHeight = status:GetHeight() + (width < 460 and 42 or 24)
         scroll:ClearAllPoints()
-        scroll:SetPoint("TOPLEFT", 16, toolbarY - 73 - reviewHeight)
-        scroll:SetSize(width - 50, math.max(80, panel:GetHeight() + toolbarY - 73 - reviewHeight - footerHeight))
+        scroll:SetPoint("TOPLEFT", 16, top)
+        scroll:SetSize(width - 50, math.max(32, panel:GetHeight() + top - footerHeight))
         content:SetWidth(scroll:GetWidth())
+        rowSpacing = width < 420 and 14 or 0
+        rowHeight = resetReview and 44 + rowSpacing * 2 or 112 + rowSpacing * 3
     end
-    refresh = function(resetScroll)
+    refresh = function(resetScroll, restoreOffset)
         if refreshing then return end
         refreshing = true
         listing = {}
-        local isInventory = tab == "inventory" and not favoritesOnly and not resetReview
+        local reviewing = resetReview ~= nil
+        local isInventory = tab == "inventory" and not favoritesOnly and not reviewing
+        title:SetText(isInventory and L("Diagnostic — inventaire du client") or L("Réglages avancés"))
+        expertToggle:SetShown(not isInventory and not reviewing); expertToggle:SetChecked(expert)
+        returnButton:SetShown(isInventory)
+        searchLabel:SetShown(not reviewing); search:SetShown(not reviewing)
+        favoritesButton:SetShown(not isInventory and not reviewing)
+        modifiedButton:SetShown(not reviewing)
+        reviewButton:SetShown(not isInventory and not reviewing)
         favoritesButton:SetText(favoritesOnly and L("Favoris seuls") or L("Favoris"))
         modifiedButton:SetText(modifiedOnly and L("Modifiés seuls") or L("Modifiés"))
-        confirmButton:SetShown(resetReview ~= nil)
-        cancelButton:SetShown(resetReview ~= nil)
-        confirmButton:SetEnabled(resetReview ~= nil and #resetReview > 0 and not (InCombatLockdown and InCombatLockdown()))
+        confirmButton:SetShown(reviewing)
+        cancelButton:SetShown(reviewing)
+        confirmButton:SetEnabled(reviewing and #resetReview > 0 and not (InCombatLockdown and InCombatLockdown()))
         local selectionCount = 0
         for _ in pairs(selected) do selectionCount = selectionCount + 1 end
         reviewButton:SetText(L("Revoir (%d)"):format(selectionCount))
@@ -587,7 +660,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         filterButton:SetShown(isInventory or (tab == "graphics" and not favoritesOnly and not resetReview))
         filterButton:SetText(L(tab == "graphics" and graphicsFilters[graphicsFilter] or filters[filter]))
         for _, item in ipairs(tabs) do
-            local active = tab == item.id
+            local active = not favoritesOnly and tab == item.id
             item.button:SetEnabled(not active)
             item.background:SetColorTexture(active and .24 or .09, active and .19 or .09, active and .09 or .09, .95)
             item.label:SetTextColor(1, active and .82 or .95, active and .38 or .95)
@@ -609,11 +682,13 @@ function ns.InitializeAdvancedSettings(rootCategory)
             end
             intro:SetText(inventoryError or L("Inventaire du client, en lecture seule. « Hors menus » : aucun menu natif identifié."))
         else
-            intro:SetText(tab == "graphics" and L("Le rendu dépend du mode actif. Les préréglages de WoW peuvent remplacer ces valeurs. L’inventaire liste les variables du client.")
-                or L("Réglages hors menus. Chaque bouton Défaut reprend la valeur du client."))
+            intro:SetText(favoritesOnly and L("Favoris de toutes les catégories. Active la vue expert pour inclure les graphismes.")
+                or (tab == "graphics" and L("Graphismes experts : le rendu dépend du mode actif. Les préréglages de WoW peuvent remplacer ces valeurs.")
+                or L("Réglages hors menus. Chaque bouton Défaut reprend la valeur du client.")))
             for _, option in ipairs(catalog) do
                 local state = api.Read(option.name)
                 if ((favoritesOnly and Preferences().favorites[option.name]) or (not favoritesOnly and option.category == tab)) and not state.native
+                    and (option.category ~= "graphics" or expert)
                     and (favoritesOnly or tab ~= "graphics" or graphicsFilter == 1 or option.group == graphicsFilters[graphicsFilter])
                     and (not modifiedOnly or (state.value and state.default and not Equal(state.value, state.default)))
                     and (query == "" or SearchText(option.label .. " " .. option.name .. " " .. option.help):find(query, 1, true)) then listing[#listing + 1] = option end
@@ -623,7 +698,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         count:SetText(L("Résultats : %d"):format(#listing))
         content:SetHeight(math.max(1, #listing * rowHeight))
         local maximum = math.max(0, #listing * rowHeight - scroll:GetHeight())
-        scroll:SetVerticalScroll(resetScroll and 0 or math.min(scroll:GetVerticalScroll(), maximum))
+        scroll:SetVerticalScroll(resetScroll and 0 or math.min(restoreOffset or scroll:GetVerticalScroll(), maximum))
         render()
         refreshing = nil
     end
@@ -638,6 +713,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         drafts = {}
         resetReview = nil
         for _, row in ipairs(rows) do row.input:ClearFocus(); row.dirty = nil; HideRowTooltip(row) end
+        if tab == "inventory" then tab = categories[1].id end
     end)
     panel:HookScript("OnSizeChanged", function() refresh() end)
     local events = CreateFrame("Frame", "ArkannsQOLAdvancedEvents")
@@ -659,13 +735,21 @@ function ns.InitializeAdvancedSettings(rootCategory)
     end
     api.OpenFavorites = function()
         favoritesOnly, modifiedOnly, resetReview = true, false, nil
+        if tab == "inventory" then tab = categories[1].id end
         query = ""; search:SetText("")
         if Settings.OpenToCategory then Settings.OpenToCategory(ns.advancedCategory:GetID()) end
         refresh(true)
     end
     api.OpenFavorite = function(name)
+        local option = byName[type(name) == "string" and name:lower() or ""]
+        if option and option.category == "graphics" then expert = true end
         api.OpenFavorites()
         search:SetText(name); query = SearchText(name); refresh(true)
+    end
+    ns.OpenAdvancedInventory = function()
+        favoritesOnly, modifiedOnly, resetReview = false, false, nil
+        if Settings.OpenToCategory then Settings.OpenToCategory(ns.advancedCategory:GetID()) end
+        SelectTab("inventory")
     end
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel, "advanced") end
     if ns.RegisterModule then

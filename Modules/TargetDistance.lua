@@ -7,11 +7,29 @@ local title = L("Distance de la cible")
 local directInterval, estimateInterval, hiddenInterval = .05, .10, .20
 local maxProbeRange = 100 -- Ignore global or unlimited-range spells.
 local refreshInterval = directInterval
-local db, toggle, badge, label, anchor, rejectedAnchor, spellRanges
+local db, refreshSettings, badge, label, anchor, rejectedAnchor, spellRanges
 local closeRange, mediumRange = 10, 30
-local closeColor, mediumColor, farColor = {.10, .38, .19, .97}, {.52, .34, .07, .97}, {.47, .10, .10, .97}
-local activeColor
-local itemBands, itemChecksBlocked, checkingItem
+local colors = {
+    tooltip = {{.48, .92, .55}, {1, .82, .28}, {1, .45, .45}},
+    text = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}},
+    background = {{.10, .38, .19}, {.52, .34, .07}, {.47, .10, .10}},
+}
+local borderColor = {.82, .67, .37}
+local backdrops = {
+    framed = {
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12,
+        insets = {left = 3, right = 3, top = 3, bottom = 3},
+    },
+    background = {bgFile = "Interface\\Buttons\\WHITE8X8"},
+    text = false,
+}
+local activeTier
+local frameStrata = {BACKGROUND = true, LOW = true, MEDIUM = true, HIGH = true, DIALOG = true,
+    FULLSCREEN = true, FULLSCREEN_DIALOG = true, TOOLTIP = true}
+local itemBands, checkingItemUnit
+local blockedItemChecks = {}
+local mouseoverEnabled, monitoring
 local requestedItems = {}
 local elapsed = 0
 local driver = CreateFrame("Frame", "ArkannsQOLTargetDistanceEvents", UIParent)
@@ -27,12 +45,44 @@ local function Finite(value)
     return IsFiniteNumber(value) and value >= 0
 end
 
+local function ValidOffset(value)
+    return IsFiniteNumber(value) and value >= -250 and value <= 250
+end
+
+local function CopyColor(value, fallback)
+    if type(value) == "table" then
+        local r, g, b = value[1], value[2], value[3]
+        if Finite(r) and r <= 1 and Finite(g) and g <= 1 and Finite(b) and b <= 1 then
+            return {r, g, b}
+        end
+    end
+    return {unpack(fallback)}
+end
+
+local function NormalizeAppearance(value)
+    value = type(value) == "table" and value or {}
+    local result = {
+        rounded = value.rounded ~= false,
+        portrait = value.portrait == true,
+        x = ValidOffset(value.x) and value.x or 0,
+        y = ValidOffset(value.y) and value.y or 0,
+        frame = backdrops[value.frame] ~= nil and value.frame or "framed",
+        border = CopyColor(value.border, borderColor),
+    }
+    for key, defaults in pairs(colors) do
+        local palette = type(value[key]) == "table" and value[key] or {}
+        result[key] = {}
+        for tier, color in ipairs(defaults) do result[key][tier] = CopyColor(palette[tier], color) end
+    end
+    return result
+end
+
 local function HideDistance()
     if badge then badge:Hide() end
 end
 
-local function GetMeters()
-    local status, squaredYards, checked = ReadAPI(UnitDistanceSquared, "target")
+local function GetMeters(unit)
+    local status, squaredYards, checked = ReadAPI(UnitDistanceSquared, unit)
     if status ~= "ok" then return status end
     if checked == false then return "unchecked" end
     if checked ~= true or not Finite(squaredYards) then return "invalid" end
@@ -104,28 +154,28 @@ local function ReadItemBands(canRequest)
     return bands
 end
 
-local function ReadSpellBand(band)
+local function ReadSpellBand(band, unit)
     for _, probe in ipairs(band.probes) do
-        local status, inRange = ReadAPI(C_SpellBook.IsSpellBookItemInRange, probe.slot, Enum.SpellBookSpellBank.Player, "target")
+        local status, inRange = ReadAPI(C_SpellBook.IsSpellBookItemInRange, probe.slot, Enum.SpellBookSpellBank.Player, unit)
         if status == "absent" or (status == "ok" and inRange == nil) then
-            status, inRange = ReadAPI(C_Spell.IsSpellInRange, probe.id, "target")
+            status, inRange = ReadAPI(C_Spell.IsSpellInRange, probe.id, unit)
         end
         if status == "error" or status == "secret" then return end
         if type(inRange) == "boolean" then return inRange end
     end
 end
 
-local function GetRangeBand()
-    local status, enemy = ReadAPI(UnitCanAttack, "player", "target")
+local function GetRangeBand(unit)
+    local status, enemy = ReadAPI(UnitCanAttack, "player", unit)
     if status ~= "absent" and (status ~= "ok" or type(enemy) ~= "boolean") then return end
-    if not enemy and Read(UnitCanAssist, "player", "target") ~= true then return end
+    if not enemy and Read(UnitCanAssist, "player", unit) ~= true then return end
 
     local lower, upper, failed = 0, math.huge, nil
     local checkedRanges = {}
     if C_Spell and C_SpellBook then
         spellRanges = spellRanges or ReadSpellRanges()
         for _, band in pairs(enemy and spellRanges.enemy or spellRanges.friendly) do
-            local inRange = ReadSpellBand(band)
+            local inRange = ReadSpellBand(band, unit)
             if inRange == true then
                 lower, upper = math.max(lower, band.min), math.min(upper, band.max)
             elseif inRange == false then
@@ -136,27 +186,27 @@ local function GetRangeBand()
         end
     end
 
-    -- In combat, only test items against hostile outdoor NPCs.
-    if enemy and C_Item and C_Item.IsItemInRange and not itemChecksBlocked then
+    -- Keep the combat exception for the target badge. Mouseovers use spell checks only in combat.
+    if enemy and C_Item and C_Item.IsItemInRange and not blockedItemChecks[unit] then
         local locked = Read(InCombatLockdown)
-        if locked == false or (locked == true and Read(IsInInstance) == false and Read(UnitIsPlayer, "target") == false) then
+        if locked == false or (locked == true and unit == "target" and Read(IsInInstance) == false and Read(UnitIsPlayer, unit) == false) then
             itemBands = itemBands or ReadItemBands(not locked)
             local itemLower, itemUpper = 0, math.huge
             for _, band in pairs(itemBands) do
                 if not checkedRanges[band.max] then
                     for _, id in ipairs(band.probes) do
-                        checkingItem = true
-                        local status, inRange = ReadAPI(C_Item.IsItemInRange, id, "target")
-                        checkingItem = false
-                        if status == "error" or itemChecksBlocked then itemChecksBlocked = true; break end
+                        checkingItemUnit = unit
+                        local status, inRange = ReadAPI(C_Item.IsItemInRange, id, unit)
+                        checkingItemUnit = nil
+                        if status == "error" or blockedItemChecks[unit] then blockedItemChecks[unit] = true; break end
                         if status == "secret" then break end
                         if inRange == true then itemUpper = math.min(itemUpper, band.max); break end
                         if inRange == false then itemLower = math.max(itemLower, band.max); break end
                     end
                 end
-                if itemChecksBlocked then break end
+                if blockedItemChecks[unit] then break end
             end
-            if not itemChecksBlocked then
+            if not blockedItemChecks[unit] then
                 lower, upper = math.max(lower, itemLower), math.min(upper, itemUpper)
             end
         end
@@ -173,13 +223,68 @@ local function GetRangeBand()
             if lower >= upper or (lower == beforeLower and upper == beforeUpper) then break end
         end
     end
-    if lower >= upper then return end
-    local minimum = math.floor(lower * 0.9144)
-    if upper < math.huge then
-        local maximum = math.ceil(upper * 0.9144)
-        return string.format("%d–%d", minimum, maximum), minimum, maximum
+    if lower < upper and (lower > 0 or upper < math.huge) then
+        return lower * 0.9144, upper * 0.9144
     end
-    if lower > 0 then return string.format("%d+", minimum), minimum, math.huge end
+end
+
+local function GetDistance(unit)
+    local status, meters = GetMeters(unit)
+    if status == "ok" then return ("%d m"):format(meters), meters, meters, directInterval end
+    if status == "absent" or status == "unchecked" then
+        local lower, upper = GetRangeBand(unit)
+        if not lower then return end
+        local step = db.appearance.rounded and 5 or 1
+        local minimum = math.floor(lower / step) * step
+        local text
+        if upper < math.huge then
+            text = ("≈ %d–%d m"):format(minimum, math.ceil(upper / step) * step)
+        else
+            -- Keep a useful lower bound if rounding to 5 m would erase it.
+            text = ("≥ %d m"):format(minimum > 0 and minimum or math.floor(lower))
+        end
+        return text, lower, upper, estimateInterval
+    end
+end
+
+local function GetDistanceTier(lower, upper)
+    if upper <= closeRange then return 1 end
+    if lower >= mediumRange and upper > mediumRange then return 3 end
+    return 2
+end
+
+local tooltipFormat = L("Distance · %s")
+
+function ns.GetMouseoverDistance()
+    if not db then return end
+    local text, lower, upper = GetDistance("mouseover")
+    if text then return tooltipFormat:format(text), db.appearance.tooltip[GetDistanceTier(lower, upper)] end
+end
+
+local function CreateBadge(parent)
+    local frame = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    frame:SetSize(48, 23)
+    frame:SetClampedToScreen(true)
+    frame:EnableMouse(false)
+    local text = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    text:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
+    text:SetPoint("CENTER")
+    return frame, text
+end
+
+local function PaintBadge(frame, text, appearance, tier)
+    frame:SetBackdrop(backdrops[appearance.frame] or nil)
+    if appearance.frame ~= "text" then
+        local r, g, b = unpack(appearance.background[tier])
+        frame:SetBackdropColor(r, g, b, .97)
+        if appearance.frame == "framed" then frame:SetBackdropBorderColor(unpack(appearance.border)) end
+    end
+    text:SetTextColor(unpack(appearance.text[tier]))
+end
+
+local function SetBadgeText(frame, label, text)
+    label:SetText(text)
+    frame:SetWidth(math.max(48, math.ceil(label:GetStringWidth()) + 16))
 end
 
 local function UpdateDistance()
@@ -189,57 +294,46 @@ local function UpdateDistance()
         or Read(frame.IsVisible, frame) ~= true then return HideDistance() end
     local content = frame.TargetFrameContent and frame.TargetFrameContent.TargetFrameContentMain
     local name = frame.name or (content and content.Name) or TargetFrameName
-    local relativeTo = name or frame.portrait or (frame.TargetFrameContainer and frame.TargetFrameContainer.Portrait) or TargetFramePortrait
+    local portrait = frame.portrait or (frame.TargetFrameContainer and frame.TargetFrameContainer.Portrait) or TargetFramePortrait
+    local appearance = db.appearance
+    local relativeTo = (appearance.portrait and portrait) or name or portrait
     if not IsPublic(relativeTo) or not relativeTo or relativeTo == rejectedAnchor or Read(relativeTo.IsVisible, relativeTo) ~= true
         or (relativeTo.IsAnchoringSecret and Read(relativeTo.IsAnchoringSecret, relativeTo) ~= false) then return HideDistance() end
-    local status, meters = GetMeters()
-    local text, lower, upper
-    if status == "ok" then
-        refreshInterval = directInterval
-        text, lower, upper = tostring(meters), meters, meters
-    elseif status == "absent" or status == "unchecked" then
-        refreshInterval = estimateInterval
-        text, lower, upper = GetRangeBand()
-    end
+    local text, lower, upper, interval = GetDistance("target")
+    refreshInterval = interval or hiddenInterval
     if not text then return HideDistance() end
 
     if not badge then
-        badge = CreateFrame("Frame", nil, driver, "BackdropTemplate")
+        badge, label = CreateBadge(driver)
         badge:Hide()
-        badge:SetSize(48, 23)
-        badge:SetBackdrop({
-            bgFile = "Interface\\Buttons\\WHITE8X8",
-            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12,
-            insets = {left = 3, right = 3, top = 3, bottom = 3},
-        })
-        badge:SetBackdropBorderColor(.82, .67, .37, 1)
-        label = badge:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        label:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
-        label:SetPoint("CENTER", 0, 0)
+    end
+    local layer, level = Read(frame.GetFrameStrata, frame), Read(frame.GetFrameLevel, frame)
+    if frameStrata[layer] then badge:SetFrameStrata(layer) end
+    if IsFiniteNumber(level) and level >= 0 then badge:SetFrameLevel(level + 1) end
+    local targetScale, parentScale = Read(frame.GetEffectiveScale, frame), Read(driver.GetEffectiveScale, driver)
+    if IsFiniteNumber(targetScale) and IsFiniteNumber(parentScale) and targetScale > 0 and parentScale > 0 then
+        badge:SetScale(targetScale / parentScale)
+    end
+    local alpha = Read(frame.GetEffectiveAlpha, frame)
+    local parentAlpha = Read(driver.GetEffectiveAlpha, driver)
+    if IsFiniteNumber(alpha) and IsFiniteNumber(parentAlpha) and parentAlpha > 0 then
+        badge:SetAlpha(math.max(0, math.min(1, alpha / parentAlpha)))
     end
     if anchor ~= relativeTo then
         badge:ClearAllPoints()
-        if not pcall(badge.SetPoint, badge, "BOTTOM", relativeTo, "TOP", 0, name and 8 or 15) then
+        local y = (IsPublic(name) and relativeTo == name and 8 or 15) + appearance.y
+        if not pcall(badge.SetPoint, badge, "BOTTOM", relativeTo, "TOP", appearance.x, y) then
             rejectedAnchor, anchor = relativeTo, nil
             return HideDistance()
         end
         anchor = relativeTo
     end
-    -- Yellow also covers estimates that cross a color threshold.
-    local color = mediumColor
-    if upper <= closeRange then
-        color = closeColor
-    elseif lower >= mediumRange and upper > mediumRange then
-        color = farColor
+    local tier = GetDistanceTier(lower, upper)
+    if tier ~= activeTier then
+        PaintBadge(badge, label, appearance, tier)
+        activeTier = tier
     end
-    if color ~= activeColor then
-        badge:SetBackdropColor(unpack(color))
-        activeColor = color
-    end
-    if text ~= label:GetText() then
-        label:SetText(text)
-        badge:SetWidth(math.max(48, math.ceil(label:GetStringWidth()) + 16))
-    end
+    if text ~= label:GetText() then SetBadgeText(badge, label, text) end
     badge:Show()
 end
 
@@ -254,15 +348,27 @@ end
 local events = {"PLAYER_ENTERING_WORLD", "PLAYER_TARGET_CHANGED", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
     "SPELLS_CHANGED", "PLAYER_SPECIALIZATION_CHANGED", "UPDATE_SHAPESHIFT_FORM", "TRAIT_CONFIG_UPDATED",
     "ITEM_DATA_LOAD_RESULT", "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN"}
-local function SetEnabled(value)
-    db.enabled = value == true
-    if toggle then toggle:SetChecked(db.enabled) end
-    if db.enabled then
+local function RefreshMonitoring()
+    local active = db.enabled or mouseoverEnabled or false
+    if monitoring == active then return end
+    monitoring = active
+    if active then
         spellRanges, itemBands = nil, nil
         for _, event in ipairs(events) do pcall(driver.RegisterEvent, driver, event) end
     else
         driver:UnregisterAllEvents()
     end
+end
+
+function ns.SetMouseoverDistanceEnabled(value)
+    mouseoverEnabled = value == true
+    if db then RefreshMonitoring() end
+end
+
+local function SetEnabled(value)
+    db.enabled = value == true
+    if refreshSettings then refreshSettings() end
+    RefreshMonitoring()
     RefreshTarget()
 end
 
@@ -273,50 +379,274 @@ driver:SetScript("OnUpdate", function(_, delta)
     elapsed = elapsed % refreshInterval
     UpdateDistance()
 end)
-driver:SetScript("OnEvent", function(_, event, arg, action)
-    if not db or not db.enabled then return end
+driver:SetScript("OnEvent", function(_, event, arg)
+    if not monitoring then return end
     if event == "PLAYER_TARGET_CHANGED" then
-        RefreshTarget()
+        if db.enabled then RefreshTarget() end
     elseif event == "PLAYER_ENTERING_WORLD" then
         spellRanges, itemBands, rejectedAnchor = nil, nil, nil
-        RefreshTarget()
+        if db.enabled then RefreshTarget() end
     elseif event == "ITEM_DATA_LOAD_RESULT" then
         if IsPublic(arg) and requestedItems[arg] then itemBands = nil end
     elseif event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
-        if IsPublic(arg) and arg == addonName and (checkingItem
-            or (IsPublic(action) and type(action) == "string" and action:find("IsItemInRange", 1, true))) then
-            itemChecksBlocked = true
+        if checkingItemUnit and IsPublic(arg) and arg == addonName then
+            blockedItemChecks[checkingItemUnit] = true
         end
     elseif event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_REGEN_DISABLED" then
         if event == "PLAYER_REGEN_ENABLED" then rejectedAnchor, itemBands = nil, nil end
-        RefreshTarget()
+        if db.enabled then RefreshTarget() end
     else
         -- Spell changes can arrive in bursts. Rebuild at the next distance tick.
         spellRanges = nil
     end
 end)
 
+local function AppearanceChanged(reanchor)
+    activeTier = nil
+    if reanchor then anchor = nil end
+    if refreshSettings then refreshSettings() end
+end
+
+local function MouseoverSetting()
+    if ns.GetMouseoverDistanceSetting then return ns.GetMouseoverDistanceSetting() end
+    return ForeverTooltipLibreDB.mouseoverDistance ~= false
+end
+
+local function SetMouseoverSetting(value)
+    if ns.SetMouseoverDistanceSetting then ns.SetMouseoverDistanceSetting(value)
+    else ForeverTooltipLibreDB.mouseoverDistance = value == true end
+    if refreshSettings then refreshSettings() end
+end
+
 local function RegisterSettings(root)
     if not root or not Settings or not Settings.RegisterCanvasLayoutSubcategory then return end
+    local UI = ns.UI
     local panel = CreateFrame("Frame", "ArkannsQOLTargetDistanceSettings", UIParent, "BackdropTemplate")
     panel:Hide()
-    local heading = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    heading:SetPoint("TOPLEFT", 20, -20)
-    heading:SetText(title)
+    UI.StylePanel(panel)
+    UI.Label(panel, title, 20, -20, 18)
 
-    toggle = CreateFrame("CheckButton", "ArkannsQOLTargetDistanceEnabled", panel, "UICheckButtonTemplate")
-    toggle:SetPoint("TOPLEFT", 20, -56)
-    toggle:SetScript("OnClick", function(self) SetEnabled(self:GetChecked()) end)
-    local caption = toggle:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    caption:SetPoint("LEFT", toggle, "RIGHT", 4, 0)
-    caption:SetText(L("Afficher la distance en mètres"))
+    local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 20, -54)
+    scroll:SetPoint("BOTTOMRIGHT", -34, 16)
+    local body = CreateFrame("Frame", nil, scroll)
+    body:SetSize(508, 556)
+    scroll:SetScrollChild(body)
 
-    local detail = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    detail:SetPoint("TOPLEFT", 24, -108)
-    detail:SetPoint("RIGHT", panel, "RIGHT", -24, 0)
-    detail:SetJustifyH("LEFT")
-    detail:SetText(L("Au-dessus du nom de la cible. Vert jusqu’à 10 m, jaune jusqu’à 30 m, rouge au-delà. Jaune aussi si la fourchette chevauche un seuil. 28+ indique une borne basse seule."))
-    if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel) end
+    local toggle = UI.Check(body, "ArkannsQOLTargetDistanceEnabled", L("Afficher le badge de la cible"), 0, 0, SetEnabled)
+    local mouseover = UI.Check(body, "ArkannsQOLDistanceMouseover", L("Afficher la distance au survol"), 0, -30, SetMouseoverSetting)
+    local rounded = UI.Check(body, nil, L("Arrondir les estimations par pas de 5 m"), 0, -60, function(value)
+        db.appearance.rounded = value
+    end)
+    local estimateHelp = UI.Label(body, L("≈ indique une estimation. ≥ indique une distance minimale."), 4, -95)
+    local advanced, Layout = false
+    local advancedButton = UI.Button(body, "ArkannsQOLDistanceAdvanced", L("Placement et couleurs"), 4, -125, 260, function()
+        advanced = not advanced
+        Layout()
+    end)
+
+    local placementTitle = UI.Label(body, L("Placement du badge"), 4, -131, 15)
+    local portrait = UI.Check(body, nil, L("Ancrer au portrait plutôt qu’au nom"), 0, -153, function(value)
+        db.appearance.portrait = value
+        AppearanceChanged(true)
+    end)
+    local offsetLabel = UI.Label(body, L("Décalage X / Y"), 4, -197)
+    local offsetX = UI.Input(body, "ArkannsQOLTargetDistanceOffsetX", 110, -191, 54)
+    local offsetY = UI.Input(body, "ArkannsQOLTargetDistanceOffsetY", 174, -191, 54)
+    local function ApplyOffsets()
+        local x = tonumber((offsetX:GetText():gsub(",", ".")))
+        local y = tonumber((offsetY:GetText():gsub(",", ".")))
+        if not ValidOffset(x) or not ValidOffset(y) then
+            UI.Notify(L("Saisis deux décalages entre −250 et 250."))
+            return
+        end
+        db.appearance.x, db.appearance.y = x, y
+        offsetX:ClearFocus()
+        offsetY:ClearFocus()
+        AppearanceChanged(true)
+    end
+    local applyOffsets = UI.Button(body, nil, L("Appliquer"), 240, -191, 100, ApplyOffsets)
+    offsetX:SetScript("OnEnterPressed", ApplyOffsets)
+    offsetY:SetScript("OnEnterPressed", ApplyOffsets)
+
+    local resetPosition = UI.Button(body, "ArkannsQOLDistanceResetPosition", L("Réinitialiser le placement"), 4, -228, 260, function()
+        db.appearance.portrait, db.appearance.x, db.appearance.y = false, 0, 0
+        AppearanceChanged(true)
+    end)
+    local colorsTitle = UI.Label(body, L("Couleurs et aperçu"), 4, -273, 15)
+    local frameModes = {framed = L("Fond et bordure"), background = L("Fond seul"), text = L("Texte seul")}
+    local frame = UI.Button(body, nil, "", 4, -298, 165, function(self)
+        if not MenuUtil then return end
+        MenuUtil.CreateContextMenu(self, function(_, menu)
+            for _, mode in ipairs({"framed", "background", "text"}) do
+                menu:CreateButton(frameModes[mode], function()
+                    db.appearance.frame = mode
+                    AppearanceChanged()
+                end)
+            end
+        end)
+    end)
+
+    local previews = {}
+    local function ColorButton(x, y, width, caption, key, tier, sample)
+        local function GetColor(appearance)
+            return tier and appearance[key][tier] or appearance[key]
+        end
+        local button = UI.Button(body, nil, caption, x, y, width, function()
+            if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
+            local appearance = db.appearance
+            local old = GetColor(appearance)
+            local function SetColor(color)
+                if appearance ~= db.appearance then return end
+                if tier then appearance[key][tier] = color else appearance[key] = color end
+                AppearanceChanged()
+            end
+            ColorPickerFrame:SetupColorPickerAndShow({r = old[1], g = old[2], b = old[3], hasOpacity = false,
+                swatchFunc = function() SetColor({ColorPickerFrame:GetColorRGB()}) end,
+                cancelFunc = function() SetColor(old) end,
+            })
+        end)
+        local updateColor
+        if sample then
+            local line = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            line:SetPoint("CENTER")
+            line:SetText(tooltipFormat:format(sample))
+            updateColor = function(r, g, b) line:SetTextColor(r, g, b) end
+        else
+            local swatch = button:CreateTexture(nil, "OVERLAY")
+            button.swatch = swatch
+            swatch:SetSize(18, 12)
+            if caption == "" then swatch:SetPoint("CENTER") else swatch:SetPoint("RIGHT", -8, 0) end
+            updateColor = function(r, g, b) swatch:SetColorTexture(r, g, b) end
+        end
+        previews[#previews + 1] = function(appearance)
+            updateColor(unpack(GetColor(appearance)))
+            if key == "border" then button:SetEnabled(appearance.frame == "framed") end
+            if key == "background" then button:SetEnabled(appearance.frame ~= "text") end
+        end
+        return button
+    end
+    local borderButton = ColorButton(180, -298, 130, L("Bordure"), "border")
+    local resetColors = UI.Button(body, "ArkannsQOLDistanceResetColors", L("Réinitialiser les couleurs"), 4, -503, 260, function()
+        local appearance = db.appearance
+        UI.Confirm(L("Rétablir les couleurs par défaut du badge et des infobulles de distance ?"), function()
+            if appearance ~= db.appearance then return end
+            local defaults = NormalizeAppearance()
+            for _, key in ipairs({"border", "tooltip", "text", "background"}) do appearance[key] = defaults[key] end
+            AppearanceChanged()
+        end)
+    end)
+
+    local headings = {
+        UI.Label(body, L("Aperçu du badge"), 110, -343), UI.Label(body, L("Texte"), 219, -343),
+        UI.Label(body, L("Fond"), 277, -343), UI.Label(body, L("Infobulle au survol"), 352, -343),
+    }
+    local rowControls = {}
+    local rows = {
+        {L("Proche · ≤ 10 m"), "8 m"},
+        {L("Intermédiaire"), "≈ 15–25 m"},
+        {L("Loin · > 30 m"), "≥ 35 m"},
+    }
+    for tier, row in ipairs(rows) do
+        local y = -366 - (tier - 1) * 35
+        local caption = UI.Label(body, row[1], 4, y - 6)
+        local example, text = CreateBadge(body)
+        example:SetPoint("CENTER", body, "TOPLEFT", 158, y - 13)
+        SetBadgeText(example, text, row[2])
+        previews[#previews + 1] = function(appearance) PaintBadge(example, text, appearance, tier) end
+        rowControls[tier] = {caption = caption, badge = example,
+            text = ColorButton(215, y, 48, "", "text", tier),
+            background = ColorButton(273, y, 70, "", "background", tier),
+            tooltip = ColorButton(351, y, 147, "", "tooltip", tier, row[2])}
+    end
+    local colorHelp = UI.Label(body, L("Clique sur un échantillon ou sur le texte d’une infobulle pour changer sa couleur. Les fourchettes qui chevauchent un seuil prennent la couleur intermédiaire."), 4, -460)
+    colorHelp:SetWidth(496)
+
+    Layout = function()
+        local width = math.max(270, panel:GetWidth() - 54)
+        local narrow = width < 508
+        local extra = width < 344 and 34 or 0
+        local function Place(control, x, y)
+            control:ClearAllPoints(); control:SetPoint("TOPLEFT", body, "TOPLEFT", x, y)
+        end
+        local y = 0
+        for _, check in ipairs({toggle, mouseover, rounded, portrait}) do
+            if check.label then check.label:SetWidth(width - 38) end
+        end
+        local function CheckRow(check)
+            Place(check, 0, -y)
+            y = y + math.max(30, check.label and check.label:GetStringHeight() + 8 or 30)
+        end
+        for _, check in ipairs({toggle, mouseover, rounded}) do CheckRow(check) end
+        y = y + 5; Place(estimateHelp, 4, -y); estimateHelp:SetWidth(width - 8)
+        y = y + estimateHelp:GetStringHeight() + 12
+        Place(advancedButton, 4, -y)
+        advancedButton:SetText(advanced and L("Masquer placement et couleurs") or L("Placement et couleurs"))
+        y = y + 40
+        for _, control in ipairs({placementTitle, portrait, offsetLabel, offsetX, offsetY, applyOffsets,
+            resetPosition, colorsTitle, frame, resetColors, colorHelp}) do control:SetShown(advanced) end
+        local frameMode = db.appearance.frame
+        borderButton:SetShown(advanced and frameMode == "framed")
+        for _, heading in ipairs(headings) do heading:SetShown(advanced and not narrow) end
+        headings[3]:SetShown(advanced and not narrow and frameMode ~= "text")
+        for _, controls in ipairs(rowControls) do
+            for _, control in pairs(controls) do control:SetShown(advanced) end
+            controls.background:SetShown(advanced and frameMode ~= "text")
+        end
+        if not advanced then
+            offsetX:ClearFocus(); offsetY:ClearFocus()
+            body:SetSize(width, y)
+            UI.ClampScroll(scroll, y)
+            return
+        end
+        Place(placementTitle, 4, -y); y = y + 22; CheckRow(portrait)
+        y = y + 8; Place(offsetLabel, 4, -y - 6); Place(offsetX, 110, -y); Place(offsetY, 174, -y)
+        Place(applyOffsets, extra > 0 and 4 or 240, -y - extra)
+        y = y + 36 + extra; Place(resetPosition, 4, -y)
+        y = y + 45; Place(colorsTitle, 4, -y)
+        y = y + 25; Place(frame, 4, -y)
+        local borderExtra = width < 320 and frameMode == "framed" and 34 or 0
+        Place(borderButton, borderExtra > 0 and 4 or 180, -y - borderExtra)
+        y = y + 38 + borderExtra
+        Place(colorHelp, 4, -y); colorHelp:SetWidth(width - 8)
+        y = y + colorHelp:GetStringHeight() + 12
+        for index, heading in ipairs(headings) do
+            Place(heading, ({110, 219, 277, 352})[index], -y)
+        end
+        local top = -y - (narrow and 0 or 23)
+        for index, controls in ipairs(rowControls) do
+            local y = top - (index - 1) * (narrow and 110 or 35)
+            Place(controls.caption, 4, y - 6)
+            controls.badge:ClearAllPoints(); controls.badge:SetPoint("CENTER", body, "TOPLEFT", narrow and math.min(width - 64, 200) or 158, y - 13)
+            Place(controls.text, narrow and 4 or 215, y - (narrow and 34 or 0))
+            Place(controls.background, narrow and 120 or 273, y - (narrow and 34 or 0))
+            controls.text:SetWidth(narrow and 106 or 48); controls.text:SetText(narrow and L("Texte") or "")
+            controls.background:SetWidth(narrow and 106 or 70); controls.background:SetText(narrow and L("Fond") or "")
+            for _, button in ipairs({controls.text, controls.background}) do
+                button.swatch:ClearAllPoints(); button.swatch:SetPoint(narrow and "RIGHT" or "CENTER", narrow and -8 or 0, 0)
+            end
+            Place(controls.tooltip, narrow and 4 or 351, y - (narrow and 68 or 0))
+        end
+        local bottom = -top + (narrow and 330 or 105)
+        Place(resetColors, 4, -bottom)
+        body:SetSize(width, bottom + 42)
+        UI.ClampScroll(scroll, body:GetHeight())
+    end
+
+    refreshSettings = function()
+        local appearance = db.appearance
+        toggle:SetChecked(db.enabled)
+        mouseover:SetChecked(MouseoverSetting())
+        rounded:SetChecked(appearance.rounded)
+        portrait:SetChecked(appearance.portrait)
+        offsetX:SetText(tostring(appearance.x))
+        offsetY:SetText(tostring(appearance.y))
+        frame:SetText(frameModes[appearance.frame])
+        for _, refresh in ipairs(previews) do refresh(appearance) end
+        Layout()
+    end
+    panel:SetScript("OnShow", refreshSettings)
+    panel:HookScript("OnSizeChanged", Layout)
     return Settings.RegisterCanvasLayoutSubcategory(root, panel, title)
 end
 
@@ -325,17 +655,29 @@ function ns.InitializeTargetDistance(root)
     if type(ForeverTooltipLibreDB.targetDistance) ~= "table" then ForeverTooltipLibreDB.targetDistance = {} end
     db = ForeverTooltipLibreDB.targetDistance
     if type(db.enabled) ~= "boolean" then db.enabled = true end
+    db.appearance = NormalizeAppearance(db.appearance)
     local category = RegisterSettings(root)
+    ns.targetDistanceCategory = category
     SetEnabled(db.enabled)
     ns.RegisterModule("distance", {
         label = title, icon = "Interface\\Icons\\INV_Misc_Spyglass_02",
         category = function() return category end,
+        DiagnosticFrame = function() return badge end,
         IsEnabled = function() return db.enabled end, SetEnabled = SetEnabled,
-        Summary = function() return L("Au-dessus du nom · mètres") end,
-        ExportSettings = function() return {enabled = db.enabled} end,
+        toggleLabel = L("Afficher le badge de la cible"),
+        Summary = function() return L("Mesure ou estimation · mètres") end,
+        ExportSettings = function() return {enabled = db.enabled, appearance = NormalizeAppearance(db.appearance), mouseoverDistance = MouseoverSetting()} end,
+        profileMigrations = {function(config, current) config.appearance = current.appearance end,
+            function(config, current) if config.mouseoverDistance == nil then config.mouseoverDistance = current.mouseoverDistance end end},
         ImportSettings = function(config)
             if type(config) ~= "table" or type(config.enabled) ~= "boolean" then return false end
+            if config.mouseoverDistance ~= nil and type(config.mouseoverDistance) ~= "boolean" then return false end
+            if config.appearance ~= nil then
+                db.appearance = NormalizeAppearance(config.appearance)
+                activeTier, anchor = nil, nil
+            end
             SetEnabled(config.enabled)
+            if config.mouseoverDistance ~= nil then SetMouseoverSetting(config.mouseoverDistance) end
             return true
         end,
     })

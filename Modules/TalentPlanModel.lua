@@ -164,6 +164,20 @@ function M.Undo(order)
     if type(order) == "table" and #order > 0 then return table.remove(order) end
 end
 
+function M.DeletePlan(bucket, plan)
+    if type(bucket) ~= "table" or type(bucket.plans) ~= "table" then return false end
+    for index, saved in ipairs(bucket.plans) do
+        if saved == plan then
+            table.remove(bucket.plans, index)
+            local active = type(bucket.active) == "number" and bucket.active or 1
+            if active > index then active = active - 1 end
+            bucket.active = math.max(1, math.min(active, #bucket.plans))
+            return true
+        end
+    end
+    return false
+end
+
 function M.LevelLabel(levels)
     if type(levels) ~= "table" or #levels == 0 then return "" end
     local labels, first, last = {}, levels[1], levels[1]

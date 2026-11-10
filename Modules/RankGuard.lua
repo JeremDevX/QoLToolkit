@@ -253,9 +253,10 @@ local function StopPreview()
     if preview then preview:Hide() end
     if not enabled then driver:UnregisterEvent("PLAYER_REGEN_DISABLED") end
     UpdateDriver()
+    if ns.UI and ns.UI.PreviewEnded then ns.UI.PreviewEnded("ranks") end
 end
 local function Preview()
-    if not db or Read(InCombatLockdown) ~= false then return end
+    if not db or Read(InCombatLockdown) ~= false then return false, L("Aperçu disponible hors combat.") end
     if not preview then
         preview = NewBadge(); preview:SetFrameStrata("TOOLTIP")
         preview:SetScript("OnHide", StopPreview)
@@ -265,6 +266,7 @@ local function Preview()
     preview:SetAlpha(db.opacity); preview:Show(); previewRemaining = 12
     if not enabled then driver:RegisterEvent("PLAYER_REGEN_DISABLED") end
     driver:Show()
+    return true
 end
 local function Changed()
     UpdateDriver()
@@ -296,36 +298,36 @@ end
 
 local function RegisterSettings(rootCategory)
     if settingsPanel or not rootCategory or not Settings or not Settings.RegisterCanvasLayoutSubcategory then return end
-    local panel = CreateFrame("Frame", "ArkannsQOLRankSettings", UIParent, "BackdropTemplate")
-    panel:Hide()
-    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -20)
-    title:SetText(L("Rangs de sorts"))
+    local UI = ns.UI
+    local canvas = CreateFrame("Frame", "ArkannsQOLRankSettings", UIParent, "BackdropTemplate")
+    canvas:Hide()
+    UI.Label(canvas, L("Rangs de sorts"), 20, -20, 18)
+    local scroll = CreateFrame("ScrollFrame", nil, canvas, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 16, -54); scroll:SetPoint("BOTTOMRIGHT", -34, 16)
+    local panel = CreateFrame("Frame", nil, scroll)
+    panel:SetSize(540, 1000); scroll:SetScrollChild(panel)
+    local items, advanced, appearanceSection, Layout = {}, false, false
+    local function Track(frame, kind, width)
+        items[#items + 1] = {frame = frame, kind = kind, width = width, advanced = appearanceSection}
+        return frame
+    end
     local updates = {}
-    local function Text(text, x, y)
-        local label = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        label:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y); label:SetText(text); return label
+    local function Text(text, size)
+        return Track(UI.Label(panel, text, 0, 0, size), "text")
     end
-    local function Button(name, label, x, y, width, action)
-        local button = CreateFrame("Button", "ArkannsQOLRank" .. name, panel, "UIPanelButtonTemplate")
-        button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y); button:SetSize(width, 26); button:SetText(label)
-        button:SetScript("OnClick", action)
-        if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button) end
-        return button
+    local function Button(name, label, width, action)
+        return Track(UI.Button(panel, "ArkannsQOLRank" .. name, label, 0, 0, width, action), "button", width)
     end
-    local function Check(name, label, key, x, y)
-        local check = CreateFrame("CheckButton", "ArkannsQOLRank" .. name, panel, "UICheckButtonTemplate")
-        check:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
-        local text = check:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        text:SetPoint("LEFT", check, "RIGHT", 4, 0); text:SetText(label)
-        check:SetScript("OnClick", function(self)
-            if key == "enabled" then SetEnabled(self:GetChecked()) else db[key] = self:GetChecked() == true; Changed() end
+    local function Check(name, label, key)
+        local check = UI.Check(panel, "ArkannsQOLRank" .. name, label, 0, 0, function(value)
+            if key == "enabled" then SetEnabled(value) else db[key] = value; Changed() end
         end)
         updates[#updates + 1] = function() check:SetChecked(db[key]) end
+        return Track(check, "check")
     end
-    local function Choice(name, label, key, values, x, y, width)
-        local button = Button(name, label, x, y, width or 185, function(self)
-            if not MenuUtil then return end
+    local function Choice(name, label, key, values)
+        local button = Button(name, label, 190, function(self)
+            if not MenuUtil or not MenuUtil.CreateContextMenu then return end
             MenuUtil.CreateContextMenu(self, function(_, menu)
                 for _, item in ipairs(values) do
                     local value, caption = item[1], item[2]
@@ -338,50 +340,23 @@ local function RegisterSettings(rootCategory)
             button:SetText(string.format(L("%s : %s"), label, caption))
         end
     end
-    Text(L("Fonctionnement"), 24, -62)
-    Check("Enabled", L("Avertissements de rang"), "enabled", 20, -86)
-    Choice("Interval", L("Actualisation"), "interval", {{0.5, L("0,5 s")}, {1, "1 s"}, {2, "2 s"}, {5, "5 s"}, {10, "10 s"}}, 320, -88, 220)
-    Text(L("Rang supérieur appris uniquement. Macros ignorées. Aucun sort remplacé."), 24, -128)
-    Button("ResetBehavior", L("Réinitialiser"), 430, -54, 110, function() db.interval = 2; SetEnabled(true) end)
+    local activation = Check("Enabled", L("Avertissements de rang"), "enabled")
+    if not C_SpellBook or not C_SpellBook.IsSpellBookItemLowRank then
+        activation:SetEnabled(false)
+        Text(L("API de rangs Forever indisponible : aucun avertissement affiché."))
+    end
+    Text(L("Rang supérieur appris uniquement. Macros ignorées. Aucun sort remplacé."))
+    Button("Preview", L("Aperçu · 12 s"), 185, function() UI.PreviewModule("ranks") end)
 
-    Text(L("Apparence"), 24, -176)
-    Choice("Style", L("Badge"), "style", {{"mark", "!"}, {"dot", L("Point")}, {"border", L("Bordure")}}, 24, -204)
-    Choice("Corner", L("Coin"), "corner", {{"BOTTOMLEFT", L("Bas gauche")}, {"BOTTOMRIGHT", L("Bas droite")}, {"TOPLEFT", L("Haut gauche")}, {"TOPRIGHT", L("Haut droite")}}, 224, -204, 190)
-    Choice("Size", L("Taille"), "size", {{10, "10"}, {14, "14"}, {18, "18"}, {24, "24"}, {32, "32"}}, 24, -240)
-    Choice("Opacity", L("Opacité"), "opacity", {{0.25, L("25 %")}, {0.5, L("50 %")}, {0.75, L("75 %")}, {1, L("100 %")}}, 224, -240, 190)
-    Button("Color", L("Couleur"), 430, -240, 110, function()
-        if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
-        local old = Copy(db.color)
-        local oldOverride = ns.UI and ns.UI.IsOverride and ns.UI.IsOverride("ranks")
-        ColorPickerFrame:SetupColorPickerAndShow({r = old[1], g = old[2], b = old[3], hasOpacity = false,
-            swatchFunc = function()
-                db.color = {ColorPickerFrame:GetColorRGB()}
-                if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("ranks", true) end
-                Changed()
-            end,
-            cancelFunc = function()
-                db.color = old
-                if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("ranks", oldOverride == true) end
-                Changed()
-            end})
-    end)
-    Button("Preview", L("Aperçu · 12 s"), 24, -278, 185, Preview)
-    Button("StopPreview", L("Arrêter l’aperçu"), 224, -278, 190, StopPreview)
-    Button("ResetAppearance", L("Réinitialiser"), 430, -168, 110, function()
-        for _, key in ipairs({"style", "corner", "size", "opacity", "color"}) do db[key] = Copy(defaults[key]) end
-        if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("ranks", false) end
-        Changed()
-    end)
+    Text(L("Visibilité"), 15)
+    Check("Combat", L("En combat"), "showCombat")
+    Check("Rest", L("Hors combat"), "showRest")
+    items[#items].pair = true
 
-    Text(L("Visibilité"), 24, -356)
-    Check("Combat", L("En combat"), "showCombat", 20, -380)
-    Check("Rest", L("Hors combat"), "showRest", 224, -380)
-    Button("ResetVisibility", L("Réinitialiser"), 430, -348, 110, function() db.showCombat, db.showRest = true, true; Changed() end)
-
-    Text(L("Rangs inférieurs volontaires"), 24, -436)
-    Text(L("Ajoute un sort signalé ou saisis son identifiant exact de rang."), 24, -462)
-    Button("AddException", L("Ignorer un sort signalé"), 24, -492, 240, function(self)
-        if not MenuUtil then return end
+    Text(L("Rangs inférieurs volontaires"), 15)
+    Text(L("Ajoute un sort signalé ou saisis son identifiant exact de rang."))
+    Button("AddException", L("Ignorer un sort signalé"), 240, function(self)
+        if not MenuUtil or not MenuUtil.CreateContextMenu then return end
         MenuUtil.CreateContextMenu(self, function(_, menu)
             local seen, count = {}, 0
             for button in pairs(warnings) do
@@ -395,8 +370,8 @@ local function RegisterSettings(rootCategory)
             if count == 0 then menu:CreateTitle(L("Aucun ancien rang détecté")) end
         end)
     end)
-    Button("RemoveException", L("Retirer une exception"), 280, -492, 260, function(self)
-        if not MenuUtil then return end
+    Button("RemoveException", L("Retirer une exception"), 260, function(self)
+        if not MenuUtil or not MenuUtil.CreateContextMenu then return end
         MenuUtil.CreateContextMenu(self, function(_, menu)
             local ids = {}; for id in pairs(db.exceptions) do ids[#ids + 1] = id end; table.sort(ids)
             for _, id in ipairs(ids) do
@@ -406,33 +381,121 @@ local function RegisterSettings(rootCategory)
             if #ids == 0 then menu:CreateTitle(L("Aucune exception")) end
         end)
     end)
-    local input = CreateFrame("EditBox", "ArkannsQOLRankExceptionID", panel, "InputBoxTemplate")
-    input:SetPoint("TOPLEFT", panel, "TOPLEFT", 30, -532); input:SetSize(150, 24)
-    input:SetAutoFocus(false); input:SetMaxLetters(10)
-    local status = Text("", 24, -570)
+    items[#items].pair = true
+    local input = UI.Input(panel, "ArkannsQOLRankExceptionID", 0, 0, 150)
+    input:SetMaxLetters(10)
+    Track(input, "input", 150)
+    local status
     local function AddID()
         local id = tonumber(input:GetText())
-        if not Identifier(id) then status:SetText(L("Saisis un identifiant numérique valide.")); return end
+        if not Identifier(id) then status:SetText(L("Saisis un identifiant numérique valide.")); Layout(); return end
         db.exceptions[id] = true; input:SetText(""); input:ClearFocus(); status:SetText(string.format(L("Exception ajoutée : %s"), tostring(id))); Changed()
     end
     input:SetScript("OnEnterPressed", AddID)
-    input:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    Button("AddID", L("Ajouter l’identifiant"), 200, -530, 180, AddID)
-    Button("ResetExceptions", L("Tout retirer"), 400, -530, 140, function() db.exceptions = {}; status:SetText(""); Changed() end)
-    if ns.UI and ns.UI.IsOverride and ns.UI.SetOverride then
-        local own = CreateFrame("CheckButton", "ArkannsQOLRankOwnStyle", panel, "UICheckButtonTemplate")
-        own:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -312)
-        local ownLabel = own:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        ownLabel:SetPoint("LEFT", own, "RIGHT", 4, 0); ownLabel:SetText(L("Apparence propre à ce module"))
-        own:SetScript("OnClick", function(self) ns.UI.SetOverride("ranks", self:GetChecked() == true) end)
-        updates[#updates + 1] = function() own:SetChecked(ns.UI.IsOverride("ranks")) end
+    Button("AddID", L("Ajouter l’identifiant"), 180, AddID)
+    items[#items].pair = true
+    Button("ResetExceptions", L("Retirer toutes les exceptions"), 240, function()
+        local exceptions = db.exceptions
+        UI.Confirm(L("Retirer toutes les exceptions de rang de sort ?"), function()
+            if db.exceptions ~= exceptions then return end
+            db.exceptions = {}; status:SetText(""); Changed()
+        end)
+    end)
+    status = Text("")
+    items[#items].condition = function() return (status:GetText() or "") ~= "" end
+    Button("ResetBehavior", L("Fonctionnement par défaut"), 235, function()
+        UI.Confirm(L("Rétablir l’activation et la fréquence des avertissements de rang ?"), function()
+            db.interval = defaults.interval; SetEnabled(defaults.enabled)
+        end)
+    end)
+    Button("ResetVisibility", L("Visibilité par défaut"), 215, function()
+        UI.Confirm(L("Afficher de nouveau les avertissements en combat et hors combat ?"), function()
+            db.showCombat, db.showRest = defaults.showCombat, defaults.showRest
+            Changed()
+        end)
+    end)
+    Button("AppearanceToggle", L("Apparence du badge"), 280, function(self)
+        advanced = not advanced
+        self:SetText(advanced and L("Masquer l’apparence du badge") or L("Apparence du badge"))
+        Layout()
+    end)
+    appearanceSection = true
+    local own = UI.Check(panel, "ArkannsQOLRankOwnStyle", L("Apparence propre à ce module"), 0, 0, function(value)
+        UI.SetOverride("ranks", value); Changed()
+    end)
+    Track(own, "check")
+    updates[#updates + 1] = function() own:SetChecked(UI.IsOverride("ranks")) end
+    Choice("Style", L("Badge"), "style", {{"mark", "!"}, {"dot", L("Point")}, {"border", L("Bordure")}})
+    Choice("Corner", L("Coin"), "corner", {{"BOTTOMLEFT", L("Bas gauche")}, {"BOTTOMRIGHT", L("Bas droite")}, {"TOPLEFT", L("Haut gauche")}, {"TOPRIGHT", L("Haut droite")}})
+    items[#items].condition = function() return db.style ~= "border" end
+    Choice("Size", L("Taille"), "size", {{10, "10"}, {14, "14"}, {18, "18"}, {24, "24"}, {32, "32"}})
+    Choice("Opacity", L("Opacité"), "opacity", {{0.25, L("25 %")}, {0.5, L("50 %")}, {0.75, L("75 %")}, {1, L("100 %")}})
+    items[#items].pair = true
+    local colorButton = Button("Color", L("Couleur"), 110, function()
+        if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
+        local old = Copy(db.color)
+        local oldOverride = UI.IsOverride("ranks")
+        ColorPickerFrame:SetupColorPickerAndShow({r = old[1], g = old[2], b = old[3], hasOpacity = false,
+            swatchFunc = function()
+                db.color = {ColorPickerFrame:GetColorRGB()}
+                UI.SetOverride("ranks", true)
+                Changed()
+            end,
+            cancelFunc = function()
+                db.color = old
+                UI.SetOverride("ranks", oldOverride)
+                Changed()
+            end})
+    end)
+    updates[#updates + 1] = function() colorButton:SetEnabled(UI.IsOverride("ranks")) end
+    Button("ResetAppearance", L("Apparence par défaut"), 230, function()
+        UI.Confirm(L("Rétablir l’apparence par défaut du badge de rang ?"), function()
+            for _, key in ipairs({"style", "corner", "size", "opacity", "color"}) do db[key] = Copy(defaults[key]) end
+            UI.SetOverride("ranks", false)
+            Changed()
+        end)
+    end)
+
+    Layout = function()
+        local width = math.max(240, canvas:GetWidth() - 50)
+        local y, rowY, rowHeight = 0, 0, 0
+        local paired = width >= 540
+        local columnWidth = math.floor((width - 12) / 2)
+        for index, item in ipairs(items) do
+            local control = item.frame
+            local visible = (not item.advanced or advanced) and (not item.condition or item.condition())
+            control:SetShown(visible)
+            if visible then
+                local besidePrevious = paired and item.pair
+                local pairWithNext = paired and items[index+1] and items[index+1].pair
+                local available = (besidePrevious or pairWithNext) and columnWidth or width
+                local x = besidePrevious and columnWidth + 12 or item.kind == "input" and 6 or 0
+                control:ClearAllPoints(); control:SetPoint("TOPLEFT", panel, "TOPLEFT", x, -(besidePrevious and rowY or y))
+                local height = 26
+                if item.kind == "text" then
+                    control:SetWidth(width); height = math.max(20, control:GetStringHeight())
+                elseif item.kind == "check" then
+                    control.label:SetWidth(available - 38)
+                    height = math.max(28, control.label:GetStringHeight() + 8)
+                else control:SetWidth(math.min(item.width or 280, available - 6)) end
+                if besidePrevious then
+                    y = rowY + math.max(rowHeight, height) + 10
+                else
+                    rowY, rowHeight = y, height
+                    y = y + height + 10
+                end
+            end
+        end
+        panel:SetSize(width, y + 12)
+        UI.ClampScroll(scroll, panel:GetHeight())
     end
-    panel.OnRefresh = function() for _, update in ipairs(updates) do update() end end
-    panel:SetScript("OnShow", panel.OnRefresh)
-    panel:SetScript("OnHide", StopPreview)
-    if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel) end
-    ns.rankGuardCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Rangs de sorts"))
-    settingsPanel = panel
+    canvas.OnRefresh = function() for _, update in ipairs(updates) do update() end; Layout() end
+    canvas:SetScript("OnShow", canvas.OnRefresh)
+    canvas:HookScript("OnSizeChanged", Layout)
+    canvas:SetScript("OnHide", StopPreview)
+    UI.StylePanel(canvas)
+    ns.rankGuardCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, canvas, L("Rangs de sorts"))
+    settingsPanel = canvas
 end
 
 local function MigrateRankGuard(root)
@@ -514,14 +577,15 @@ driver:SetScript("OnUpdate", function(_, delta)
     end
 end)
 
-SLASH_ARKANNSRANKGUARD1 = "/arkrang"
-SLASH_ARKANNSRANKGUARD2 = "/rankguard"
+SLASH_ARKANNSRANKGUARD1 = "/qtrank"
+SLASH_ARKANNSRANKGUARD2 = "/arkrang"
+SLASH_ARKANNSRANKGUARD3 = "/rankguard"
 SlashCmdList.ARKANNSRANKGUARD = function(message)
     local command = (message or ""):lower():match("^%s*(.-)%s*$")
     if command == "on" or command == "activer" then SetEnabled(true)
     elseif command == "off" or command == "desactiver" or command == "désactiver" then SetEnabled(false) end
     print(string.format(L("|cffffb829QoL Toolkit — Rangs de sorts|r : %s"), enabled and L("activé.") or L("désactivé.")))
-    print(L("Un ! orange indique un rang supérieur déjà appris. /arkrang on ou /arkrang off."))
+    print(L("Un ! orange indique un rang supérieur déjà appris. /qtrank on ou /qtrank off."))
     if not C_SpellBook or not C_SpellBook.IsSpellBookItemLowRank then
         print(L("API de rangs Forever indisponible : aucun avertissement affiché."))
     end

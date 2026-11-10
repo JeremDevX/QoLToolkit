@@ -4,17 +4,19 @@ WoW Forever 1.60.1 • Interface 16001
 L’addon utilise la langue du client. Français pour le client français, anglais par défaut.
 
 ACCUEIL
-/aqol : huit cartes avec activation, résumé, Configurer et Aperçu selon le module.
+/qt : huit cartes avec activation, résumé, Configurer et Aperçu selon le module.
 L’étoile épingle un module. Les favoris des réglages avancés apparaissent aussi ici.
-Apparence, Disposition, Profils et Arrêter les aperçus sont accessibles depuis l'accueil.
+Les favoris apparaissent avant les cartes. Apparence, Disposition, Profils et Diagnostics
+sont accessibles depuis l'accueil. Le bouton de minicarte peut être déplacé ou masqué.
 
 THÈME CHALEUREUX
 Le fond, le texte et la bordure reprennent exactement le thème Chaleureux du journal.
-Apparence générale : police, taille, échelle, opacité, bordure, marges, espacement et couleurs.
-Pour les couleurs, saisis un code RRGGBB puis Appliquer ou Entrée.
+Apparence générale : taille du texte des modules, échelle et opacité.
+Personnalisation avancée : police, bordure, marges, espacement et couleurs.
+Pour les couleurs, utilise le sélecteur visuel ou saisis un code RRGGBB puis Appliquer.
 Chaque module hérite du thème commun. « Apparence propre à ce module » reprend
 ses réglages locaux ; « Reprendre le thème commun » rétablit l'héritage.
-Tes réglages locaux et les modules désactivés sont conservés.
+Les réglages hérités sont grisés. Tes réglages locaux et les modules désactivés sont conservés.
 Les couleurs d'alerte restent distinctes du texte normal.
 
 DISPOSITION
@@ -22,7 +24,9 @@ Ouvre Disposition hors combat : les fenêtres de démonstration apparaissent.
 Glisse les cadres ; les exemples suivent le déplacement. Grille et accrochage facultatifs.
 Clique sur un cadre pour régler précisément son centre avec X % et Y %.
 Recentrer agit sur le cadre sélectionné. Valider conserve les nouvelles positions.
-Annuler, Échap, clic droit ou Quitter les aperçus restaure les positions précédentes.
+Annuler, Échap ou clic droit restaure les positions précédentes.
+Les boutons Déplacer ouvrent cet éditeur sur le module concerné. Valider sans déplacer
+un module conserve son ancrage d'origine, notamment l'ancrage automatique des talents.
 Entrer en combat annule la disposition. Les coordonnées sont relatives à l'écran.
 Le panneau de talents utilise un exemple : le mode Disposition n'ouvre pas l'arbre WoW.
 Les badges de rang restent attachés aux boutons de sorts ; leur position se règle par coin.
@@ -56,6 +60,8 @@ Si ce nom existe déjà, le bouton Remplacer demande un second clic pour confirm
 Sélectionne les modules à copier, clique sur Voir les changements, puis Appliquer.
 Annuler l'application restaure la configuration précédente si elle n'a pas changé depuis.
 Les profils contiennent les préférences, apparences, positions et effets surveillés.
+Chaque module copié conserve son choix d'apparence commune ou personnalisée.
+Supprimer un profil demande confirmation ; les réglages actuellement appliqués restent en place.
 Ils ne copient pas les compteurs du journal, les builds de talents ni les valeurs graphiques
 du client. Les builds restent propres au personnage ; les favoris graphiques sont copiés.
 Aucun réglage du jeu n'est modifié simplement en ouvrant ou en prévisualisant un profil.
@@ -65,7 +71,7 @@ Tests Lua et simulations hors jeu : calculs, rappels, talents, rangs, profils et
 Aucun lancement ni contrôle de WoW. Le rendu réel dans le client reste à observer par le joueur.
 
 OPTIONS
-/aqol ou Échap > Paramètres > Add-ons > QoL Toolkit.
+/qt ou Échap > Paramètres > Add-ons > QoL Toolkit.
 Rappels d'effets, Infobulles, Journal de session, Builds de talents, Réglages avancés et Rangs de sorts.
 Les modules d'affichage s'activent séparément. Réglages enregistrés automatiquement.
 
@@ -95,45 +101,52 @@ Apparence :
 - Police, tailles du texte et du titre, contour, ombre et alignement.
 - Icônes, titre personnalisé, couleurs, opacité et bordure.
 - Couleurs : clic sur le carré ou code hex + Entrée.
-- Classique : apparence par défaut. Liste et position conservées.
+- Les thèmes conservent le titre personnalisé, la disposition et les dimensions.
 - Tester : aperçu de 6 effets maximum.
-- Déplacer : glisser le cadre. Recentrer : retrouver le cadre.
+- Déplacer : ouvrir le mode Disposition. Son bouton Recentrer permet de retrouver le cadre.
 
 Fermer le test : ×, clic droit ou Échap.
 Le test s'arrête aussi en quittant l'onglet, en rouvrant ou fermant les options,
 en combat ou à la mort. Un effet réellement manquant reste affiché sans « Test ».
 
 JOURNAL DE SESSION
-/aqsession ouvre ses options. Réglages par personnage.
+/qtsession ouvre ses options. Réglages par personnage.
 Visible en combat et à la mort. Masquer la fenêtre ne suspend pas les compteurs.
+- Démarrer ou arrêter le suivi dans Fonctionnement, ou avec /qtsession start et /qtsession stop.
+- Démarrer reprend les totaux. Réinitialiser les stats remet les compteurs à zéro.
+- « Mettre en pause pendant l’AFK » suspend le suivi en AFK et le reprend au retour.
+  Un arrêt manuel reste en place.
 
 Stats : durée, XP, prochain niveau, or reçu, or dépensé, solde, morts et niveaux gagnés.
 Icônes natives de WoW, à la taille du texte.
 Montants affichés avec les pièces d'or, d'argent et de cuivre.
-- Durée : temps connecté, AFK inclus. Chargement de /reload exclu.
-- Survol d'XP gagnée : XP/h. Survol d'Or reçu : or net/h (reçu − dépensé).
+- Durée : temps de suivi. Les pauses et le chargement de /reload sont exclus.
+- Survol d'XP gagnée : XP/h. Survol du Solde : or net/h (reçu − dépensé).
   Journal verrouillé, taux disponibles après 1 min. Les clics passent à travers.
 - Prochain niveau : estimation toujours affichée, basée sur l'XP moyenne de la session.
   « Calcul... » avant 1 min ou sans gain d'XP. « Niv. max » au niveau maximum.
   ≥ : XP minimum. — : estimation indisponible si les données sont incomplètes.
 - Or : achats, ventes, échanges et courrier inclus, pas seulement le loot.
 - Solde : or reçu moins or dépensé.
-- Nouvelle connexion : remise à zéro. /reload et changements de zone : stats conservées.
+- Nouvelle connexion : les compteurs repartent à zéro. /reload conserve les compteurs et l’arrêt manuel.
 - Réinitialiser les stats : remise à zéro sans modifier l'apparence.
 
 Choisis les stats, le thème, la largeur, le texte, l'opacité, le titre,
 la bordure et le mode compact. La largeur s'adapte aux chiffres longs.
-Déverrouiller : glisser le cadre. Verrouiller ou clic droit : fixer la position.
-Une fois verrouillé, le cadre laisse passer les clics. Recentrer permet de le retrouver.
+Déplacer ouvre le mode Disposition. Valider conserve le déplacement ; Annuler le restaure.
+Le cadre verrouillé laisse passer les clics. Recentrer, dans Disposition, permet de le retrouver.
 
 INFOBULLES
-Réglages communs aux personnages. /ft options ouvre les options.
+Réglages communs aux personnages. /qttooltip options ouvre les options.
 Échelle : 50 à 200 %. 100 % correspond à la taille native, texte compris.
 Suivi du curseur : PNJ, objets, sacs et sorts. Hors comparaisons et fenêtres tierces.
 Position fixe : PNJ et objets du monde. Désactive le suivi du curseur pour la régler.
-Déplacer : glisser le cadre. Clic droit : verrouiller. Ancrage en bas à gauche.
+Déplacer ouvre le mode Disposition. Ancrage de l’infobulle en bas à gauche du cadre.
 Survole à nouveau après un réglage.
 Le contenu natif, dont les infos de quête déjà présentes, est conservé.
+La distance dans l’infobulle concerne l’unité survolée. Elle s’affiche sous forme
+de mesure ou de fourchette lorsque le client fournit assez d’informations.
+Tu peux désactiver « Afficher la distance au survol » dans Distance de la cible.
 Si un autre addon déplace les tooltips, désactive son option de placement.
 
 BUILDS DE TALENTS
@@ -144,11 +157,12 @@ Plans enregistrés par personnage et spécialisation primaire / secondaire.
 - Nouveau : créer un build. Le champ de nom apparaît en mode édition.
 - Modifier le build : clic sur un talent pour ajouter le point du niveau suivant.
 - Clic droit : retirer son dernier rang, si le reste du plan reste valide.
-- Annuler : retirer le dernier point du plan.
+- Retirer le dernier point : retirer le dernier point du plan.
+- Supprimer : supprimer le build sélectionné après confirmation.
 - Terminer : revenir au suivi et aux clics normaux de l'arbre.
 - Aperçu au niveau, en édition : afficher les rangs prévus à ce niveau.
-- Glisse le titre pour déplacer le panneau. × ou Échap pour le fermer.
-- /aqbuild : réafficher le panneau quand l'arbre est ouvert.
+- Glisser le titre ou cliquer Déplacer ouvre le mode Disposition. Croix de fermeture ou Échap pour fermer le panneau.
+- /qtbuild : réafficher le panneau quand l'arbre est ouvert.
 
 En suivi, le badge dans l'icône indique le prochain niveau de ce talent : 10,
 puis 11, 12, 13 et 14 après chaque rang appris. Les rangs espacés gardent leur niveau.
@@ -180,7 +194,7 @@ Cache des rangs : 30 s. Recherche globale des nouveaux boutons : 60 s, hors comb
 Un chargement d'addon ou une entrée dans le monde demande aussi une recherche de boutons.
 Une barre tierce sans événement peut attendre 2 s ; un nouveau bouton sans événement, 60 s.
 Module désactivé : aucun scan. Ces intervalles ne constituent pas une mesure de gain FPS.
-/aqol > Rangs de sorts. Module intégré à QoL Toolkit, actif par défaut.
+/qt > Rangs de sorts. Module intégré à QoL Toolkit, actif par défaut.
 Un petit ! orange en bas à gauche d'un bouton signale un rang supérieur déjà appris.
 Les rangs encore verrouillés ou à acheter chez un maître ne déclenchent pas d'alerte.
 Le badge suit la position, l'échelle, la visibilité et les pages des barres.
@@ -188,38 +202,58 @@ Les barres personnalisées sont reconnues si elles exposent leur action courante
 via les attributs standard ou LibActionButton. Certaines variantes peuvent être ignorées.
 Macros, objets, sorts futurs, familiers et données inaccessibles : ignorés.
 Aucun remplacement automatique. Un ancien rang peut être conservé volontairement.
-Activer/désactiver dans les paramètres du module ou avec /arkrang on et /arkrang off.
+Activer/désactiver dans les paramètres du module ou avec /qtrank on et /qtrank off.
 Le choix est enregistré dans les réglages de QoL Toolkit.
 Les nouveaux boutons sont repérés hors combat. Les badges ne capturent aucun clic.
 La détection repose sur C_SpellBook.IsSpellBookItemLowRank et la vérification du sort.
 Source : https://github.com/Gethe/wow-ui-source/blob/9dc84f0d3bbae1768ac3405b3716000bd93eda06/Interface/AddOns/Blizzard_APIDocumentationGenerated/SpellBookDocumentation.lua
 
 DISTANCE DE LA CIBLE
-La distance ou la fourchette s’affiche au-dessus du nom de la cible.
-Le cadre est vert jusqu’à 10 m, jaune jusqu’à 30 m et rouge au-delà.
-« 28+ » indique une distance d’au moins 28 m.
+WoW fournit une distance mesurée pour les membres du groupe quand elle est disponible.
+Pour les ennemis, l’addon estime la distance avec les sorts offensifs et les objets autorisés.
+Pour les alliés hors groupe, il utilise les portées des sorts bénéfiques.
+« ≈ 25–40 m » indique une estimation. « ≥ 35 m » indique une borne basse.
+Par défaut, les bornes sont arrondies vers l’extérieur par pas de 5 m.
+Dans /qt, ouvre Distance de la cible pour changer l’ancrage, le décalage, le cadre
+et les couleurs du badge et de la ligne dans l’infobulle.
 
 SACS
 Le bouton QoL dans l’en-tête ouvre les réglages rapides au clic gauche.
-« Plus de réglages » ouvre la page complète. Le clic droit ouvre l’accueil.
-Personnalise la couleur par rareté, l’opacité et les halos intérieur et extérieur.
+Les réglages rapides présentent Tri, Contours et Transmos, trois fonctions indépendantes.
+« Tous les réglages » ouvre la page complète. Le clic droit ouvre l’accueil.
+Personnalise la couleur par rareté, l’opacité, l’épaisseur et le halo intérieur.
+Une icône en haut à droite signale une apparence de transmogrification à collectionner.
+Tu peux désactiver « Transmos manquantes » dans les réglages rapides.
 Le tri facultatif se lance à l’ouverture manuelle des sacs, hors combat et hors banque.
 
 RACCOURCIS
-/ft : afficher / masquer le cadre de placement.
-/ft unlock ou /ft placer : déplacer. /ft lock : verrouiller.
-/ft reset : réinitialiser la position, sans changer l'échelle.
-/ft taille 120 : échelle à 120 %.
-/ft curseur on ou off : suivi du curseur.
-/ft on ou off : activer / désactiver le module.
-/ft aide : commandes. /tooltiplibre reste un alias de /ft.
+/qttooltip : ouvrir le mode Disposition avec le cadre Infobulles sélectionné.
+/qttooltip unlock ou /qttooltip placer : même éditeur. /qttooltip lock : valider et fermer.
+/qttooltip reset : réinitialiser la position, sans changer l'échelle.
+/qttooltip taille 120 : échelle à 120 %.
+/qttooltip curseur on ou off : suivi du curseur.
+/qttooltip on ou off : activer / désactiver le module.
+/qttooltip aide : commandes.
 
 INSTALLATION
 Dossier : World of Warcraft\_forever_\Interface\AddOns\QoLToolkit
-Relance WoW après l’installation. Ouvre les réglages avec /aqol.
+Relance WoW après l’installation. Ouvre les réglages avec /qt.
+
+DIAGNOSTIC LOCAL
+- /qtlog start : démarre une capture de deux minutes et remplace la trace précédente.
+- /qtlog mark : ajoute un repère au moment où tu observes le comportement.
+- /qtlog stop : termine la capture.
+- /qtlog show : ouvre la trace hors combat. Copie le texte sélectionné avec Ctrl+C.
+- /qtlog clear : efface la trace.
+- /qtlog inventory : ouvre l'inventaire du client en lecture seule, également accessible dans Diagnostics.
+
+La trace relève deux fois par seconde les changements de position, d’ancrage,
+de taille, de visibilité et de couche des cadres suivis. Elle note certains
+événements et les blocages signalés pour QoL Toolkit. WoW sauvegarde la trace
+locale lors d’un rechargement ou d’une déconnexion normale.
 
 RÉGLAGES AVANCÉS
-/aqol > Réglages avancés.
+/qt > Réglages avancés.
 Onglets en haut : Caméra, Plaques, Combat, Interface, Graphismes, Captures et Sons.
 Liste défilante à la molette ou avec la barre à droite. Aucun changement de page.
 71 options documentées, selon leur disponibilité sur le client.
@@ -227,13 +261,13 @@ Description courte, recherche, valeur actuelle, défaut et reset par ligne.
 Nombres : Appliquer ou Entrée. Échap annule la saisie. Cases : effet immédiat.
 Une saisie refusée reste disponible. Les saisies sont conservées pendant le défilement.
 La recherche accepte les noms avec ou sans accents.
-Graphismes : 43 options, dont 15 variantes raid.
+Graphismes : activer la vue expert pour afficher les 43 options, dont 15 variantes raid.
 Filtre par famille : Tout, Décor, Ombres, Effets, Image, Raid.
 Le profil raid doit être activé dans les options graphiques de WoW pour s'appliquer.
 Les préréglages graphiques du jeu peuvent remplacer les valeurs personnalisées.
 Modifications hors combat uniquement. Aucun changement automatique à l'ouverture.
 Les variables absentes ou verrouillées restent désactivées. Les menus natifs sont exclus.
-L'onglet Inventaire recense les variables accessibles du client en lecture seule.
+Diagnostics > Inventaire du client recense les variables accessibles en lecture seule.
 Le filtre Hors menus signifie qu'aucun menu natif n'a été identifié.
 Les filtres Graphismes et Graph. hors menus recensent aussi les variables non exposées.
 Les commandes internes et les modes non documentés restent en lecture seule.

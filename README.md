@@ -7,25 +7,48 @@ QoL Toolkit is a modular addon for **World of Warcraft Forever 1.60.1**. Build t
 | Module | What it does |
 | --- | --- |
 | Talent Planner | Build a plan point by point. The talent tree shows when to take each rank and highlights the next available point. |
-| Session Journal | Track time, XP, time to the next level, gold, deaths, and levels gained. Hover over XP or money gained for hourly rates. |
+| Session Journal | Track time, XP, time to the next level, gold, deaths, and levels gained. Hover over XP gained or the gold balance for hourly rates. Start or stop tracking manually, or enable automatic AFK pauses. |
 | Effect Reminders | Pick buffs, auras, stances, and tracking effects to watch. A customizable window shows the missing effects. |
-| Tooltips | Move or scale supported tooltips, or have them follow the cursor. The addon preserves quest and tooltip content supplied by WoW. |
+| Tooltips | Move or scale supported tooltips, or have them follow the cursor. Unit tooltips can also show a measured or estimated distance. WoW quest details and tooltip content are preserved. |
 | Spell Rank Guard | Flag spells on supported action bars when a higher rank is already in your spellbook. Add exceptions for ranks you keep on purpose. |
-| Target Distance | Display a color-coded distance or range estimate above the target frame's name. |
-| Bags | Color item borders by rarity, adjust inner and outer glow, and optionally sort when you manually open your bags outside combat and away from the bank. |
+| Target Distance | Show a measured distance or range estimate on the target frame. Customize placement, badge style, and colors for the badge and unit tooltip. |
+| Bags | Customize rarity colors, border thickness, and inner glow. Mark uncollected appearances and optionally sort on manual bag opening, outside combat and away from the bank. |
 | Advanced Settings | Browse available client settings and graphics options, check defaults, and reset individual or selected settings. |
 
-Use the dashboard to pin modules, preview appearance changes, and position supported windows. Named profiles share selected module settings across characters on the same account. Talent builds and journal totals stay with their character.
+Use the dashboard to pin modules, preview appearance changes, and position supported windows. Favorites appear first. Local Move buttons open the shared Layout editor; Apply keeps moved frames and Cancel restores their original placement. The minimap button can be dragged or hidden from the dashboard. Named profiles share selected module settings across characters on the same account. Talent builds and journal totals stay with their character. Partial profiles include each module’s shared/custom appearance choice. Profiles and talent builds can be deleted after confirmation.
 
 ## Install
 
 1. Put the addon folder in `World of Warcraft/_forever_/Interface/AddOns/` and name it `QoLToolkit`. The `QoLToolkit.toc` file should sit directly inside that folder.
-2. Restart WoW after installing. Open **Settings > Add-ons > QoL Toolkit** or type `/aqol`.
+2. Restart WoW after installing. Open **Settings > Add-ons > QoL Toolkit** or type `/qt`.
 3. Open the default talent window with `N` to use the planner. Click **QoL** in the Blizzard bag header for quick bag settings.
 
 The addon follows the game client language. A French client uses French. English is used on English clients and as the default on other clients.
 
 When updating, keep the folder name and your existing SavedVariables.
+
+## Commands
+
+- `/qt` opens the dashboard.
+- `/qtsession` opens the journal settings. Add `start` or `stop` to control tracking.
+- `/qttooltip` opens the shared Layout editor with tooltips selected. Add `options` to open tooltip settings.
+- `/qtbuild` reopens the talent plan when the talent tree is open.
+- `/qtrank on` and `/qtrank off` control spell rank warnings.
+- `/qtlog` shows the diagnostics commands.
+
+## Settings and appearance
+
+Module settings distinguish visibility from tracking and automatic actions. Hiding the journal keeps tracking running; use its play/pause control to stop tracking. Bag sorting, rarity borders, and transmog markers are independent. Quick bag settings contain these three switches and a link to the full editor.
+
+Shared appearance applies unless a module uses custom appearance. Inherited controls are disabled. Detailed appearance controls are collapsed by default. Configure mouseover distance in Target Distance; tooltip settings link to that page.
+
+Advanced graphics are opt-in. The read-only client inventory is under Diagnostics, also available with /qtlog inventory.
+
+## Local diagnostics
+
+Type `/qtlog start`, reproduce the behavior manually, then use `/qtlog stop`. Open `/qtlog show` out of combat and copy the selected trace with Ctrl+C. Use `/qtlog mark` during capture to mark a step or `/qtlog clear` to erase the trace.
+
+The addon samples frame geometry and selected events twice per second for up to two minutes. The trace includes visibility, anchors, scale, strata, and frame level. It stores the latest capture in WoW's local addon settings and starts a fresh trace on each explicit start. Copy the trace from the export window to share it.
 
 ## Development
 

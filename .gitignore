@@ -14,3 +14,7 @@ __pycache__/
 # Local credentials
 /.env
 /.env.*
+
+# Local Codex instructions and skills
+/AGENTS.md
+/.agents/skills/

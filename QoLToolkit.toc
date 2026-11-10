@@ -1,9 +1,10 @@
 ## Interface: 16001
 ## Title: QoL Toolkit
-## Notes: Tooltips, effect reminders, session journal, talents, spell ranks, target distance, bags, and advanced settings. /aqol
-## Notes-frFR: Infobulles, rappels, journal, talents, rangs de sorts, distance, sacs et réglages avancés. /aqol
+## IconTexture: Interface\Icons\INV_Misc_Wrench_01
+## Notes: Tooltips, effect reminders, session journal, talents, spell ranks, target distance, bags, and advanced settings. /qt
+## Notes-frFR: Infobulles, rappels, journal, talents, rangs de sorts, distance, sacs et réglages avancés. /qt
 ## Author: Arkann
-## Version: 0.1.0
+## Version: 0.1.1
 ## SavedVariables: ForeverTooltipLibreDB
 ## SavedVariablesPerCharacter: ArkannsQOLRemindersDB, ArkannsQOLSessionDB, ArkannsQOLTalentsDB
 
@@ -29,4 +30,5 @@ Modules\RankGuard.lua
 Modules\TargetDistance.lua
 Modules\BagSort.lua
 Core\Profiles.lua
+Core\Diagnostics.lua
 Core\Bootstrap.lua

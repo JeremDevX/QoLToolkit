@@ -23,7 +23,7 @@ MÉTHODE ET LIMITES
 - Le nombre réellement disponible peut différer selon la version et les modules chargés.
 
 UTILISATION
-/aqol > Réglages avancés. Choisis un onglet, recherche une option si besoin.
+/qt > Réglages avancés. Choisis un onglet, recherche une option si besoin.
 Onglets en haut, liste défilante à la molette ou avec la barre à droite.
 Les saisies sont conservées pendant le défilement et après un refus du client.
 Case à cocher : effet immédiat. Nombre : Appliquer ou Entrée. Échap annule la saisie.

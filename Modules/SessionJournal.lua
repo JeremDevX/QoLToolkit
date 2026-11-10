@@ -4,12 +4,17 @@ local Model, WoW = ns.SessionJournalModel, ns.WoW
 local db, session, window, title, names, values, footer, settings, refreshSettings
 local ready, moving = false, false
 local startedAt
+local afkUnavailable
 local ticker, xpRetry, Draw
 local rateTooltip, hovered
 local moveHint
+local trackingToggle, trackingTooltip
+local trackingToggleSize = 20
 local hoverRows = {}
 local horizontalTexts = {}
 local preview, expanded = false, false
+local layoutPreview = false
+local pauseLabels = {manual = L("Session arrêtée"), afk = L("En pause (AFK)")}
 local metrics = {
     {key = "duration", label = L("Durée"), icon = "INV_Misc_PocketWatch_01"},
     {key = "xp", label = L("XP gagnée"), icon = "INV_Misc_Book_09"},
@@ -39,7 +44,7 @@ local function InCombat()
 end
 
 local function NormalizeOptions()
-    for key, value in pairs({enabled = true, locked = true, showTitle = true, border = true, compact = false, hideZero = false, expandOnHover = true, hideCombat = false}) do
+    for key, value in pairs({enabled = true, locked = true, showTitle = true, border = true, compact = false, hideZero = false, expandOnHover = true, hideCombat = false, pauseAFK = false}) do
         if type(db[key]) ~= "boolean" then db[key] = value end
     end
     for key, bounds in pairs({x = {0, 1, 0.02}, y = {0, 1, 0.75}, width = {240, 1000, 300}, fontSize = {10, 32, 13}, opacity = {0, 100, 85}}) do
@@ -68,7 +73,15 @@ local function SharedStyle()
 end
 
 local function Elapsed()
-    return Model.Elapsed(session, ready and ReadNumber(GetTime), startedAt)
+    return Model.Elapsed(session, startedAt and ReadNumber(GetTime), startedAt)
+end
+
+local function IsTracking()
+    return ready and not session.pause
+end
+
+local function TrackingAction()
+    return ready and session.pause == "manual" and L("Démarrer le suivi") or L("Arrêter le suivi")
 end
 
 local function Money(copper)
@@ -95,7 +108,7 @@ end
 
 local function RefreshRateTooltip()
     if not hovered then return end
-    if not db.locked or not db.enabled or not hovered:IsShown() then HideRateTooltip(); return end
+    if preview or not db.locked or not db.enabled or not hovered:IsShown() then HideRateTooltip(); return end
     if rateTooltip:GetOwner() ~= hovered then rateTooltip:SetOwner(hovered, "ANCHOR_RIGHT") end
     rateTooltip:ClearLines()
     local xpRate = hovered.metric == "xp"
@@ -113,7 +126,7 @@ local function RefreshRateTooltip()
 end
 
 local function ObserveMoney()
-    if ready then Model.ObserveMoney(session, ReadNumber(GetMoney)) end
+    if IsTracking() then Model.ObserveMoney(session, ReadNumber(GetMoney)) end
 end
 
 local function XPState()
@@ -127,6 +140,7 @@ end
 
 local nextLevelLabels = {unknown = "—", max = L("Niv. max"), calculating = L("Calcul...")}
 local function NextLevel(elapsed)
+    if not IsTracking() then return nextLevelLabels.unknown end
     local status, seconds = Model.NextLevel(session, elapsed, XPState())
     return nextLevelLabels[status] or "~ " .. Duration(seconds)
 end
@@ -138,25 +152,70 @@ end
 
 local function ObserveXP(newLevel)
     if not ready then return end
-    if Number(newLevel) and Model.ObserveLevelUp(session, newLevel) then
+    local tracking = IsTracking()
+    if Number(newLevel) and Model.ObserveLevelUp(session, newLevel, not tracking) then
         xpRetry = true
-    else
+    elseif tracking then
         xpRetry = not Model.ObserveXP(session, XPState())
     end
 end
 
-local function BeginSession(resume)
-    local previous = db.session
-    local resumed = resume and Model.IsResumable(previous)
+local function AFKPause(current)
+    afkUnavailable = false
+    if not db.pauseAFK then return end
+    local status, afk = WoW.Read(UnitIsAFK, "player")
+    if status ~= "ok" or type(afk) ~= "boolean" then
+        afkUnavailable = true
+        return current
+    end
+    return afk and "afk" or nil
+end
+
+local function Baseline()
+    session.lastMoney = ReadNumber(GetMoney)
+    xpRetry = not Model.BaselineXP(session, XPState())
+    session.dead = nil
+    ObserveDeath(false)
+end
+
+local function SetPause(pause)
+    if not ready or session.pause == pause then return end
+    if IsTracking() then
+        session.elapsed = Elapsed()
+        ObserveMoney(); ObserveXP(); ObserveDeath(true)
+        startedAt, xpRetry = nil, false
+    elseif not pause then
+        Baseline()
+        startedAt = ReadNumber(GetTime)
+    end
+    session.pause = pause
+end
+
+local function SyncAFK()
+    if ready and session.pause ~= "manual" then SetPause(AFKPause(session.pause)) end
+end
+
+local function BeginSession(previous, pause)
+    local resumed = Model.IsResumable(previous)
     if resumed then
         session = previous
+        pause = session.pause
     else
         local xp, maximum, level = XPState()
         session = Model.New(xp, maximum, level, ReadNumber(GetMoney))
     end
     db.session = session
-    startedAt, ready = ReadNumber(GetTime), true
-    ObserveMoney(); ObserveXP(); ObserveDeath(resumed)
+    startedAt, ready, xpRetry = nil, true, false
+    if pause == "manual" then
+        session.pause = pause
+    else
+        session.pause = AFKPause(pause == "afk" and pause or nil)
+    end
+    if IsTracking() then
+        startedAt = ReadNumber(GetTime)
+        if pause == "afk" then Baseline()
+        else ObserveMoney(); ObserveXP(); ObserveDeath(resumed) end
+    end
 end
 
 local function RestorePosition()
@@ -182,7 +241,7 @@ local function Visible()
 end
 
 local function SyncTicker()
-    if ready and (xpRetry or (Visible() and not preview)) then
+    if IsTracking() and (xpRetry or (Visible() and not preview)) then
         if not ticker and C_Timer and type(C_Timer.NewTicker) == "function" then
             ticker = C_Timer.NewTicker(1, function()
                 if not ticker then return end
@@ -198,7 +257,11 @@ end
 
 Draw = function()
     if not db then return end
-    if preview and InCombat() then preview, expanded = false, false end
+    if preview and InCombat() then
+        preview, expanded, layoutPreview = false, false, false
+        if ns.UI.PreviewEnded then ns.UI.PreviewEnded("session") end
+    end
+    window:SetFrameStrata(preview and not layoutPreview and "DIALOG" or "MEDIUM")
     if not preview and (not db.enabled or (db.hideCombat and InCombat())) then
         window:Hide()
         SyncTicker()
@@ -220,8 +283,8 @@ Draw = function()
         window:SetBackdropColor(theme.bg[1], theme.bg[2], theme.bg[3], db.opacity / 100)
     end
     window:SetBackdropBorderColor(theme.accent[1], theme.accent[2], theme.accent[3], db.border and 0.7 or 0)
-    window:EnableMouse(not db.locked)
-    if window.EnableMouseMotion then window:EnableMouseMotion(not db.locked or (db.compact and db.expandOnHover)) end
+    window:EnableMouse(not layoutPreview and not db.locked)
+    if window.EnableMouseMotion then window:EnableMouseMotion(not layoutPreview and (not db.locked or (db.compact and db.expandOnHover))) end
     local font = style and style.font or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
     title:SetFont(font, fontSize + 1, "")
     names:SetFont(font, fontSize, "")
@@ -232,10 +295,28 @@ Draw = function()
     local spacing = collapsed and 2 or (style and style.gap or 6)
     names:SetSpacing(spacing); values:SetSpacing(spacing)
     title:SetShown(db.showTitle)
+    local headerHeight = math.max(trackingToggleSize, fontSize + 2)
+    local headerY = -padding - headerHeight / 2
+    trackingToggle:ClearAllPoints()
+    trackingToggle:SetPoint("RIGHT", window, "TOPRIGHT", -padding, headerY)
+    trackingToggle:SetShown(db.showTitle)
+    local canToggle = ready and not preview
+    trackingToggle:SetEnabled(canToggle)
+    trackingToggle:EnableMouse(not layoutPreview)
+    trackingToggle.icon:SetAlpha(canToggle and 1 or 0.5)
+    -- An AFK pause still resumes automatically unless the player stops tracking.
+    trackingToggle.icon:SetTexture(ready and session.pause ~= "manual"
+        and "Interface\\TimeManager\\PauseButton" or "Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
+    if trackingTooltip:IsShown() then
+        if canToggle then trackingTooltip:SetText(TrackingAction()); trackingTooltip:Show()
+        else trackingTooltip:Hide() end
+    end
     names:ClearAllPoints(); values:ClearAllPoints()
-    local top = db.showTitle and (fontSize + padding * 2 + 2) or padding
-    title:ClearAllPoints(); title:SetPoint("TOPLEFT", padding, -padding)
-    title:SetText(preview and L("Journal de session • Aperçu") or L("Journal de session"))
+    local top = db.showTitle and (headerHeight + padding * 2) or padding
+    title:ClearAllPoints()
+    title:SetPoint("LEFT", window, "TOPLEFT", padding, headerY)
+    title:SetPoint("RIGHT", trackingToggle, "LEFT", -6, 0)
+    title:SetText(preview and L("Journal de session • Aperçu") or ready and pauseLabels[session.pause] or L("Journal de session"))
     names:SetPoint("TOPLEFT", padding, -top)
     values:SetPoint("TOPRIGHT", -padding, -top)
     names:SetWidth(db.width * 0.43 - 12)
@@ -304,7 +385,7 @@ Draw = function()
     moveHint:SetHeight(footer:GetStringHeight() + 12)
     moveHint:SetBackdropColor(theme.bg[1], theme.bg[2], theme.bg[3], 0.95)
     moveHint:SetBackdropBorderColor(theme.accent[1], theme.accent[2], theme.accent[3], 0.7)
-    moveHint:SetShown(not db.locked)
+    moveHint:SetShown(not layoutPreview and not db.locked)
     local contentHeight = horizontal and horizontalHeight or math.max(names:GetStringHeight(), values:GetStringHeight())
     local rowHeight = (contentHeight + spacing) / math.max(1, #labelLines)
     for key, row in pairs(hoverRows) do
@@ -319,7 +400,7 @@ Draw = function()
                 row:SetSize(width - padding * 2, rowHeight)
             end
             row:EnableMouse(false)
-            row:EnableMouseMotion(db.locked) -- Hover only; clicks still pass through while locked.
+            row:EnableMouseMotion(not layoutPreview and db.locked) -- Hover only; clicks still pass through while locked.
             row:Show()
         else row:Hide() end
     end
@@ -332,19 +413,33 @@ Draw = function()
 end
 
 local function StopPreview()
-    preview, expanded = false, false
+    preview, expanded, layoutPreview = false, false, false
+    if ns.UI.PreviewEnded then ns.UI.PreviewEnded("session") end
     if window then Draw() end
 end
 
-local function Preview()
-    if InCombat() then return end
-    preview = true; Draw()
+local function Preview(forLayout)
+    forLayout = forLayout == true
+    if InCombat() then return false, L("Aperçu disponible hors combat.") end
+    preview, layoutPreview = true, forLayout == true; Draw()
+    if forLayout then window:EnableMouse(false) end
+    return true
 end
 
 local function Place()
-    preview = false
-    db.enabled, db.locked = true, false
-    if SettingsPanel and SettingsPanel:IsShown() then HideUIPanel(SettingsPanel) end
+    return ns.UI.StartLayout("session")
+end
+
+local function TrackingStatus()
+    if not ready then return "" end
+    return pauseLabels[session.pause] or L("Session en cours")
+end
+
+local function SetTracking(enabled)
+    if not ready then return end
+    if not enabled then SetPause("manual")
+    elseif session.pause == "manual" then SetPause(AFKPause())
+    else SyncAFK() end
     Draw(); refreshSettings()
 end
 
@@ -357,7 +452,31 @@ function ns.InitializeSessionJournal(parentCategory)
     window:RegisterForDrag("LeftButton")
     window:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 12, insets = {left = 3, right = 3, top = 3, bottom = 3}})
     title = window:CreateFontString("ArkannsQOLSessionTitle", "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOPLEFT", 12, -10); title:SetText(L("Journal de session"))
+    title:SetJustifyH("LEFT"); title:SetWordWrap(false)
+    trackingToggle = CreateFrame("Button", "ArkannsQOLSessionTrackingToggle", window)
+    trackingToggle:SetSize(trackingToggleSize, trackingToggleSize)
+    trackingToggle:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+    trackingToggle.icon = trackingToggle:CreateTexture(nil, "ARTWORK")
+    trackingToggle.icon:SetAllPoints()
+    trackingTooltip = CreateFrame("GameTooltip", "ArkannsQOLSessionTrackingTooltip", UIParent, "GameTooltipTemplate")
+    trackingTooltip:SetClampedToScreen(true); trackingTooltip:Hide()
+    trackingToggle:SetScript("OnClick", function()
+        if ready and not preview then SetTracking(session.pause == "manual") end
+    end)
+    trackingToggle:SetScript("OnEnter", function(self)
+        if not ready or preview then return end
+        trackingTooltip:SetOwner(self, "ANCHOR_TOP")
+        trackingTooltip:SetText(TrackingAction())
+        trackingTooltip:Show()
+    end)
+    local function CollapseOnLeave()
+        if expanded and not (window.IsMouseOver and window:IsMouseOver()) then expanded = false; Draw() end
+    end
+    trackingToggle:SetScript("OnLeave", function()
+        trackingTooltip:Hide()
+        CollapseOnLeave()
+    end)
+    trackingToggle:SetScript("OnHide", function() trackingTooltip:Hide() end)
     names = window:CreateFontString("ArkannsQOLSessionNames", "OVERLAY", "GameFontHighlight")
     names:SetJustifyH("LEFT")
     values = window:CreateFontString("ArkannsQOLSessionValues", "OVERLAY", "GameFontHighlight")
@@ -370,7 +489,7 @@ function ns.InitializeSessionJournal(parentCategory)
     footer:SetPoint("TOPLEFT", 8, -6); footer:SetPoint("TOPRIGHT", -8, -6)
     rateTooltip = CreateFrame("GameTooltip", "ArkannsQOLSessionTooltip", UIParent, "GameTooltipTemplate")
     rateTooltip:SetClampedToScreen(true); rateTooltip:Hide()
-    for _, key in ipairs({"xp", "income"}) do
+    for _, key in ipairs({"xp", "net"}) do
         local row = CreateFrame("Frame", "ArkannsQOLSessionHover_" .. key, window)
         row.metric = key
         row:SetScript("OnEnter", function(self)
@@ -391,15 +510,14 @@ function ns.InitializeSessionJournal(parentCategory)
     end)
     window:SetScript("OnShow", SyncTicker)
     window:SetScript("OnHide", function()
-        preview, expanded = false, false
+        preview, expanded, layoutPreview = false, false, false
+        if ns.UI.PreviewEnded then ns.UI.PreviewEnded("session") end
         HideRateTooltip()
         if moving then SavePosition() end
         SyncTicker()
     end)
     window:SetScript("OnEnter", function() if db.compact and db.expandOnHover then expanded = true; Draw() end end)
-    window:SetScript("OnLeave", function()
-        if expanded and not (window.IsMouseOver and window:IsMouseOver()) then expanded = false; Draw() end
-    end)
+    window:SetScript("OnLeave", CollapseOnLeave)
     RestorePosition()
 
     local panel = CreateFrame("Frame", "ArkannsQOLSessionSettings", UIParent, "BackdropTemplate")
@@ -407,7 +525,7 @@ function ns.InitializeSessionJournal(parentCategory)
     local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", 0, -48); scroll:SetPoint("BOTTOMRIGHT", -28, 8)
     local body = CreateFrame("Frame", nil, scroll)
-    body:SetSize(620, 740); scroll:SetScrollChild(body)
+    body:SetSize(620, 880); scroll:SetScrollChild(body)
     local function Page(name, height)
         local page = CreateFrame("ScrollFrame", name, panel, "UIPanelScrollFrameTemplate")
         page:SetPoint("TOPLEFT", 0, -48); page:SetPoint("BOTTOMRIGHT", -28, 8)
@@ -421,11 +539,16 @@ function ns.InitializeSessionJournal(parentCategory)
     scroll:SetScript("OnSizeChanged", function(_, width) operationBody:SetWidth(math.max(1, width)) end)
     local appearancePage, appearanceBody = Page("ArkannsQOLSessionAppearance", 490)
     local visibilityPage, visibilityBody = Page("ArkannsQOLSessionVisibility", 310)
+    local tabs, activePage = {}, scroll
     local function Tab(label, x, page, name)
         local button = CreateFrame("Button", name, panel, "UIPanelButtonTemplate")
         button:SetPoint("TOPLEFT", x, -10); button:SetSize(190, 26); button:SetText(label)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button) end
+        tabs[#tabs + 1] = button
+        button:SetEnabled(page ~= activePage)
         button:SetScript("OnClick", function()
+            activePage = page
+            for _, tab in ipairs(tabs) do tab:SetEnabled(tab ~= button) end
             StopPreview()
             scroll:SetShown(page == scroll); appearancePage:SetShown(page == appearancePage); visibilityPage:SetShown(page == visibilityPage)
             if page == appearancePage then Preview() end
@@ -435,6 +558,19 @@ function ns.InitializeSessionJournal(parentCategory)
     Tab(L("Fonctionnement"), 16, scroll, "ArkannsQOLSessionOperationTab")
     Tab(L("Apparence"), 216, appearancePage, "ArkannsQOLSessionAppearanceTab")
     Tab(L("Visibilité"), 416, visibilityPage, "ArkannsQOLSessionVisibilityTab")
+    local function LayoutTabs()
+        local width = math.max(280, panel:GetWidth() - 32)
+        local columns = width >= 450 and 3 or 1
+        local size = (width - (columns - 1) * 8) / columns
+        for index, button in ipairs(tabs) do
+            button:ClearAllPoints(); button:SetPoint("TOPLEFT", 16 + ((index - 1) % columns) * (size + 8), -10 - math.floor((index - 1) / columns) * 34)
+            button:SetWidth(size)
+        end
+        for _, page in ipairs({scroll, appearancePage, visibilityPage}) do
+            page:ClearAllPoints(); page:SetPoint("TOPLEFT", 0, -16 - math.ceil(3 / columns) * 34); page:SetPoint("BOTTOMRIGHT", -28, 8)
+        end
+    end
+    panel:HookScript("OnSizeChanged", LayoutTabs)
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel) end
     local function Text(text, y, font)
         local label = body:CreateFontString(nil, "ARTWORK", font or "GameFontHighlightSmall")
@@ -442,13 +578,18 @@ function ns.InitializeSessionJournal(parentCategory)
         return label
     end
     local controls, syncing = {}, false
-    local function Check(key, label, y, source)
+    local function Check(key, label, y, source, onChange)
         local box = CreateFrame("CheckButton", "ArkannsQOLSession_" .. key, body, "UICheckButtonTemplate")
         box:SetPoint("TOPLEFT", 12, y)
         local text = box:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         text:SetPoint("LEFT", box, "RIGHT", 2, 0); text:SetText(label); box:SetFontString(text)
         controls[#controls + 1] = function() box:SetChecked(source[key]) end
-        box:SetScript("OnClick", function(self) source[key] = self:GetChecked() == true; Draw(); refreshSettings() end)
+        box:SetScript("OnClick", function(self)
+            source[key] = self:GetChecked() == true
+            if onChange then onChange() end
+            Draw(); refreshSettings()
+        end)
+        return box
     end
     local function Button(name, label, x, y, callback)
         local button = CreateFrame("Button", name, body, "UIPanelButtonTemplate")
@@ -459,12 +600,21 @@ function ns.InitializeSessionJournal(parentCategory)
     local function Slider(key, label, y, minimum, maximum)
         local text = Text("", y, "GameFontNormal")
         local slider = CreateFrame("Slider", "ArkannsQOLSession_" .. key, body, "BackdropTemplate")
-        slider:SetPoint("TOPLEFT", 20, y - 24); slider:SetSize(330, 18)
+        slider:SetPoint("TOPLEFT", 20, y - 24); slider:SetPoint("TOPRIGHT", -20, y - 24); slider:SetHeight(18)
         slider:SetOrientation("HORIZONTAL"); slider:SetMinMaxValues(minimum, maximum)
         slider:SetValueStep(1); slider:SetObeyStepOnDrag(true); slider:EnableMouse(true)
         slider:SetBackdrop({bgFile = "Interface\\Buttons\\UI-SliderBar-Background", edgeFile = "Interface\\Buttons\\UI-SliderBar-Border", edgeSize = 8})
         slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal"); slider:GetThumbTexture():SetSize(32, 32)
-        controls[#controls + 1] = function() slider:SetValue(db[key]); text:SetText(string.format(L("%s : %s"), label, tostring(db[key]))) end
+        controls[#controls + 1] = function()
+            local style = SharedStyle()
+            local value = db[key]
+            if style and key == "fontSize" then value = style.fontSize end
+            if style and key == "opacity" then value = math.floor(style.opacity * 100 + .5) end
+            slider:SetValue(value); text:SetText(string.format(L("%s : %s"), label, tostring(value)))
+            local enabled = key ~= "fontSize" and key ~= "opacity" or ns.UI.IsOverride("session")
+            slider:SetEnabled(enabled); slider:SetAlpha(enabled and 1 or .5)
+            text:SetAlpha(enabled and 1 or .5)
+        end
         slider:SetScript("OnValueChanged", function(_, value)
             if syncing then return end
             db[key] = math.max(minimum, math.min(maximum, math.floor(value + 0.5)))
@@ -472,13 +622,21 @@ function ns.InitializeSessionJournal(parentCategory)
         end)
     end
     Text(L("Fonctionnement"), -8, "GameFontNormalLarge")
-    local selectionStatus = Text("", -40)
+    local trackingStatus = Text("", -36)
+    local trackingButton = Button("ArkannsQOLSessionTracking", "", 16, -76, function()
+        SetTracking(ready and session.pause == "manual")
+    end)
+    Check("pauseAFK", L("Mettre en pause pendant l’AFK"), -112, db, SyncAFK)
+    local selectionStatus = Text("", -154)
     for index = 1, #metrics do
         local rowIndex = index
         local box = CreateFrame("CheckButton", "ArkannsQOLSessionMetric" .. index, body, "UICheckButtonTemplate")
-        box:SetPoint("TOPLEFT", 12, -70 - (index - 1) * 32)
+        box:SetPoint("TOPLEFT", 12, -190 - (index - 1) * 32)
         local label = box:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-        label:SetPoint("LEFT", box, "RIGHT", 2, 0); box:SetFontString(label)
+        label:SetPoint("TOPLEFT", body, "TOPLEFT", 46, -198 - (index - 1) * 32)
+        label:SetPoint("TOPRIGHT", body, "TOPRIGHT", -92, -198 - (index - 1) * 32)
+        label:SetJustifyH("LEFT"); label:SetWordWrap(false)
+        box:SetFontString(label)
         controls[#controls + 1] = function()
             local key = db.order[rowIndex]
             box:SetChecked(db.visible[key])
@@ -487,11 +645,12 @@ function ns.InitializeSessionJournal(parentCategory)
         box:SetScript("OnClick", function(self) db.visible[db.order[rowIndex]] = self:GetChecked() == true; Draw(); refreshSettings() end)
         for _, direction in ipairs({-1, 1}) do
             local delta = direction
-            local button = Button("ArkannsQOLSessionMove" .. (delta == -1 and "Up" or "Down") .. index, "", delta == -1 and 370 or 410, -72 - (index - 1) * 32, function()
+            local button = Button("ArkannsQOLSessionMove" .. (delta == -1 and "Up" or "Down") .. index, "", 0, 0, function()
                 local target = rowIndex + delta
                 if target >= 1 and target <= #db.order then db.order[rowIndex], db.order[target] = db.order[target], db.order[rowIndex]; refreshSettings(); Draw() end
             end)
             button:SetWidth(30)
+            button:ClearAllPoints(); button:SetPoint("TOPRIGHT", delta == -1 and -54 or -16, -192 - (index - 1) * 32)
             -- Text arrows are missing from some WoW fonts. Keep the icon separate
             -- from the normal texture so common button styling cannot replace it.
             local icon = button:CreateTexture(nil, "ARTWORK")
@@ -503,10 +662,10 @@ function ns.InitializeSessionJournal(parentCategory)
             end
         end
     end
-    Check("hideZero", L("Masquer les valeurs nulles"), -340, db)
-    Check("compact", L("Mode compact (3 statistiques)"), -372, db)
-    Check("expandOnHover", L("Développer au survol"), -404, db)
-    local showAll = Button("ArkannsQOLSessionShowAll", L("Tout afficher"), 370, -372, function()
+    Check("hideZero", L("Masquer les valeurs nulles"), -460, db)
+    Check("compact", L("Mode compact (3 statistiques)"), -492, db)
+    local expandOnHover = Check("expandOnHover", L("Développer au survol"), -524, db)
+    local showAll = Button("ArkannsQOLSessionShowAll", L("Tout afficher"), 16, -566, function()
         for _, metric in ipairs(metrics) do db.visible[metric.key] = true end
         db.compact, db.hideZero, expanded = false, false, false
         Draw(); refreshSettings()
@@ -522,34 +681,55 @@ function ns.InitializeSessionJournal(parentCategory)
         end
         if db.hideZero then status = status .. L(" / Zéros masqués") end
         selectionStatus:SetText(status)
-        ArkannsQOLSession_expandOnHover:SetEnabled(db.compact)
         showAll:SetEnabled(count < #metrics or db.compact or db.hideZero)
     end
-    local layoutButton = Button("ArkannsQOLSessionLayout", "", 16, -450, function()
+    local layoutButton = Button("ArkannsQOLSessionLayout", "", 16, -606, function()
         db.layout = db.layout == "horizontal" and "vertical" or "horizontal"; Draw(); refreshSettings()
     end)
-    Button(nil, L("Défauts de cette section"), 218, -450, function()
-        for key in pairs(db.order) do db.order[key] = nil end
-        db.hideZero, db.compact, db.expandOnHover, db.layout = false, false, true, "vertical"
-        for _, metric in ipairs(metrics) do db.visible[metric.key] = metric.key ~= "levels" end
-        NormalizeOptions(); Draw(); refreshSettings()
+    local behaviorDefaults = Button(nil, L("Défauts de cette section"), 16, -646, function()
+        ns.UI.Confirm(L("Rétablir les réglages d’affichage des statistiques et de pause AFK ?"), function()
+            for key in pairs(db.order) do db.order[key] = nil end
+            db.hideZero, db.compact, db.expandOnHover, db.layout = false, false, true, "vertical"
+            db.pauseAFK = false
+            for _, metric in ipairs(metrics) do db.visible[metric.key] = metric.key ~= "levels" end
+            NormalizeOptions(); SyncAFK(); Draw(); refreshSettings()
+        end)
     end)
-    Button("ArkannsQOLSessionReset", L("Réinitialiser les stats"), 16, -490, function() BeginSession(false); Draw() end)
-    Text(L("Survole XP gagnée ou Or reçu pour le taux horaire.\nNouvelle connexion : remise à zéro. /reload : stats conservées.\nTemps AFK inclus. ≥ : données XP incomplètes."), -540)
-    operationBody:SetHeight(620)
+    local resetButton = Button("ArkannsQOLSessionReset", L("Réinitialiser les stats"), 16, -686, function()
+        if not ready then return end
+        ns.UI.Confirm(L("Remettre les statistiques de cette session à zéro ?"), function()
+            if ready then BeginSession(nil, session.pause); Draw(); refreshSettings() end
+        end)
+    end)
+    local help = Text(L("Survole XP gagnée ou Solde pour le taux horaire.\nLe démarrage reprend les compteurs. L’option AFK suspend le suivi jusqu’au retour.\nUne nouvelle connexion remet les compteurs à zéro et démarre le suivi.\n/reload conserve les compteurs et l’arrêt manuel. ≥ indique des données XP incomplètes."), -730)
+    local function LayoutOperation()
+        local width = operationBody:GetWidth()
+        local wide = width >= 460
+        expandOnHover:SetShown(db.compact)
+        local y = db.compact and 562 or 530
+        showAll:ClearAllPoints(); showAll:SetPoint("TOPLEFT", 16, -y)
+        layoutButton:ClearAllPoints(); layoutButton:SetPoint("TOPLEFT", wide and 186 or 16, -y - (wide and 0 or 34))
+        y = y + (wide and 40 or 74)
+        behaviorDefaults:ClearAllPoints(); behaviorDefaults:SetPoint("TOPLEFT", 16, -y)
+        resetButton:ClearAllPoints(); resetButton:SetPoint("TOPLEFT", wide and 216 or 16, -y - (wide and 0 or 34))
+        y = y + (wide and 42 or 76)
+        help:ClearAllPoints(); help:SetPoint("TOPLEFT", 16, -y); help:SetWidth(math.max(1, width - 32))
+        local height = y + help:GetStringHeight() + 12
+        operationBody:SetHeight(height)
+        ns.UI.ClampScroll(scroll, height)
+    end
+    scroll:HookScript("OnSizeChanged", LayoutOperation)
     body = appearanceBody
     Text(L("Apparence"), -8, "GameFontNormalLarge")
     local override = Button(nil, "", 16, -42, function()
         if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("session", not ns.UI.IsOverride("session")) end
         Draw(); refreshSettings()
     end)
-    Text(L("Police, opacité et thème : apparence personnalisée."), -78)
-    Check("showTitle", L("Afficher le titre"), -104, db)
-    Check("border", L("Afficher la bordure"), -136, db)
-    Slider("width", L("Largeur min."), -182, 240, 1000)
-    Slider("fontSize", L("Taille du texte"), -240, 10, 32)
-    Slider("opacity", L("Opacité du fond (%)"), -298, 0, 100)
-    local themeButton = Button("ArkannsQOLSessionTheme", "", 16, -362, function(self)
+    local appearanceNotice = Text("", -78)
+    Slider("fontSize", L("Taille du texte"), -126, 10, 32)
+    Slider("opacity", L("Opacité du fond (%)"), -190, 0, 100)
+    local themeButton = Button("ArkannsQOLSessionTheme", "", 16, -254, function(self)
+        if not MenuUtil or not MenuUtil.CreateContextMenu then return end
         MenuUtil.CreateContextMenu(self, function(_, root)
             for _, key in ipairs({"dark", "warm", "light"}) do
                 local themeKey = key
@@ -557,56 +737,95 @@ function ns.InitializeSessionJournal(parentCategory)
             end
         end)
     end)
-    Button(nil, L("Défauts de cette section"), 218, -362, function()
-        db.theme, db.width, db.fontSize, db.opacity, db.showTitle, db.border = "warm", 300, 13, 85, true, true
-        if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("session", false) end
-        Draw(); refreshSettings()
+    local advanced = CreateFrame("Frame", nil, appearanceBody)
+    advanced:SetPoint("TOPLEFT", 0, -336); advanced:SetPoint("TOPRIGHT", 0, -336); advanced:SetHeight(205); advanced:Hide()
+    local advancedButton = Button(nil, L("Personnalisation avancée"), 16, -296, function(self)
+        advanced:SetShown(not advanced:IsShown())
+        self:SetText(advanced:IsShown() and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
+        local height = advanced:IsShown() and 524 or 340
+        appearanceBody:SetHeight(height)
+        ns.UI.ClampScroll(appearancePage, height)
     end)
+    advancedButton:SetWidth(260)
+    body = advanced
+    Check("showTitle", L("Afficher le titre"), 0, db)
+    Check("border", L("Afficher la bordure"), -34, db)
+    Slider("width", L("Largeur min."), -80, 240, 1000)
+    Button(nil, L("Défauts de cette section"), 16, -148, function()
+        ns.UI.Confirm(L("Rétablir l’apparence par défaut du journal ?"), function()
+            db.theme, db.width, db.fontSize, db.opacity, db.showTitle, db.border = "warm", 300, 13, 85, true, true
+            ns.UI.SetOverride("session", false)
+            Draw(); refreshSettings()
+        end)
+    end)
+    appearanceBody:SetHeight(340)
     body = visibilityBody
     Text(L("Visibilité"), -8, "GameFontNormalLarge")
     Check("enabled", L("Afficher la fenêtre"), -48, db)
     Check("hideCombat", L("Masquer en combat"), -80, db)
-    local lockButton = Button("ArkannsQOLSessionPlace", "", 16, -130, function()
-        if db.locked then Place()
-        else SavePosition(); db.locked = true; Draw(); refreshSettings() end
-    end)
-    Button("ArkannsQOLSessionCenter", L("Recentrer"), 218, -130, function()
-        SavePosition(); db.x, db.y = 0.35, 0.7; RestorePosition(); Place()
-    end)
+    local lockButton = Button("ArkannsQOLSessionPlace", L("Déplacer"), 16, -130, Place)
     Button(nil, L("Défauts de cette section"), 16, -174, function()
-        db.enabled, db.hideCombat, db.locked, db.x, db.y = true, false, true, 0.02, 0.75
-        RestorePosition(); Draw(); refreshSettings()
+        ns.UI.Confirm(L("Rétablir la visibilité et la position par défaut du journal ?"), function()
+            db.enabled, db.hideCombat, db.locked, db.x, db.y = true, false, true, 0.02, 0.75
+            RestorePosition(); Draw(); refreshSettings()
+        end)
     end)
-    Text(L("Glisser : déplacer • Clic droit : verrouiller.\nL'aperçu disparaît à la fermeture des réglages."), -226)
+    Text(L("Déplacer ouvre le mode Disposition.\nL'aperçu disparaît à la fermeture des réglages."), -226)
     refreshSettings = function()
         syncing = true
         for _, sync in ipairs(controls) do sync() end
+        local pause = ready and session.pause
+        local status = TrackingStatus()
+        if ready and pause ~= "manual" and afkUnavailable then status = status .. "\n" .. L("Statut AFK indisponible") end
+        trackingStatus:SetText(status)
+        trackingButton:SetText(TrackingAction())
+        trackingButton:SetEnabled(ready)
+        resetButton:SetEnabled(ready)
         themeButton:SetText(string.format(L("Thème : %s"), themes[db.theme].label))
+        themeButton:SetEnabled(ns.UI.IsOverride("session") and MenuUtil and MenuUtil.CreateContextMenu ~= nil)
         layoutButton:SetText(db.layout == "horizontal" and L("Disposition : ligne") or L("Disposition : liste"))
-        override:SetText(ns.UI and ns.UI.IsOverride and ns.UI.IsOverride("session") and L("Apparence personnalisée") or L("Apparence commune"))
-        lockButton:SetText(db.locked and L("Déverrouiller") or L("Verrouiller"))
+        override:SetText(ns.UI.IsOverride("session") and L("Apparence personnalisée") or L("Thème commun"))
+        local note = ns.UI.IsOverride("session") and "" or L("Les réglages grisés utilisent le thème commun.")
+        if appearancePage:IsShown() and InCombat() then note = note .. "\n" .. L("Aperçu disponible hors combat.") end
+        appearanceNotice:SetText(note)
+        lockButton:SetText(L("Déplacer"))
+        if expandOnHover:IsShown() ~= db.compact or not operationBody.layoutReady then
+            LayoutOperation()
+            operationBody.layoutReady = true
+        end
         syncing = false
     end
     panel:SetScript("OnShow", function()
+        LayoutTabs()
         operationBody:SetWidth(math.max(1, scroll:GetWidth())); refreshSettings()
         if appearancePage:IsShown() then Preview() end
     end)
     panel:SetScript("OnHide", StopPreview)
     settings = Settings.RegisterCanvasLayoutSubcategory(parentCategory, panel, L("Journal de session"))
     ns.sessionCategory = settings
-    SLASH_ARKANNSQOLSESSION1 = "/aqsession"
-    SlashCmdList.ARKANNSQOLSESSION = function() Settings.OpenToCategory(settings:GetID()) end
+    SLASH_ARKANNSQOLSESSION1 = "/qtsession"
+    SLASH_ARKANNSQOLSESSION2 = "/aqsession"
+    SlashCmdList.ARKANNSQOLSESSION = function(message)
+        local command = type(message) == "string" and message:lower():match("^%s*(%S+)%s*$")
+        if command == "start" or command == "stop" then
+            SetTracking(command == "start")
+            if ready then print(L("Journal de session") .. " · " .. TrackingStatus()) end
+        else
+            Settings.OpenToCategory(settings:GetID())
+        end
+    end
     refreshSettings(); Draw()
 
     if ns.RegisterModule then
-        local configKeys = {"enabled", "locked", "showTitle", "border", "compact", "hideZero", "expandOnHover", "hideCombat", "x", "y", "width", "fontSize", "opacity", "theme", "layout"}
+        local configKeys = {"enabled", "locked", "showTitle", "border", "compact", "hideZero", "expandOnHover", "hideCombat", "pauseAFK", "x", "y", "width", "fontSize", "opacity", "theme", "layout"}
         ns.RegisterModule("session", {
             label = L("Journal de session"), icon = "Interface\\Icons\\INV_Misc_Book_09", category = function() return settings end,
+            toggleLabel = L("Afficher le journal"),
             frame = window, IsEnabled = function() return db.enabled end,
-            SetEnabled = function(value) db.enabled = value == true; if not db.enabled then preview = false end; Draw(); refreshSettings() end,
+            SetEnabled = function(value) db.enabled = value == true; if not db.enabled then StopPreview() else Draw() end; refreshSettings() end,
             Summary = function()
-                if db.compact then return L("Mode compact · 3 statistiques") end
-                return db.layout == "horizontal" and L("Statistiques en ligne") or L("Statistiques de la session")
+                local visibility = db.enabled and L("Fenêtre affichée") or L("Fenêtre masquée")
+                return visibility .. " · " .. TrackingStatus()
             end,
             Preview = Preview, StopPreview = StopPreview,
             Refresh = function() Draw(); refreshSettings() end,
@@ -629,6 +848,9 @@ function ns.InitializeSessionJournal(parentCategory)
                 for index, key in ipairs(db.order) do result.order[index] = key end
                 return result
             end,
+            profileMigrations = {function(config)
+                if config.pauseAFK == nil then config.pauseAFK = false end
+            end},
             ImportSettings = function(config)
                 if type(config) ~= "table" then return false, L("Réglages du journal invalides.") end
                 if moving then window:StopMovingOrSizing(); moving = false end
@@ -642,30 +864,39 @@ function ns.InitializeSessionJournal(parentCategory)
                     for key in pairs(db.order) do db.order[key] = nil end
                     for index, key in ipairs(order) do db.order[index] = key end
                 end
-                NormalizeOptions(); StopPreview(); RestorePosition(); Draw(); refreshSettings()
+                NormalizeOptions(); SyncAFK(); StopPreview(); RestorePosition(); Draw(); refreshSettings()
                 return true
             end,
         })
     end
 
     local events = CreateFrame("Frame", "ArkannsQOLSessionEvents")
-    for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_MONEY", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST", "PLAYER_LOGOUT", "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}) do events:RegisterEvent(event) end
+    for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_FLAGS_CHANGED", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_MONEY", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST", "PLAYER_LOGOUT", "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}) do events:RegisterEvent(event) end
     events:SetScript("OnEvent", function(_, event, first, reloading)
         if event == "PLAYER_ENTERING_WORLD" then
-            if not ready or (WoW.IsPublic(first) and first) then BeginSession(WoW.IsPublic(reloading) and reloading == true) end
+            if not ready or (WoW.IsPublic(first) and first) then
+                BeginSession(WoW.IsPublic(reloading) and reloading == true and db.session)
+            else
+                SyncAFK()
+            end
+            refreshSettings()
+        elseif event == "PLAYER_FLAGS_CHANGED" then
+            if not db.pauseAFK or not ready or session.pause == "manual" or not WoW.IsPublic(first) or first ~= "player" then return end
+            SyncAFK(); refreshSettings()
         elseif event == "PLAYER_LEVEL_UP" then
             ObserveXP(first)
         elseif event == "PLAYER_XP_UPDATE" then
             if WoW.IsPublic(first) and first == "player" then ObserveXP() end
         elseif event == "PLAYER_MONEY" then
             ObserveMoney()
-        elseif event == "PLAYER_DEAD" and ready then
+        elseif event == "PLAYER_DEAD" and IsTracking() then
             Model.RecordDeath(session)
-        elseif (event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST") and ready then
+        elseif (event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST") and IsTracking() then
             ObserveDeath(false)
         elseif event == "PLAYER_LOGOUT" and ready then
             ObserveMoney(); ObserveXP(); SavePosition()
-            session.elapsed = Elapsed(); ready = false
+            session.elapsed = Elapsed()
+            startedAt, ready = nil, false
         elseif event == "DISPLAY_SIZE_CHANGED" or event == "UI_SCALE_CHANGED" then
             if moving then SavePosition() else RestorePosition() end
         end

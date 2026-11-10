@@ -15,5 +15,6 @@ __pycache__/
 /.env
 /.env.*
 
-# Local Codex skills
+# Local Codex instructions and skills
+/AGENTS.md
 /.agents/skills/

@@ -57,23 +57,58 @@ end
 local function RegisterMinimapButton(openHome)
     if not Minimap then return end
 
-    local button = CreateFrame("Button", "ArkannsQOLMinimapButton", MinimapBackdrop or Minimap)
-    button:SetSize(28, 28)
-    button:SetPoint("CENTER", Minimap, "TOPLEFT", 8, -38)
-    button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    local map = Minimap
+    local db = ForeverTooltipLibreDB
+    local angle = WoW.IsFiniteNumber(db.minimapAngle) and db.minimapAngle % (2 * math.pi) or math.rad(156)
+    local button = CreateFrame("Button", "ArkannsQOLMinimapButton", map)
+    button:SetSize(31, 31)
+    button:SetFrameLevel(map:GetFrameLevel() + 8)
+    button:SetClampedToScreen(true)
+    button:RegisterForDrag("LeftButton")
+    button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight", "ADD")
 
+    local background = button:CreateTexture(nil, "BACKGROUND")
+    background:SetSize(20, 20)
+    background:SetPoint("TOPLEFT", 7, -5)
+    background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
     local icon = button:CreateTexture(nil, "ARTWORK")
-    icon:SetAllPoints()
-    local texture = C_AddOns and WoW.ReadValue(C_AddOns.GetAddOnMetadata, addonName, "IconTexture")
-    if not texture or texture == "" or not icon:SetTexture(texture) then
-        icon:SetTexture("Interface\\Icons\\INV_Misc_Wrench_01")
+    icon:SetAllPoints(background)
+    icon:SetTexture("Interface\\Icons\\INV_Misc_Wrench_01")
+    icon:SetTexCoord(.05, .95, .05, .95)
+    local mask = button:CreateMaskTexture()
+    mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    mask:SetAllPoints(background)
+    icon:AddMaskTexture(mask)
+    background:AddMaskTexture(mask)
+    local border = button:CreateTexture(nil, "OVERLAY")
+    border:SetSize(53, 53)
+    border:SetPoint("TOPLEFT")
+    border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+
+    local function UpdatePosition()
+        local state, width, height = WoW.Read(map.GetSize, map)
+        if state ~= "ok" or width <= 0 or height <= 0 then return end
+        button:SetPoint("CENTER", map, "CENTER", math.cos(angle) * (width / 2 + 4), math.sin(angle) * (height / 2 + 4))
     end
+    local function FollowCursor()
+        local state, x, y = WoW.Read(map.GetCenter, map)
+        local scale = WoW.ReadValue(map.GetEffectiveScale, map)
+        if state ~= "ok" or not x or not y or not scale or scale <= 0 then return end
+        local cursorX, cursorY = GetCursorPosition()
+        local dx, dy = cursorX / scale - x, cursorY / scale - y
+        if dx == 0 and dy == 0 then return end
+        angle = math.atan2(dy, dx)
+        UpdatePosition()
+    end
+    map:HookScript("OnSizeChanged", UpdatePosition)
+    UpdatePosition()
 
     button:SetScript("OnClick", openHome)
     button:SetScript("OnEnter", function(self)
-        if not GameTooltip or GameTooltip:IsForbidden() then return end
+        if self:GetScript("OnUpdate") or not GameTooltip or GameTooltip:IsForbidden() then return end
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:SetText("QoL Toolkit")
+        GameTooltip:AddLine(L("Glisse le bouton autour de la minicarte."), 1, 1, 1)
         GameTooltip:Show()
     end)
     local function HideTooltip(self)
@@ -82,7 +117,20 @@ local function RegisterMinimapButton(openHome)
         end
     end
     button:SetScript("OnLeave", HideTooltip)
-    button:SetScript("OnHide", HideTooltip)
+    button:SetScript("OnDragStart", function(self)
+        HideTooltip(self)
+        self:SetScript("OnUpdate", FollowCursor)
+    end)
+    local function StopDrag(self)
+        if not self:GetScript("OnUpdate") then return end
+        self:SetScript("OnUpdate", nil)
+        db.minimapAngle = angle
+    end
+    button:SetScript("OnDragStop", StopDrag)
+    button:SetScript("OnHide", function(self)
+        StopDrag(self)
+        HideTooltip(self)
+    end)
 end
 
 local function RegisterHome()

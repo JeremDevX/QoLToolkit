@@ -222,15 +222,15 @@ local function GetRangeBand(unit)
         end
     end
     if lower < upper and (lower > 0 or upper < math.huge) then
-        return lower * 0.9144, upper * 0.9144, enemy
+        return lower * 0.9144, upper * 0.9144
     end
 end
 
 local function GetDistance(unit)
     local status, meters = GetMeters(unit)
-    if status == "ok" then return ("%d m"):format(meters), meters, meters, directInterval, "measured" end
+    if status == "ok" then return ("%d m"):format(meters), meters, meters, directInterval end
     if status == "absent" or status == "unchecked" then
-        local lower, upper, enemy = GetRangeBand(unit)
+        local lower, upper = GetRangeBand(unit)
         if not lower then return end
         local step = db.appearance.rounded and 5 or 1
         local minimum = math.floor(lower / step) * step
@@ -241,7 +241,7 @@ local function GetDistance(unit)
             -- Keep a useful lower bound if rounding to 5 m would erase it.
             text = ("≥ %d m"):format(minimum > 0 and minimum or math.floor(lower))
         end
-        return text, lower, upper, estimateInterval, enemy and "enemy" or "friendly"
+        return text, lower, upper, estimateInterval
     end
 end
 
@@ -251,16 +251,36 @@ local function GetDistanceTier(lower, upper)
     return 2
 end
 
-local tooltipFormats = {
-    measured = L("Distance mesurée · %s"),
-    enemy = L("Ennemi · %s"),
-    friendly = L("Allié · %s"),
-}
+local tooltipFormat = L("Distance · %s")
 
 function ns.GetMouseoverDistance()
     if not db then return end
-    local text, lower, upper, _, source = GetDistance("mouseover")
-    if text then return tooltipFormats[source]:format(text), db.appearance.tooltip[GetDistanceTier(lower, upper)] end
+    local text, lower, upper = GetDistance("mouseover")
+    if text then return tooltipFormat:format(text), db.appearance.tooltip[GetDistanceTier(lower, upper)] end
+end
+
+local function CreateBadge(parent)
+    local frame = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    frame:SetSize(48, 23)
+    local text = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    text:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
+    text:SetPoint("CENTER")
+    return frame, text
+end
+
+local function PaintBadge(frame, text, appearance, tier)
+    frame:SetBackdrop(backdrops[appearance.frame] or nil)
+    if appearance.frame ~= "text" then
+        local r, g, b = unpack(appearance.background[tier])
+        frame:SetBackdropColor(r, g, b, .97)
+        if appearance.frame == "framed" then frame:SetBackdropBorderColor(unpack(appearance.border)) end
+    end
+    text:SetTextColor(unpack(appearance.text[tier]))
+end
+
+local function SetBadgeText(frame, label, text)
+    label:SetText(text)
+    frame:SetWidth(math.max(48, math.ceil(label:GetStringWidth()) + 16))
 end
 
 local function UpdateDistance()
@@ -280,12 +300,8 @@ local function UpdateDistance()
     if not text then return HideDistance() end
 
     if not badge then
-        badge = CreateFrame("Frame", nil, driver, "BackdropTemplate")
+        badge, label = CreateBadge(driver)
         badge:Hide()
-        badge:SetSize(48, 23)
-        label = badge:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        label:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
-        label:SetPoint("CENTER", 0, 0)
     end
     if anchor ~= relativeTo then
         badge:ClearAllPoints()
@@ -298,17 +314,10 @@ local function UpdateDistance()
     end
     local tier = GetDistanceTier(lower, upper)
     if tier ~= activeTier then
-        badge:SetBackdrop(backdrops[appearance.frame] or nil)
-        local background = appearance.background[tier]
-        badge:SetBackdropColor(background[1], background[2], background[3], .97)
-        badge:SetBackdropBorderColor(unpack(appearance.border))
-        label:SetTextColor(unpack(appearance.text[tier]))
+        PaintBadge(badge, label, appearance, tier)
         activeTier = tier
     end
-    if text ~= label:GetText() then
-        label:SetText(text)
-        badge:SetWidth(math.max(48, math.ceil(label:GetStringWidth()) + 16))
-    end
+    if text ~= label:GetText() then SetBadgeText(badge, label, text) end
     badge:Show()
 end
 
@@ -394,24 +403,23 @@ local function RegisterSettings(root)
     scroll:SetPoint("TOPLEFT", 20, -54)
     scroll:SetPoint("BOTTOMRIGHT", -34, 16)
     local body = CreateFrame("Frame", nil, scroll)
-    body:SetSize(508, 482)
+    body:SetSize(508, 466)
     scroll:SetScrollChild(body)
 
     local toggle = UI.Check(body, "ArkannsQOLTargetDistanceEnabled", L("Afficher le badge de la cible"), 0, 0, SetEnabled)
     local rounded = UI.Check(body, nil, L("Arrondir les estimations par pas de 5 m"), 0, -30, function(value)
         db.appearance.rounded = value
     end)
-    local detail = UI.Label(body, L("Groupe · WoW peut fournir une distance mesurée.\nEnnemi · Estimation via les sorts offensifs et, si autorisés, les objets.\nAllié hors groupe · Estimation via les sorts bénéfiques.\nLes fourchettes dépendent des portées disponibles. ≈ indique une estimation. ≥ indique une borne basse."), 4, -66)
-    detail:SetWidth(496)
+    UI.Label(body, L("≈ indique une estimation. ≥ indique une distance minimale."), 4, -65)
 
-    UI.Label(body, L("Placement du badge"), 4, -180)
-    local portrait = UI.Check(body, nil, L("Ancrer au portrait plutôt qu’au nom"), 0, -200, function(value)
+    UI.Label(body, L("Placement du badge"), 4, -101, 15)
+    local portrait = UI.Check(body, nil, L("Ancrer au portrait plutôt qu’au nom"), 0, -123, function(value)
         db.appearance.portrait = value
         AppearanceChanged(true)
     end)
-    UI.Label(body, L("Décalage X / Y"), 4, -242)
-    local offsetX = UI.Input(body, "ArkannsQOLTargetDistanceOffsetX", 110, -236, 54)
-    local offsetY = UI.Input(body, "ArkannsQOLTargetDistanceOffsetY", 174, -236, 54)
+    UI.Label(body, L("Décalage X / Y"), 4, -167)
+    local offsetX = UI.Input(body, "ArkannsQOLTargetDistanceOffsetX", 110, -161, 54)
+    local offsetY = UI.Input(body, "ArkannsQOLTargetDistanceOffsetY", 174, -161, 54)
     local function ApplyOffsets()
         local x = tonumber((offsetX:GetText():gsub(",", ".")))
         local y = tonumber((offsetY:GetText():gsub(",", ".")))
@@ -420,12 +428,13 @@ local function RegisterSettings(root)
         offsetY:ClearFocus()
         AppearanceChanged(true)
     end
-    UI.Button(body, nil, L("Appliquer"), 240, -236, 100, ApplyOffsets)
+    UI.Button(body, nil, L("Appliquer"), 240, -161, 100, ApplyOffsets)
     offsetX:SetScript("OnEnterPressed", ApplyOffsets)
     offsetY:SetScript("OnEnterPressed", ApplyOffsets)
 
+    UI.Label(body, L("Couleurs et aperçu"), 4, -213, 15)
     local frameModes = {framed = L("Fond et bordure"), background = L("Fond seul"), text = L("Texte seul")}
-    local frame = UI.Button(body, nil, "", 4, -279, 165, function(self)
+    local frame = UI.Button(body, nil, "", 4, -238, 165, function(self)
         if not MenuUtil then return end
         MenuUtil.CreateContextMenu(self, function(_, menu)
             for _, mode in ipairs({"framed", "background", "text"}) do
@@ -437,8 +446,8 @@ local function RegisterSettings(root)
         end)
     end)
 
-    local swatches = {}
-    local function ColorButton(x, y, width, caption, key, tier)
+    local previews = {}
+    local function ColorButton(x, y, width, caption, key, tier, sample)
         local function GetColor(appearance)
             return tier and appearance[key][tier] or appearance[key]
         end
@@ -456,31 +465,51 @@ local function RegisterSettings(root)
                 cancelFunc = function() SetColor(old) end,
             })
         end)
-        local swatch = button:CreateTexture(nil, "OVERLAY")
-        swatch:SetSize(18, 12)
-        if caption == "" then swatch:SetPoint("CENTER") else swatch:SetPoint("RIGHT", -8, 0) end
-        swatches[#swatches + 1] = function() swatch:SetColorTexture(unpack(GetColor(db.appearance))) end
+        local updateColor
+        if sample then
+            local line = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            line:SetPoint("CENTER")
+            line:SetText(tooltipFormat:format(sample))
+            updateColor = function(r, g, b) line:SetTextColor(r, g, b) end
+        else
+            local swatch = button:CreateTexture(nil, "OVERLAY")
+            swatch:SetSize(18, 12)
+            if caption == "" then swatch:SetPoint("CENTER") else swatch:SetPoint("RIGHT", -8, 0) end
+            updateColor = function(r, g, b) swatch:SetColorTexture(r, g, b) end
+        end
+        previews[#previews + 1] = function(appearance)
+            updateColor(unpack(GetColor(appearance)))
+            if key == "border" then button:SetEnabled(appearance.frame == "framed") end
+            if key == "background" then button:SetEnabled(appearance.frame ~= "text") end
+        end
     end
-    ColorButton(180, -279, 145, L("Bordure"), "border")
-    UI.Button(body, nil, L("Réinitialiser"), 336, -279, 130, function()
+    ColorButton(180, -238, 130, L("Bordure"), "border")
+    UI.Button(body, nil, L("Réinitialiser"), 368, -207, 130, function()
         db.appearance = NormalizeAppearance()
         AppearanceChanged(true)
     end)
 
-    local columns = {
-        {"tooltip", L("Texte infobulle")},
-        {"text", L("Texte badge")},
-        {"background", L("Fond du badge")},
+    UI.Label(body, L("Aperçu du badge"), 110, -283)
+    UI.Label(body, L("Texte"), 219, -283)
+    UI.Label(body, L("Fond"), 277, -283)
+    UI.Label(body, L("Infobulle au survol"), 352, -283)
+    local rows = {
+        {L("Proche · ≤ 10 m"), "8 m"},
+        {L("Intermédiaire"), "≈ 15–25 m"},
+        {L("Loin · > 30 m"), "≥ 35 m"},
     }
-    for index, column in ipairs(columns) do
-        local x = 152 + (index - 1) * 112
-        UI.Label(body, column[2], x, -324)
-        for tier = 1, 3 do ColorButton(x, -345 - (tier - 1) * 30, 102, "", column[1], tier) end
+    for tier, row in ipairs(rows) do
+        local y = -306 - (tier - 1) * 35
+        UI.Label(body, row[1], 4, y - 6)
+        local example, text = CreateBadge(body)
+        example:SetPoint("CENTER", body, "TOPLEFT", 158, y - 13)
+        SetBadgeText(example, text, row[2])
+        previews[#previews + 1] = function(appearance) PaintBadge(example, text, appearance, tier) end
+        ColorButton(215, y, 48, "", "text", tier)
+        ColorButton(273, y, 70, "", "background", tier)
+        ColorButton(351, y, 147, "", "tooltip", tier, row[2])
     end
-    for tier, caption in ipairs({L("Proche · ≤ 10 m"), L("Intermédiaire"), L("Loin · > 30 m")}) do
-        UI.Label(body, caption, 4, -351 - (tier - 1) * 30)
-    end
-    local colorHelp = UI.Label(body, L("La couleur intermédiaire couvre aussi les fourchettes qui chevauchent un seuil. Pour déplacer ou habiller l’infobulle, ouvre ses réglages."), 4, -438)
+    local colorHelp = UI.Label(body, L("Clique sur un échantillon ou sur le texte d’une infobulle pour changer sa couleur. Les fourchettes qui chevauchent un seuil prennent la couleur intermédiaire."), 4, -420)
     colorHelp:SetWidth(496)
 
     refreshSettings = function()
@@ -491,7 +520,7 @@ local function RegisterSettings(root)
         offsetX:SetText(tostring(appearance.x))
         offsetY:SetText(tostring(appearance.y))
         frame:SetText(frameModes[appearance.frame])
-        for _, refresh in ipairs(swatches) do refresh() end
+        for _, refresh in ipairs(previews) do refresh(appearance) end
     end
     panel:SetScript("OnShow", refreshSettings)
     return Settings.RegisterCanvasLayoutSubcategory(root, panel, title)

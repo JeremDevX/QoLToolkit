@@ -17,7 +17,11 @@ local defaults = {
 local borderTexture = "Interface\\Common\\WhiteIconFrame"
 local glowTexture = "Interface\\Buttons\\WHITE8X8"
 local maxThickness = 4
-local glowDepth = 6
+local glowDepth = 11
+local borderQuarters = {
+    {"TOPLEFT", "CENTER", 0, 0}, {"TOP", "RIGHT", 1, 0},
+    {"LEFT", "BOTTOM", 0, 1}, {"CENTER", "BOTTOMRIGHT", 1, 1},
+}
 local transmogAtlas = "lootroll-icon-transmog"
 local transmogRefreshEvents = {
     "ITEM_DATA_LOAD_RESULT", "ITEM_LOCK_CHANGED", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
@@ -107,37 +111,51 @@ local function PaintBorder(button, regions, native, icon, r, g, b)
     local anchor = native or icon
     local atlas = native and WoW.ReadValue(native.GetAtlas, native)
     if type(atlas) ~= "string" or atlas == "" then atlas = nil end
-    local file = not atlas and native and WoW.ReadValue(native.GetTexture, native)
-    if not WoW.IsFiniteNumber(file) or file <= 0 then file = borderTexture end
-    -- Extend the same rounded outline inward at each thickness step.
-    for index = 1, math.max(db.qualityThickness, #regions.outlines) do
+    local file = native and WoW.ReadValue(native.GetTextureFileID, native)
+    if not WoW.IsFiniteNumber(file) or file <= 0 then
+        file = native and WoW.ReadValue(native.GetTexture, native)
+    end
+    if not (type(file) == "string" and file ~= "") and not (WoW.IsFiniteNumber(file) and file > 0) then
+        file = borderTexture
+    end
+    local thickness = atlas and 1 or db.qualityThickness
+    local parts = thickness == 1 and 1 or #borderQuarters
+    -- Magnify the outer artwork within each quadrant so the same edge grows inward.
+    local span = .5 / (1 + (thickness - 1) * .35)
+    for index = 1, parts do
         local outline = regions.outlines[index]
         local created = not outline
         if created then
-            outline = button:CreateTexture(nil, index == 1 and "OVERLAY" or "ARTWORK", nil, index == 1 and 0 or -1)
+            outline = button:CreateTexture(nil, "OVERLAY", nil, 0)
             regions.outlines[index] = outline
         end
-        if created or regions.borderAtlas ~= atlas or regions.borderFile ~= file then
+        if created or regions.borderAtlas ~= atlas or regions.borderFile ~= file or regions.thickness ~= thickness then
             if atlas and outline.SetAtlas then
                 outline:SetAtlas(atlas)
             else
                 outline:SetTexture(file)
-                if outline.SetTexCoord then outline:SetTexCoord(0, 1, 0, 1) end
+                if thickness == 1 then
+                    outline:SetTexCoord(0, 1, 0, 1)
+                else
+                    local _, _, right, bottom = unpack(borderQuarters[index])
+                    local left, top = right * (1 - span), bottom * (1 - span)
+                    outline:SetTexCoord(left, left + span, top, top + span)
+                end
             end
         end
-        if created or regions.borderAnchor ~= anchor then
-            local inset = (index - 1) * .75
-            outline:SetPoint("TOPLEFT", anchor, "TOPLEFT", inset, -inset)
-            outline:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", -inset, inset)
+        if created or regions.borderAnchor ~= anchor or regions.thickness ~= thickness then
+            local topLeft, bottomRight = "TOPLEFT", "BOTTOMRIGHT"
+            if thickness ~= 1 then topLeft, bottomRight = unpack(borderQuarters[index], 1, 2) end
+            outline:ClearAllPoints()
+            outline:SetPoint("TOPLEFT", anchor, topLeft)
+            outline:SetPoint("BOTTOMRIGHT", anchor, bottomRight)
         end
-        if index <= db.qualityThickness then
-            outline:SetVertexColor(r, g, b, db.qualityOpacity / 100)
-            outline:Show()
-        else
-            outline:Hide()
-        end
+        outline:SetVertexColor(r, g, b, db.qualityOpacity / 100)
+        outline:Show()
     end
+    for index = parts + 1, #regions.outlines do regions.outlines[index]:Hide() end
     regions.borderAtlas, regions.borderFile, regions.borderAnchor = atlas, file, anchor
+    regions.thickness = thickness
 end
 
 local function PaintInnerGlow(button, regions, icon, r, g, b)
@@ -152,7 +170,7 @@ local function PaintInnerGlow(button, regions, icon, r, g, b)
             local strip = button:CreateTexture(nil, "ARTWORK", nil, -2)
             if not strip.SetGradient then regions.glow = false; return end
             strip:SetTexture(glowTexture)
-            strip:SetBlendMode("ADD")
+            strip:SetBlendMode("BLEND")
             strips[index] = strip
         end
         strips[1]:SetHeight(glowDepth)
@@ -174,7 +192,9 @@ local function PaintInnerGlow(button, regions, icon, r, g, b)
         regions.glowAnchor = icon
     end
     if regions.glowR ~= r or regions.glowG ~= g or regions.glowB ~= b then
-        local edge, fade = CreateColor(r, g, b, 1), CreateColor(r, g, b, 0)
+        -- Blend over bright and dark icons alike. Lift dark rarity colors for contrast.
+        local red, green, blue = .2 + .8 * r, .2 + .8 * g, .2 + .8 * b
+        local edge, fade = CreateColor(red, green, blue, .95), CreateColor(red, green, blue, 0)
         top:SetGradient("VERTICAL", fade, edge)
         bottom:SetGradient("VERTICAL", edge, fade)
         left:SetGradient("HORIZONTAL", edge, fade)
@@ -210,6 +230,7 @@ local function PaintQualityBorder(button, quality)
     if Secret(native) then native = nil end
     local icon = button.icon
     if Secret(icon) or not icon then icon = button.Icon end
+    if Secret(icon) or not icon then icon = WoW.ReadValue(button.GetNormalTexture, button) end
     if Secret(icon) or not icon then icon = button end
     if regions.nativeBorder ~= native then RestoreNativeBorder(regions) end
     if native and native.GetAlpha and native.SetAlpha then

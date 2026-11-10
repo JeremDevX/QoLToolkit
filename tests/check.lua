@@ -237,26 +237,138 @@ chunks["Core/WoWRuntime.lua"]("QoLToolkit", distanceNS)
 chunks["Modules/TargetDistance.lua"]("QoLToolkit", distanceNS)
 distanceNS.InitializeTargetDistance()
 local getDistance = distanceNS.GetMouseoverDistance
-assert(not distanceModule.IsEnabled() and getDistance() == "Distance mesurée · 18 m")
+assert(not distanceModule.IsEnabled() and getDistance() == "Distance · 18 m", "Use the same label for every tooltip distance")
 measured = "secret"
 assert(getDistance() == nil, "Private measurements stay unavailable")
 measured, checked = 0, false
-assert(getDistance() == "Ennemi · ≈ 25–40 m", "Round both bounds outward")
+assert(getDistance() == "Distance · ≈ 25–40 m", "Round both bounds outward")
 hostile = false
-assert(getDistance() == "Allié · ≈ 0–45 m", "Use helpful spell ranges for allies")
+assert(getDistance() == "Distance · ≈ 0–45 m", "Use helpful spell ranges for allies")
 
 local config = distanceModule.ExportSettings()
 config.appearance.rounded = false
 config.appearance.tooltip[2] = {.2, .3, .4}
-assert(getDistance() == "Allié · ≈ 0–45 m", "Profile exports must be independent")
+assert(getDistance() == "Distance · ≈ 0–45 m", "Profile exports must be independent")
 assert(distanceModule.ImportSettings(config))
 hostile = true
 local text, color = getDistance()
-assert(text == "Ennemi · ≈ 27–37 m" and color[1] == .2 and color[2] == .3 and color[3] == .4)
+assert(text == "Distance · ≈ 27–37 m" and color[1] == .2 and color[2] == .3 and color[3] == .4)
 C_SpellBook.IsSpellBookItemInRange = function() return false end
 config.appearance.rounded = true
-assert(distanceModule.ImportSettings(config) and getDistance() == "Ennemi · ≥ 35 m")
+assert(distanceModule.ImportSettings(config) and getDistance() == "Distance · ≥ 35 m")
 local oldProfile = {enabled = false}
 distanceModule.profileMigrations[1](oldProfile, distanceModule.ExportSettings())
 assert(oldProfile.appearance.tooltip[2][1] == .2)
 print("PASS: target distance sources, conservative rounding, and legacy appearance settings")
+
+local frames = {}
+local createStub = CreateFrame
+CreateFrame = function(kind, name)
+    local widget = createStub(kind, name)
+    setmetatable(widget, {__index = function(_, key)
+        if key ~= "IconBorder" and key ~= "Icon" and key ~= "icon" then return noop end
+    end})
+    widget.GetScript = rawget
+    widget.ClearAllPoints = function(self) self.points = {} end
+    widget:ClearAllPoints()
+    widget.SetPoint = function(self, point, ...) self.points[point] = {...} end
+    widget.SetTexture = function(self, asset) self.asset = asset end
+    widget.SetTexCoord = function(self, ...) self.coords = {...} end
+    widget.SetGradient = function(self, _, ...) self.gradient = {...} end
+    widget.SetBlendMode = function(self, mode) self.blend = mode end
+    widget.SetAlpha = function(self, alpha) self.alpha = alpha end
+    widget.GetAlpha = function(self) return self.alpha end
+    widget.CreateTexture = function(self, _, layer)
+        local texture = CreateFrame("Texture")
+        texture.layer = layer
+        self.textures = rawget(self, "textures") or {}
+        table.insert(self.textures, texture)
+        return texture
+    end
+    widget.CreateMaskTexture = function() return CreateFrame("MaskTexture") end
+    widget.GetThumbTexture = function() return CreateFrame("Texture") end
+    if name then frames[name] = widget end
+    return widget
+end
+
+do
+    local opened, diameter = nil, 198
+    Settings = {
+        RegisterCanvasLayoutCategory = function() return {GetID = function() return 42 end} end,
+        RegisterAddOnCategory = noop,
+        OpenToCategory = function(id) opened = id end,
+    }
+    Minimap = {
+        GetSize = function() return diameter, diameter end,
+        GetFrameLevel = function() return 4 end,
+        GetCenter = function() return 500, 400 end,
+        GetEffectiveScale = function() return .5 end,
+        HookScript = function(self, event, fn) self[event] = fn end,
+    }
+    GetCursorPosition = function() return 250, 250 end
+    local bootstrapNS = {L = distanceNS.L, WoW = distanceNS.WoW, UI = {Initialize = noop},
+        SettingsState = {Initialize = function() return true end}}
+    local function LoadButton()
+        chunks["Core/Bootstrap.lua"]("QoLToolkit", bootstrapNS)
+        frames.ArkannsQOLBootstrapEvents:OnEvent("ADDON_LOADED", "QoLToolkit")
+        return frames.ArkannsQOLMinimapButton
+    end
+    local button = LoadButton()
+    button:OnClick()
+    assert(opened == 42)
+    button:OnDragStart()
+    button:OnUpdate()
+    button:OnDragStop()
+    assert(not button:GetScript("OnUpdate") and ForeverTooltipLibreDB.minimapAngle == math.pi / 2,
+        "Drag must save the angle and stop following the cursor")
+    button = LoadButton()
+    local center = button.points.CENTER
+    assert(center[1] == Minimap and center[2] == "CENTER" and math.abs(center[3]) < .001 and center[4] == 103)
+    diameter = 160
+    Minimap:OnSizeChanged()
+    assert(button.points.CENTER[4] == 84)
+end
+print("PASS: minimap click, scaled drag, reload, and map resize")
+
+do
+    local hook, bagModule
+    local bag = {GetBagID = function() return 0 end}
+    local slot = CreateFrame("ItemButton")
+    slot.containerFrame, slot.IconBorder, slot.icon = bag, CreateFrame("Texture"), CreateFrame("Texture")
+    slot.IconBorder.alpha = .8
+    slot.IconBorder.GetTexture = function() return "Interface\\Common\\WhiteIconFrame" end
+    local mask = CreateFrame("MaskTexture")
+    slot.icon.GetMaskTexture = function() return mask end
+    NUM_TOTAL_BAG_FRAMES = 5
+    ContainerFrameUtil_GetShownFrameForID = function() return bag end
+    ContainerFrameUtil_EnumerateContainerFrames = function() return ipairs({}) end
+    hooksecurefunc = function(name, fn) assert(name == "SetItemButtonQuality"); hook = fn end
+    SetItemButtonQuality = function(...) hook(...) end
+    C_Container = {GetContainerItemInfo = noop}
+    C_Item = {GetItemQualityColor = function() return .64, .21, .93 end}
+    CreateColor = function(...) return {...} end
+    Settings.RegisterCanvasLayoutSubcategory = noop
+    local function Control() return CreateFrame("Frame") end
+    local bagNS = {L = distanceNS.L, WoW = distanceNS.WoW,
+        UI = {StylePanel = noop, Label = Control, Check = Control, Button = Control, Refresh = noop},
+        RegisterModule = function(_, module) bagModule = module end}
+    ForeverTooltipLibreDB.bagSort = {qualityInnerGlow = 100}
+    chunks["Modules/BagSort.lua"]("QoLToolkit", bagNS)
+    bagNS.InitializeBagSort()
+    SetItemButtonQuality(slot, 4)
+    local outline, glow = slot.textures[1], slot.textures[2]
+    assert(outline.points.TOPLEFT[1] == slot.IconBorder and outline.points.BOTTOMRIGHT[2] == "BOTTOMRIGHT")
+    assert(bagModule.ImportSettings({enabled = false, qualityThickness = 4, qualityOpacity = 50}))
+    SetItemButtonQuality(slot, 4)
+    assert(outline.points.BOTTOMRIGHT[2] == "CENTER" and outline.coords[2] < .5,
+        "Thick border must magnify the native edge with no inset ring")
+    assert(slot.textures[6].points.TOPLEFT[2] == "TOP" and slot.textures[8].points.TOPLEFT[2] == "CENTER")
+    assert(glow.layer == "ARTWORK" and glow.blend == "BLEND" and glow.alpha == 1 and glow.gradient[2][4] >= .9)
+    assert(bagModule.ImportSettings({enabled = false, qualityThickness = 1, qualityInnerGlow = 0}))
+    SetItemButtonQuality(slot, 4)
+    assert(not slot.textures[6].shown and not glow.shown and outline.points.BOTTOMRIGHT[2] == "BOTTOMRIGHT")
+    assert(slot.IconBorder.alpha == 0)
+    SetItemButtonQuality(slot, "secret")
+    assert(not outline.shown and slot.IconBorder.alpha == .8)
+end
+print("PASS: bag border geometry, inner glow, and native restoration")

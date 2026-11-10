@@ -4,12 +4,14 @@ local Model, WoW = ns.SessionJournalModel, ns.WoW
 local db, session, window, title, names, values, footer, settings, refreshSettings
 local ready, moving = false, false
 local startedAt
+local afkUnavailable
 local ticker, xpRetry, Draw
 local rateTooltip, hovered
 local moveHint
 local hoverRows = {}
 local horizontalTexts = {}
 local preview, expanded = false, false
+local pauseLabels = {manual = L("Session arrêtée"), afk = L("En pause (AFK)")}
 local metrics = {
     {key = "duration", label = L("Durée"), icon = "INV_Misc_PocketWatch_01"},
     {key = "xp", label = L("XP gagnée"), icon = "INV_Misc_Book_09"},
@@ -39,7 +41,7 @@ local function InCombat()
 end
 
 local function NormalizeOptions()
-    for key, value in pairs({enabled = true, locked = true, showTitle = true, border = true, compact = false, hideZero = false, expandOnHover = true, hideCombat = false}) do
+    for key, value in pairs({enabled = true, locked = true, showTitle = true, border = true, compact = false, hideZero = false, expandOnHover = true, hideCombat = false, pauseAFK = false}) do
         if type(db[key]) ~= "boolean" then db[key] = value end
     end
     for key, bounds in pairs({x = {0, 1, 0.02}, y = {0, 1, 0.75}, width = {240, 1000, 300}, fontSize = {10, 32, 13}, opacity = {0, 100, 85}}) do
@@ -68,7 +70,11 @@ local function SharedStyle()
 end
 
 local function Elapsed()
-    return Model.Elapsed(session, ready and ReadNumber(GetTime), startedAt)
+    return Model.Elapsed(session, startedAt and ReadNumber(GetTime), startedAt)
+end
+
+local function IsTracking()
+    return ready and not session.pause
 end
 
 local function Money(copper)
@@ -95,7 +101,7 @@ end
 
 local function RefreshRateTooltip()
     if not hovered then return end
-    if not db.locked or not db.enabled or not hovered:IsShown() then HideRateTooltip(); return end
+    if preview or not db.locked or not db.enabled or not hovered:IsShown() then HideRateTooltip(); return end
     if rateTooltip:GetOwner() ~= hovered then rateTooltip:SetOwner(hovered, "ANCHOR_RIGHT") end
     rateTooltip:ClearLines()
     local xpRate = hovered.metric == "xp"
@@ -113,7 +119,7 @@ local function RefreshRateTooltip()
 end
 
 local function ObserveMoney()
-    if ready then Model.ObserveMoney(session, ReadNumber(GetMoney)) end
+    if IsTracking() then Model.ObserveMoney(session, ReadNumber(GetMoney)) end
 end
 
 local function XPState()
@@ -127,6 +133,7 @@ end
 
 local nextLevelLabels = {unknown = "—", max = L("Niv. max"), calculating = L("Calcul...")}
 local function NextLevel(elapsed)
+    if not IsTracking() then return nextLevelLabels.unknown end
     local status, seconds = Model.NextLevel(session, elapsed, XPState())
     return nextLevelLabels[status] or "~ " .. Duration(seconds)
 end
@@ -138,25 +145,70 @@ end
 
 local function ObserveXP(newLevel)
     if not ready then return end
-    if Number(newLevel) and Model.ObserveLevelUp(session, newLevel) then
+    local tracking = IsTracking()
+    if Number(newLevel) and Model.ObserveLevelUp(session, newLevel, not tracking) then
         xpRetry = true
-    else
+    elseif tracking then
         xpRetry = not Model.ObserveXP(session, XPState())
     end
 end
 
-local function BeginSession(resume)
-    local previous = db.session
-    local resumed = resume and Model.IsResumable(previous)
+local function AFKPause(current)
+    afkUnavailable = false
+    if not db.pauseAFK then return end
+    local status, afk = WoW.Read(UnitIsAFK, "player")
+    if status ~= "ok" or type(afk) ~= "boolean" then
+        afkUnavailable = true
+        return current
+    end
+    return afk and "afk" or nil
+end
+
+local function Baseline()
+    session.lastMoney = ReadNumber(GetMoney)
+    xpRetry = not Model.BaselineXP(session, XPState())
+    session.dead = nil
+    ObserveDeath(false)
+end
+
+local function SetPause(pause)
+    if not ready or session.pause == pause then return end
+    if IsTracking() then
+        session.elapsed = Elapsed()
+        ObserveMoney(); ObserveXP(); ObserveDeath(true)
+        startedAt, xpRetry = nil, false
+    elseif not pause then
+        Baseline()
+        startedAt = ReadNumber(GetTime)
+    end
+    session.pause = pause
+end
+
+local function SyncAFK()
+    if ready and session.pause ~= "manual" then SetPause(AFKPause(session.pause)) end
+end
+
+local function BeginSession(previous, pause)
+    local resumed = Model.IsResumable(previous)
     if resumed then
         session = previous
+        pause = session.pause
     else
         local xp, maximum, level = XPState()
         session = Model.New(xp, maximum, level, ReadNumber(GetMoney))
     end
     db.session = session
-    startedAt, ready = ReadNumber(GetTime), true
-    ObserveMoney(); ObserveXP(); ObserveDeath(resumed)
+    startedAt, ready, xpRetry = nil, true, false
+    if pause == "manual" then
+        session.pause = pause
+    else
+        session.pause = AFKPause(pause == "afk" and pause or nil)
+    end
+    if IsTracking() then
+        startedAt = ReadNumber(GetTime)
+        if pause == "afk" then Baseline()
+        else ObserveMoney(); ObserveXP(); ObserveDeath(resumed) end
+    end
 end
 
 local function RestorePosition()
@@ -182,7 +234,7 @@ local function Visible()
 end
 
 local function SyncTicker()
-    if ready and (xpRetry or (Visible() and not preview)) then
+    if IsTracking() and (xpRetry or (Visible() and not preview)) then
         if not ticker and C_Timer and type(C_Timer.NewTicker) == "function" then
             ticker = C_Timer.NewTicker(1, function()
                 if not ticker then return end
@@ -235,7 +287,7 @@ Draw = function()
     names:ClearAllPoints(); values:ClearAllPoints()
     local top = db.showTitle and (fontSize + padding * 2 + 2) or padding
     title:ClearAllPoints(); title:SetPoint("TOPLEFT", padding, -padding)
-    title:SetText(preview and L("Journal de session • Aperçu") or L("Journal de session"))
+    title:SetText(preview and L("Journal de session • Aperçu") or ready and pauseLabels[session.pause] or L("Journal de session"))
     names:SetPoint("TOPLEFT", padding, -top)
     values:SetPoint("TOPRIGHT", -padding, -top)
     names:SetWidth(db.width * 0.43 - 12)
@@ -348,6 +400,19 @@ local function Place()
     Draw(); refreshSettings()
 end
 
+local function TrackingStatus()
+    if not ready then return "" end
+    return pauseLabels[session.pause] or L("Session en cours")
+end
+
+local function SetTracking(enabled)
+    if not ready then return end
+    if not enabled then SetPause("manual")
+    elseif session.pause == "manual" then SetPause(AFKPause())
+    else SyncAFK() end
+    Draw(); refreshSettings()
+end
+
 function ns.InitializeSessionJournal(parentCategory)
     if type(ArkannsQOLSessionDB) ~= "table" then ArkannsQOLSessionDB = {} end
     db = ArkannsQOLSessionDB
@@ -442,13 +507,17 @@ function ns.InitializeSessionJournal(parentCategory)
         return label
     end
     local controls, syncing = {}, false
-    local function Check(key, label, y, source)
+    local function Check(key, label, y, source, onChange)
         local box = CreateFrame("CheckButton", "ArkannsQOLSession_" .. key, body, "UICheckButtonTemplate")
         box:SetPoint("TOPLEFT", 12, y)
         local text = box:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         text:SetPoint("LEFT", box, "RIGHT", 2, 0); text:SetText(label); box:SetFontString(text)
         controls[#controls + 1] = function() box:SetChecked(source[key]) end
-        box:SetScript("OnClick", function(self) source[key] = self:GetChecked() == true; Draw(); refreshSettings() end)
+        box:SetScript("OnClick", function(self)
+            source[key] = self:GetChecked() == true
+            if onChange then onChange() end
+            Draw(); refreshSettings()
+        end)
     end
     local function Button(name, label, x, y, callback)
         local button = CreateFrame("Button", name, body, "UIPanelButtonTemplate")
@@ -472,11 +541,18 @@ function ns.InitializeSessionJournal(parentCategory)
         end)
     end
     Text(L("Fonctionnement"), -8, "GameFontNormalLarge")
-    local selectionStatus = Text("", -40)
+    local trackingStatus = Text("", -46)
+    trackingStatus:ClearAllPoints()
+    trackingStatus:SetPoint("TOPLEFT", 218, -46); trackingStatus:SetPoint("TOPRIGHT", -16, -46)
+    local trackingButton = Button("ArkannsQOLSessionTracking", "", 16, -40, function()
+        SetTracking(ready and session.pause == "manual")
+    end)
+    Check("pauseAFK", L("Mettre en pause pendant l’AFK"), -76, db, SyncAFK)
+    local selectionStatus = Text("", -120)
     for index = 1, #metrics do
         local rowIndex = index
         local box = CreateFrame("CheckButton", "ArkannsQOLSessionMetric" .. index, body, "UICheckButtonTemplate")
-        box:SetPoint("TOPLEFT", 12, -70 - (index - 1) * 32)
+        box:SetPoint("TOPLEFT", 12, -150 - (index - 1) * 32)
         local label = box:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         label:SetPoint("LEFT", box, "RIGHT", 2, 0); box:SetFontString(label)
         controls[#controls + 1] = function()
@@ -487,7 +563,7 @@ function ns.InitializeSessionJournal(parentCategory)
         box:SetScript("OnClick", function(self) db.visible[db.order[rowIndex]] = self:GetChecked() == true; Draw(); refreshSettings() end)
         for _, direction in ipairs({-1, 1}) do
             local delta = direction
-            local button = Button("ArkannsQOLSessionMove" .. (delta == -1 and "Up" or "Down") .. index, "", delta == -1 and 370 or 410, -72 - (index - 1) * 32, function()
+            local button = Button("ArkannsQOLSessionMove" .. (delta == -1 and "Up" or "Down") .. index, "", delta == -1 and 370 or 410, -152 - (index - 1) * 32, function()
                 local target = rowIndex + delta
                 if target >= 1 and target <= #db.order then db.order[rowIndex], db.order[target] = db.order[target], db.order[rowIndex]; refreshSettings(); Draw() end
             end)
@@ -503,10 +579,10 @@ function ns.InitializeSessionJournal(parentCategory)
             end
         end
     end
-    Check("hideZero", L("Masquer les valeurs nulles"), -340, db)
-    Check("compact", L("Mode compact (3 statistiques)"), -372, db)
-    Check("expandOnHover", L("Développer au survol"), -404, db)
-    local showAll = Button("ArkannsQOLSessionShowAll", L("Tout afficher"), 370, -372, function()
+    Check("hideZero", L("Masquer les valeurs nulles"), -420, db)
+    Check("compact", L("Mode compact (3 statistiques)"), -452, db)
+    Check("expandOnHover", L("Développer au survol"), -484, db)
+    local showAll = Button("ArkannsQOLSessionShowAll", L("Tout afficher"), 370, -452, function()
         for _, metric in ipairs(metrics) do db.visible[metric.key] = true end
         db.compact, db.hideZero, expanded = false, false, false
         Draw(); refreshSettings()
@@ -525,18 +601,21 @@ function ns.InitializeSessionJournal(parentCategory)
         ArkannsQOLSession_expandOnHover:SetEnabled(db.compact)
         showAll:SetEnabled(count < #metrics or db.compact or db.hideZero)
     end
-    local layoutButton = Button("ArkannsQOLSessionLayout", "", 16, -450, function()
+    local layoutButton = Button("ArkannsQOLSessionLayout", "", 16, -530, function()
         db.layout = db.layout == "horizontal" and "vertical" or "horizontal"; Draw(); refreshSettings()
     end)
-    Button(nil, L("Défauts de cette section"), 218, -450, function()
+    Button(nil, L("Défauts de cette section"), 218, -530, function()
         for key in pairs(db.order) do db.order[key] = nil end
         db.hideZero, db.compact, db.expandOnHover, db.layout = false, false, true, "vertical"
+        db.pauseAFK = false
         for _, metric in ipairs(metrics) do db.visible[metric.key] = metric.key ~= "levels" end
-        NormalizeOptions(); Draw(); refreshSettings()
+        NormalizeOptions(); SyncAFK(); Draw(); refreshSettings()
     end)
-    Button("ArkannsQOLSessionReset", L("Réinitialiser les stats"), 16, -490, function() BeginSession(false); Draw() end)
-    Text(L("Survole XP gagnée ou Or reçu pour le taux horaire.\nNouvelle connexion : remise à zéro. /reload : stats conservées.\nTemps AFK inclus. ≥ : données XP incomplètes."), -540)
-    operationBody:SetHeight(620)
+    local resetButton = Button("ArkannsQOLSessionReset", L("Réinitialiser les stats"), 16, -570, function()
+        if not ready then return end
+        BeginSession(nil, session.pause); Draw(); refreshSettings()
+    end)
+    Text(L("Survole XP gagnée ou Or reçu pour le taux horaire.\nLe démarrage reprend les compteurs. L’option AFK suspend le suivi jusqu’au retour.\nUne nouvelle connexion remet les compteurs à zéro et démarre le suivi.\n/reload conserve les compteurs et l’arrêt manuel. ≥ indique des données XP incomplètes."), -620)
     body = appearanceBody
     Text(L("Apparence"), -8, "GameFontNormalLarge")
     local override = Button(nil, "", 16, -42, function()
@@ -581,6 +660,13 @@ function ns.InitializeSessionJournal(parentCategory)
     refreshSettings = function()
         syncing = true
         for _, sync in ipairs(controls) do sync() end
+        local pause = ready and session.pause
+        local status = TrackingStatus()
+        if ready and pause ~= "manual" and afkUnavailable then status = status .. "\n" .. L("Statut AFK indisponible") end
+        trackingStatus:SetText(status)
+        trackingButton:SetText(pause == "manual" and L("Démarrer le suivi") or L("Arrêter le suivi"))
+        trackingButton:SetEnabled(ready)
+        resetButton:SetEnabled(ready)
         themeButton:SetText(string.format(L("Thème : %s"), themes[db.theme].label))
         layoutButton:SetText(db.layout == "horizontal" and L("Disposition : ligne") or L("Disposition : liste"))
         override:SetText(ns.UI and ns.UI.IsOverride and ns.UI.IsOverride("session") and L("Apparence personnalisée") or L("Apparence commune"))
@@ -596,11 +682,19 @@ function ns.InitializeSessionJournal(parentCategory)
     ns.sessionCategory = settings
     SLASH_ARKANNSQOLSESSION1 = "/qtsession"
     SLASH_ARKANNSQOLSESSION2 = "/aqsession"
-    SlashCmdList.ARKANNSQOLSESSION = function() Settings.OpenToCategory(settings:GetID()) end
+    SlashCmdList.ARKANNSQOLSESSION = function(message)
+        local command = type(message) == "string" and message:lower():match("^%s*(%S+)%s*$")
+        if command == "start" or command == "stop" then
+            SetTracking(command == "start")
+            if ready then print(L("Journal de session") .. " · " .. TrackingStatus()) end
+        else
+            Settings.OpenToCategory(settings:GetID())
+        end
+    end
     refreshSettings(); Draw()
 
     if ns.RegisterModule then
-        local configKeys = {"enabled", "locked", "showTitle", "border", "compact", "hideZero", "expandOnHover", "hideCombat", "x", "y", "width", "fontSize", "opacity", "theme", "layout"}
+        local configKeys = {"enabled", "locked", "showTitle", "border", "compact", "hideZero", "expandOnHover", "hideCombat", "pauseAFK", "x", "y", "width", "fontSize", "opacity", "theme", "layout"}
         ns.RegisterModule("session", {
             label = L("Journal de session"), icon = "Interface\\Icons\\INV_Misc_Book_09", category = function() return settings end,
             frame = window, IsEnabled = function() return db.enabled end,
@@ -630,6 +724,9 @@ function ns.InitializeSessionJournal(parentCategory)
                 for index, key in ipairs(db.order) do result.order[index] = key end
                 return result
             end,
+            profileMigrations = {function(config)
+                if config.pauseAFK == nil then config.pauseAFK = false end
+            end},
             ImportSettings = function(config)
                 if type(config) ~= "table" then return false, L("Réglages du journal invalides.") end
                 if moving then window:StopMovingOrSizing(); moving = false end
@@ -643,30 +740,39 @@ function ns.InitializeSessionJournal(parentCategory)
                     for key in pairs(db.order) do db.order[key] = nil end
                     for index, key in ipairs(order) do db.order[index] = key end
                 end
-                NormalizeOptions(); StopPreview(); RestorePosition(); Draw(); refreshSettings()
+                NormalizeOptions(); SyncAFK(); StopPreview(); RestorePosition(); Draw(); refreshSettings()
                 return true
             end,
         })
     end
 
     local events = CreateFrame("Frame", "ArkannsQOLSessionEvents")
-    for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_MONEY", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST", "PLAYER_LOGOUT", "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}) do events:RegisterEvent(event) end
+    for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_FLAGS_CHANGED", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_MONEY", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST", "PLAYER_LOGOUT", "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}) do events:RegisterEvent(event) end
     events:SetScript("OnEvent", function(_, event, first, reloading)
         if event == "PLAYER_ENTERING_WORLD" then
-            if not ready or (WoW.IsPublic(first) and first) then BeginSession(WoW.IsPublic(reloading) and reloading == true) end
+            if not ready or (WoW.IsPublic(first) and first) then
+                BeginSession(WoW.IsPublic(reloading) and reloading == true and db.session)
+            else
+                SyncAFK()
+            end
+            refreshSettings()
+        elseif event == "PLAYER_FLAGS_CHANGED" then
+            if not db.pauseAFK or not ready or session.pause == "manual" or not WoW.IsPublic(first) or first ~= "player" then return end
+            SyncAFK(); refreshSettings()
         elseif event == "PLAYER_LEVEL_UP" then
             ObserveXP(first)
         elseif event == "PLAYER_XP_UPDATE" then
             if WoW.IsPublic(first) and first == "player" then ObserveXP() end
         elseif event == "PLAYER_MONEY" then
             ObserveMoney()
-        elseif event == "PLAYER_DEAD" and ready then
+        elseif event == "PLAYER_DEAD" and IsTracking() then
             Model.RecordDeath(session)
-        elseif (event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST") and ready then
+        elseif (event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST") and IsTracking() then
             ObserveDeath(false)
         elseif event == "PLAYER_LOGOUT" and ready then
             ObserveMoney(); ObserveXP(); SavePosition()
-            session.elapsed = Elapsed(); ready = false
+            session.elapsed = Elapsed()
+            startedAt, ready = nil, false
         elseif event == "DISPLAY_SIZE_CHANGED" or event == "UI_SCALE_CHANGED" then
             if moving then SavePosition() else RestorePosition() end
         end

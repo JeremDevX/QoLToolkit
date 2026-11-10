@@ -49,23 +49,46 @@ local function RemainingXP(xp, maximum)
     return math.max(0, maximum - xp)
 end
 
+local function Levels(session)
+    if FiniteNumber(session.levels) and session.levels >= 0 then return session.levels end
+    return math.max(0, session.lastLevel - session.startLevel)
+end
+
+local function UpdateLevel(session, level, count)
+    session.levels = Levels(session) + (count and math.max(0, level - session.lastLevel) or 0)
+    session.lastLevel = level
+end
+
+function M.BaselineXP(session, xp, maximum, level)
+    if xp == nil or level < session.lastLevel then
+        session.xpPending, session.approximateXP = true, true
+        return false
+    end
+    UpdateLevel(session, level, false)
+    session.lastXP, session.lastMaxXP = xp, maximum
+    if session.startLevel == 0 then session.startLevel = level end
+    session.xpPending = nil
+    return true
+end
+
 -- The level-up event can arrive before the matching XP snapshot.
-function M.ObserveLevelUp(session, level)
-    if session.xpPending or not level or level <= session.lastLevel then return false end
+function M.ObserveLevelUp(session, level, paused)
+    if not level or level <= session.lastLevel then return false end
+    if paused then
+        UpdateLevel(session, level, false)
+        return false
+    end
+    if session.xpPending then return false end
     if level > session.lastLevel + 1 or session.lastMaxXP == 0 then session.approximateXP = true end
     session.xp = session.xp + RemainingXP(session.lastXP, session.lastMaxXP)
-    session.lastLevel, session.lastXP, session.lastMaxXP = level, 0, 0
+    UpdateLevel(session, level, true)
+    session.lastXP, session.lastMaxXP = 0, 0
     return true
 end
 
 function M.ObserveXP(session, xp, maximum, level)
     if xp == nil then return false end
-    if session.xpPending then
-        session.lastXP, session.lastMaxXP, session.lastLevel = xp, maximum, level
-        if session.startLevel == 0 then session.startLevel = level end
-        session.xpPending = nil
-        return true
-    end
+    if session.xpPending then return M.BaselineXP(session, xp, maximum, level) end
     if level < session.lastLevel then return false end
     local difference
     if level > session.lastLevel then
@@ -76,7 +99,8 @@ function M.ObserveXP(session, xp, maximum, level)
         difference = xp - session.lastXP
     end
     session.xp = session.xp + math.max(0, difference)
-    session.lastXP, session.lastMaxXP, session.lastLevel = xp, maximum, level
+    UpdateLevel(session, level, true)
+    session.lastXP, session.lastMaxXP = xp, maximum
     return true
 end
 
@@ -100,5 +124,5 @@ end
 function M.Totals(session, elapsed)
     if not session then return {} end
     return {duration = elapsed, xp = session.xp, income = session.income, expense = session.expense,
-        net = NetMoney(session), deaths = session.deaths, levels = math.max(0, session.lastLevel - session.startLevel)}
+        net = NetMoney(session), deaths = session.deaths, levels = Levels(session)}
 end

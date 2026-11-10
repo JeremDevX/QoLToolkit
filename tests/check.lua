@@ -194,3 +194,15 @@ diagnosticNS.InitializeDiagnostics()
 assert(ForeverTooltipLibreDB.diagnostics == trace, "Keep the saved capture on startup")
 print = previousPrint
 print("PASS: opt-in diagnostics, geometry, filtered events, export, and limits")
+
+local journalNS = {}
+chunks["Modules/SessionJournalModel.lua"]("QoLToolkit", journalNS)
+local journal = journalNS.SessionJournalModel
+local legacySession = journal.New(90, 100, 10, 0)
+legacySession.lastLevel, legacySession.xp = 11, 100
+assert(journal.BaselineXP(legacySession, 40, 100, 13))
+assert(journal.ObserveXP(legacySession, 60, 100, 13))
+assert(journal.ObserveXP(legacySession, 5, 100, 14))
+local tracked = journal.Totals(legacySession, 0)
+assert(tracked.xp == 165 and tracked.levels == 2, "Do not count XP or levels gained while tracking was paused")
+print("PASS: session XP and level baselines across a pause")

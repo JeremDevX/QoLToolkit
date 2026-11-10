@@ -30,7 +30,6 @@ for source, translation in pairs({
     [" / Survol : tout"] = " / Hover: all",
     [" / Zéros masqués"] = " / Zeros hidden",
     ["Réinitialiser les stats"] = "Reset stats",
-    ["Survole XP gagnée ou Or reçu pour le taux horaire.\nNouvelle connexion : remise à zéro. /reload : stats conservées.\nTemps AFK inclus. ≥ : données XP incomplètes."] = "Hover over XP gained or Gold received to see the hourly rate.\nLogging in resets stats. /reload keeps them.\nIncludes AFK time. ≥ means XP data is incomplete.",
     ["Police, opacité et thème : apparence personnalisée."] = "Customize the font, opacity, and theme.",
     ["Afficher la bordure"] = "Show border",
     ["Largeur min."] = "Min. width",
@@ -117,6 +116,14 @@ for source, translation in pairs({
     ["Afficher la distance en mètres"] = "Show distance in meters",
     ["Au-dessus du nom de la cible. Vert jusqu’à 10 m, jaune jusqu’à 30 m, rouge au-delà. Jaune aussi si la fourchette chevauche un seuil. 28+ indique une borne basse seule."] = "Appears above the target name. Green up to 10 m, yellow up to 30 m, and red beyond 30 m. Ranges that cross a threshold appear yellow. 28+ means at least 28 m.",
     ["Au-dessus du nom · mètres"] = "Above target name · meters",
+    ["Arrêter le suivi"] = "Stop tracking",
+    ["Démarrer le suivi"] = "Start tracking",
+    ["En pause (AFK)"] = "Paused (AFK)",
+    ["Mettre en pause pendant l’AFK"] = "Pause while AFK",
+    ["Session arrêtée"] = "Session stopped",
+    ["Session en cours"] = "Session running",
+    ["Statut AFK indisponible"] = "AFK status unavailable",
+    ["Survole XP gagnée ou Or reçu pour le taux horaire.\nLe démarrage reprend les compteurs. L’option AFK suspend le suivi jusqu’au retour.\nUne nouvelle connexion remet les compteurs à zéro et démarre le suivi.\n/reload conserve les compteurs et l’arrêt manuel. ≥ indique des données XP incomplètes."] = "Hover over XP gained or Gold received to see the hourly rate.\nStarting resumes the counters. The AFK option pauses tracking until you return.\nLogging in resets the counters and starts tracking.\n/reload keeps the counters and manual stop. ≥ means XP data is incomplete.",
 }) do
     ns.English[source] = translation
 end

@@ -45,6 +45,23 @@ local function Unsupported(node, reason)
     node.unsupported = node.unsupported or reason
 end
 
+local function RecognizeClassRows(rows, rowSet)
+    -- Forever 1.60.1.70862 class grid. Require all seven rows before ignoring outliers.
+    local firstY, spacing, rowCount = 2130, 600, 7
+    for index = 0, rowCount - 1 do
+        if not rowSet[firstY + index * spacing] then return nil end
+    end
+    local rowIndex = {}
+    for _, y in ipairs(rows) do
+        local index = math.floor((y - firstY) / spacing + 0.5)
+        -- Some class talents sit ten units above or below their row.
+        if index >= 0 and index < rowCount and math.abs(y - (firstY + index * spacing)) <= 10 then
+            rowIndex[y] = index
+        end
+    end
+    return rowIndex
+end
+
 local function Conditions(configID, ids, node, currencyID)
     if not Table(ids) then
         Unsupported(node, "Conditions de ce talent indisponibles.")
@@ -262,7 +279,7 @@ local function Read(frame)
         end
     end
     if count == 0 then return Fail("Aucun talent visible pour cette classe.") end
-    -- Only use geometry when every node in a branch has a coherent, equally spaced row.
+    -- Only infer points from a recognized grid.
     -- ponytail: five points per row is a Forever/Classic fallback, not a generic trait rule.
     for _, group in ipairs(catalog.groups) do
         local rowSet, rows, coherent = {}, {}, true
@@ -282,12 +299,17 @@ local function Read(frame)
         if #rows < 2 or #rows > 10 then coherent = false end
         local step = #rows > 1 and rows[2] - rows[1] or 0
         for i = 3, #rows do if math.abs(rows[i] - rows[i-1] - step) > 1 then coherent = false end end
+        local rowIndex = {}
         if coherent and step > 0 then
-            local rowIndex = {}
             for i, y in ipairs(rows) do rowIndex[y] = i - 1 end
-            for _, node in pairs(catalog.nodes) do
-                if node.groupID == group.id then
-                    local rowPoints = rowIndex[node.posY] * 5
+        else
+            rowIndex = RecognizeClassRows(rows, rowSet) or rowIndex
+        end
+        for _, node in pairs(catalog.nodes) do
+            if node.groupID == group.id then
+                local row = rowIndex[node.posY]
+                if row then
+                    local rowPoints = row * 5
                     if not node.requiredPointsSource then
                         node.requiredPoints = rowPoints
                         node.requiredPointsSource = "position"
@@ -304,11 +326,7 @@ local function Read(frame)
                     end
                     ResolveRowGate(node)
                     for _, entry in pairs(node.entries) do ResolveRowGate(entry) end
-                end
-            end
-        else
-            for _, node in pairs(catalog.nodes) do
-                if node.groupID == group.id and not node.requiredPointsSource then
+                elseif not node.requiredPointsSource then
                     Unsupported(node, "Palier de branche inconnu : disposition non reconnue.")
                 end
             end

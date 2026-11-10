@@ -41,6 +41,14 @@ driver:Hide()
 local itemCandidates = {8149, 15826, 17117, 9606, 10699, 4559, 10645, 1191,
     13289, 835, 7734, 18904, 1399, 4945, 8348, 221316}
 
+-- These Hunter spells use the caster or their pet regardless of the selected unit.
+local implicitSpellTargets = {
+    [2641] = "pet", [6991] = "pet", -- Dismiss Pet, Feed Pet
+    [136] = "pet", [3111] = "pet", [3661] = "pet", [3662] = "pet",
+    [13542] = "pet", [13543] = "pet", [13544] = "pet", -- Mend Pet ranks
+    [13163] = "player", -- Aspect of the Monkey
+}
+
 local function Finite(value)
     return IsFiniteNumber(value) and value >= 0
 end
@@ -156,12 +164,15 @@ end
 
 local function ReadSpellBand(band, unit)
     for _, probe in ipairs(band.probes) do
-        local status, inRange = ReadAPI(C_SpellBook.IsSpellBookItemInRange, probe.slot, Enum.SpellBookSpellBank.Player, unit)
-        if status == "absent" or (status == "ok" and inRange == nil) then
-            status, inRange = ReadAPI(C_Spell.IsSpellInRange, probe.id, unit)
+        local implicitTarget = implicitSpellTargets[probe.id]
+        if not implicitTarget or Read(UnitIsUnit, unit, implicitTarget) == true then
+            local status, inRange = ReadAPI(C_SpellBook.IsSpellBookItemInRange, probe.slot, Enum.SpellBookSpellBank.Player, unit)
+            if status == "absent" or (status == "ok" and inRange == nil) then
+                status, inRange = ReadAPI(C_Spell.IsSpellInRange, probe.id, unit)
+            end
+            if status == "error" or status == "secret" then return end
+            if type(inRange) == "boolean" then return inRange end
         end
-        if status == "error" or status == "secret" then return end
-        if type(inRange) == "boolean" then return inRange end
     end
 end
 

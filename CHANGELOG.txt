@@ -1,11 +1,5 @@
-QoL Toolkit 0.1.1 for WoW Forever 1.60.1
+QoL Toolkit 0.1.2 for WoW Forever 1.60.1
 
-- Dashboard and shortcuts. Open settings with /qt or the movable, optional minimap button. Pin favorite modules to the top and launch previews from the dashboard. Module commands now use /qtsession, /qttooltip, /qtbuild, and /qtrank. Previous commands still work.
-- Settings and layout. Module pages separate behavior, visibility, and appearance. The shared Layout editor previews frame moves before you apply them and restores their previous positions if you cancel. Previews close when you leave settings.
-- Themes and profiles. Choose Warm, Classic Blizzard, or Modern Dark Mode. Adjust shared text size, scale, opacity, borders, and colors, or use custom appearance for individual modules. The journal keeps its own appearance. Partial profiles preserve each module's theme choice, and you can delete saved profiles after confirmation.
-- Session Journal. Start or pause tracking from the journal, its settings, or /qtsession start and stop. Optional AFK pause resumes tracking when you return. Hourly gold now uses net gold. Reloading preserves totals and a manual pause.
-- Bags. Mark uncollected transmog appearances on bag items. The backpack shortcut lets you toggle sorting, rarity borders, and transmog markers separately. Adjust rarity colors, border thickness, opacity, and inner glow in the full settings. Borders and glow now align with the item icons.
-- Target Distance and tooltips. See a measured distance or estimated range for the unit under your cursor, including after selecting a target. Customize rounding, badge style, placement, and colors. Mouseover distance can stay enabled with the target badge hidden.
-- Effect Reminders. Pick buffs separately from auras, stances, and tracking effects. The tracked list has clearer removal controls, and grouping, visibility, and appearance can be reset separately.
-- Talent Planner and Spell Ranks. Undo the last planned point or delete a saved build after confirmation. Preview and customize talent highlights and rank warnings from their settings, with dedicated controls for intentional lower-rank exceptions.
-- Advanced Settings and Diagnostics. Enable expert graphics settings when needed. Open the read-only client inventory from Diagnostics, or use /qtlog to record and copy a local display trace for troubleshooting.
+- Target Distance. Fixed incorrect range estimates caused by Hunter spells that always target the Hunter or their pet.
+- Talent Planner. Fixed planned builds failing to load or advance when a class tree contains talents outside its regular rows.
+- Bags. Fixed the inner glow intensity slider in both the full settings and the backpack shortcut. Changes now show immediately on open bags.

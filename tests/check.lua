@@ -221,17 +221,19 @@ UnitDistanceSquared = function() return measured, checked end
 UnitCanAttack = function() return hostile end
 UnitCanAssist = function() return not hostile end
 Enum = {SpellBookSpellBank = {Player = 0}, SpellBookItemType = {Spell = 1}}
+local spellIDs = {1, 2, 3, 2641, 6991, 136, 13163}
+local spellRanges = {[1] = 30, [2] = 40, [3] = 45, [2641] = 10, [6991] = 10, [136] = 20, [13163] = 100}
 C_SpellBook = {
     GetNumSpellBookSkillLines = function() return 1 end,
-    GetSpellBookSkillLineInfo = function() return {itemIndexOffset = 0, numSpellBookItems = 3} end,
-    GetSpellBookItemInfo = function(slot) return {itemType = 1, spellID = slot} end,
+    GetSpellBookSkillLineInfo = function() return {itemIndexOffset = 0, numSpellBookItems = #spellIDs} end,
+    GetSpellBookItemInfo = function(slot) return {itemType = 1, spellID = spellIDs[slot]} end,
     IsSpellBookItemInRange = function(slot) return slot ~= 1 end,
 }
 C_Spell = {
-    GetSpellInfo = function(id) return {minRange = 0, maxRange = ({30, 40, 45})[id]} end,
+    GetSpellInfo = function(id) return {minRange = 0, maxRange = spellRanges[id]} end,
     SpellHasRange = function() return true end,
     IsSpellHarmful = function(id) return id <= 2 end,
-    IsSpellHelpful = function(id) return id == 3 end,
+    IsSpellHelpful = function(id) return id >= 3 end,
 }
 chunks["Core/WoWRuntime.lua"]("QoLToolkit", distanceNS)
 chunks["Modules/TargetDistance.lua"]("QoLToolkit", distanceNS)
@@ -243,7 +245,7 @@ assert(getDistance() == nil, "Private measurements stay unavailable")
 measured, checked = 0, false
 assert(getDistance() == "Distance · ≈ 25–40 m", "Round both bounds outward")
 hostile = false
-assert(getDistance() == "Distance · ≈ 0–45 m", "Use helpful spell ranges for allies")
+assert(getDistance() == "Distance · ≈ 0–45 m", "Use helpful spell ranges for allies and ignore implicit pet/self targets")
 
 local config = distanceModule.ExportSettings()
 config.appearance.rounded = false
@@ -259,6 +261,14 @@ assert(distanceModule.ImportSettings(config) and getDistance() == "Distance · �
 local oldProfile = {enabled = false}
 distanceModule.profileMigrations[1](oldProfile, distanceModule.ExportSettings())
 assert(oldProfile.appearance.tooltip[2][1] == .2)
+hostile = false
+C_SpellBook.IsSpellBookItemInRange = function(slot) if slot > 3 then return true end end
+assert(getDistance() == nil, "No estimate when only spells with implicit targets answer")
+UnitIsUnit = function(unit, other) return unit == "mouseover" and other == "pet" end
+assert(getDistance() == "Distance · ≈ 0–10 m", "Use pet spells when hovering the player's pet")
+UnitIsUnit = function() return "secret" end
+assert(getDistance() == nil, "An unreadable unit comparison does not identify the player's pet")
+UnitIsUnit = nil
 print("PASS: target distance sources, conservative rounding, and legacy appearance settings")
 
 local frames = {}
@@ -348,7 +358,8 @@ print("PASS: minimap icon, mask, click, scaled drag, reload, and map resize")
 
 do
     local hook, bagModule, shortcut, opened
-    local bag = {GetBagID = function() return 0 end, GetFrameLevel = function() return 1 end}
+    local bag = {GetBagID = function() return 0 end, GetFrameLevel = function() return 1 end,
+        IsVisible = function() return true end}
     ContainerFrameCombinedBags = bag
     local createWidget = CreateFrame
     CreateFrame = function(kind, name, parent)
@@ -364,16 +375,18 @@ do
     end
     local slot = CreateFrame("ItemButton")
     slot.containerFrame, slot.IconBorder, slot.icon = bag, CreateFrame("Texture"), CreateFrame("Texture")
+    slot.GetBagID, slot.GetID = bag.GetBagID, function() return 1 end
+    bag.EnumerateValidItems = function() return ipairs({slot}) end
     slot.IconBorder.alpha = .8
     slot.IconBorder.GetTexture = function() return "Interface\\Common\\WhiteIconFrame" end
     local mask = CreateFrame("MaskTexture")
     slot.icon.GetMaskTexture = function() return mask end
     NUM_TOTAL_BAG_FRAMES = 5
     ContainerFrameUtil_GetShownFrameForID = function() return bag end
-    ContainerFrameUtil_EnumerateContainerFrames = function() return ipairs({}) end
+    ContainerFrameUtil_EnumerateContainerFrames = function() return ipairs({bag}) end
     hooksecurefunc = function(name, fn) assert(name == "SetItemButtonQuality"); hook = fn end
     SetItemButtonQuality = function(...) hook(...) end
-    C_Container = {GetContainerItemInfo = noop}
+    C_Container = {GetContainerItemInfo = function() return {quality = 4} end}
     C_Item = {GetItemQualityColor = function() return .64, .21, .93 end}
     CreateColor = function(...) return {...} end
     local bagsCategory = {GetID = function() return 2 end}
@@ -411,7 +424,10 @@ do
     assert(outline.points.BOTTOMRIGHT[2] == "CENTER" and outline.coords[2] < .5,
         "Thick border must magnify the native edge with no inset ring")
     assert(slot.textures[6].points.TOPLEFT[2] == "TOP" and slot.textures[8].points.TOPLEFT[2] == "CENTER")
-    assert(glow.layer == "ARTWORK" and glow.blend == "BLEND" and glow.alpha == 1 and glow.gradient[2][4] >= .9)
+    assert(glow.layer == "ARTWORK" and glow.blend == "BLEND" and glow.gradient[2][4] >= .9)
+    frames.ArkannsQOLBag_qualityInnerGlow:OnValueChanged(15)
+    assert(glow.shown and glow.gradient[1][4] == 0 and math.abs(glow.gradient[2][4] - .1425) < .0001,
+        "The main slider must update the gradient opacity on open bag slots")
     assert(bagModule.ImportSettings({enabled = false, qualityThickness = 1, qualityInnerGlow = 0}))
     SetItemButtonQuality(slot, 4)
     assert(not slot.textures[6].shown and not glow.shown and outline.points.BOTTOMRIGHT[2] == "BOTTOMRIGHT")
@@ -431,6 +447,8 @@ do
         slider:OnValueChanged(value)
         assert(bagModule.ExportSettings()[key] == value, "Backpack controls must update the shared bag settings")
     end
+    assert(glow.shown and math.abs(glow.gradient[2][4] - .38) < .0001,
+        "The backpack slider must restore the glow at the chosen intensity")
     frames.ArkannsQOLBagQuickMore:OnClick()
     assert(not quick.shown and opened == 2)
     shortcut:OnClick("RightButton")
@@ -440,8 +458,8 @@ do
 end
 print("PASS: bag border geometry, inner glow, native restoration, and backpack settings")
 
--- Keep each UI simulation isolated from the globals used above.
-for _, path in ipairs({"tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/ui_utilities.lua","tests/ui_modules.lua"}) do
+-- Keep each simulation isolated from the globals used above.
+for _, path in ipairs({"tests/talent_plan.lua","tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/ui_utilities.lua","tests/ui_modules.lua"}) do
     local chunk = assert(loadfile(path))
     local environment = setmetatable({}, {__index = testGlobals})
     environment._G = environment

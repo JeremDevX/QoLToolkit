@@ -1,9 +1,11 @@
+local testGlobals = {}
+for key, value in pairs(_G) do testGlobals[key] = value end
 local manifest = assert(io.open("QoLToolkit.toc", "r"))
 local chunks, catalogs = {}, {}
 local firstRuntimeFile, lastFile
 local addonIcon
 for line in manifest:lines() do
-    addonIcon = line:match("^## IconTexture:%s+Interface\\AddOns\\QoLToolkit\\(.+)$") or addonIcon
+    addonIcon = line:match("^## IconTexture:%s+(.+)$") or addonIcon
     local path = line:match("^%s*([^#].-%.lua)%s*$")
     if path then
         path = path:gsub("\\", "/")
@@ -21,9 +23,7 @@ end
 manifest:close()
 assert(catalogs[1] == "Locales/Locale.lua", "Load the locale selector before translations")
 assert(lastFile == "Core/Bootstrap.lua", "Load bootstrap after the modules")
-assert(addonIcon, "Declare the packaged addon icon in the manifest")
-local iconFile = assert(io.open((addonIcon:gsub("\\", "/")), "rb"))
-iconFile:close()
+assert(addonIcon == "Interface\\Icons\\INV_Misc_Wrench_01", "Use the verified native addon icon")
 
 local function CheckLocale(locale, expected)
     GetLocale = locale and function() return locale end or nil
@@ -324,6 +324,12 @@ do
     button = LoadButton()
     local center = button.points.CENTER
     assert(center[1] == Minimap and center[2] == "CENTER" and math.abs(center[3]) < .001 and center[4] == 103)
+    bootstrapNS.SetMinimapVisible(false)
+    assert(ForeverTooltipLibreDB.minimapHidden and not bootstrapNS.IsMinimapVisible())
+    button = LoadButton()
+    assert(not bootstrapNS.IsMinimapVisible(), "Keep minimap visibility across reload")
+    bootstrapNS.SetMinimapVisible(true)
+    assert(bootstrapNS.IsMinimapVisible())
     diameter = 160
     Minimap:OnSizeChanged()
     assert(button.points.CENTER[4] == 84)
@@ -372,3 +378,11 @@ do
     assert(not outline.shown and slot.IconBorder.alpha == .8)
 end
 print("PASS: bag border geometry, inner glow, and native restoration")
+
+-- Keep each UI simulation isolated from the globals used above.
+for _, path in ipairs({"tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/ui_utilities.lua","tests/ui_modules.lua"}) do
+    local chunk = assert(loadfile(path))
+    local environment = setmetatable({}, {__index = testGlobals})
+    environment._G = environment
+    setfenv(chunk, environment)()
+end

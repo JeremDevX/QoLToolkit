@@ -7,7 +7,7 @@ QoL Toolkit is a modular addon for **World of Warcraft Forever 1.60.1**. Build t
 | Module | What it does |
 | --- | --- |
 | Talent Planner | Build a plan point by point. The talent tree shows when to take each rank and highlights the next available point. |
-| Session Journal | Track time, XP, time to the next level, gold, deaths, and levels gained. Hover over XP or money gained for hourly rates. Start or stop tracking manually, or enable automatic AFK pauses. |
+| Session Journal | Track time, XP, time to the next level, gold, deaths, and levels gained. Hover over XP gained or the gold balance for hourly rates. Start or stop tracking manually, or enable automatic AFK pauses. |
 | Effect Reminders | Pick buffs, auras, stances, and tracking effects to watch. A customizable window shows the missing effects. |
 | Tooltips | Move or scale supported tooltips, or have them follow the cursor. Unit tooltips can also show a measured or estimated distance. WoW quest details and tooltip content are preserved. |
 | Spell Rank Guard | Flag spells on supported action bars when a higher rank is already in your spellbook. Add exceptions for ranks you keep on purpose. |
@@ -15,7 +15,7 @@ QoL Toolkit is a modular addon for **World of Warcraft Forever 1.60.1**. Build t
 | Bags | Customize rarity colors, border thickness, and inner glow. Mark uncollected appearances and optionally sort on manual bag opening, outside combat and away from the bank. |
 | Advanced Settings | Browse available client settings and graphics options, check defaults, and reset individual or selected settings. |
 
-Use the dashboard to pin modules, preview appearance changes, and position supported windows. Named profiles share selected module settings across characters on the same account. Talent builds and journal totals stay with their character.
+Use the dashboard to pin modules, preview appearance changes, and position supported windows. Favorites appear first. Local Move buttons open the shared Layout editor; Apply keeps moved frames and Cancel restores their original placement. The minimap button can be dragged or hidden from the dashboard. Named profiles share selected module settings across characters on the same account. Talent builds and journal totals stay with their character. Partial profiles include each module’s shared/custom appearance choice. Profiles and talent builds can be deleted after confirmation.
 
 ## Install
 
@@ -31,10 +31,18 @@ When updating, keep the folder name and your existing SavedVariables.
 
 - `/qt` opens the dashboard.
 - `/qtsession` opens the journal settings. Add `start` or `stop` to control tracking.
-- `/qttooltip` toggles the tooltip position anchor. Add `options` to open tooltip settings.
+- `/qttooltip` opens the shared Layout editor with tooltips selected. Add `options` to open tooltip settings.
 - `/qtbuild` reopens the talent plan when the talent tree is open.
 - `/qtrank on` and `/qtrank off` control spell rank warnings.
 - `/qtlog` shows the diagnostics commands.
+
+## Settings and appearance
+
+Module settings distinguish visibility from tracking and automatic actions. Hiding the journal keeps tracking running; use its play/pause control to stop tracking. Bag sorting, rarity borders, and transmog markers are independent. Quick bag settings contain these three switches and a link to the full editor.
+
+Shared appearance applies unless a module uses custom appearance. Inherited controls are disabled. Detailed appearance controls are collapsed by default. Configure mouseover distance in Target Distance; tooltip settings link to that page.
+
+Advanced graphics are opt-in. The read-only client inventory is under Diagnostics, also available with /qtlog inventory.
 
 ## Local diagnostics
 

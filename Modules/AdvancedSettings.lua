@@ -267,7 +267,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
     local inventory, inventoryError, rows, tabs = nil, nil, {}, {}
     local listing, drafts = {}, {}
     local selected, resetReview = {}, nil
-    local favoritesOnly, modifiedOnly = false, false
+    local favoritesOnly, modifiedOnly, expert = false, false, false
     local filters = {"Hors menus", "Tout", "Menus du jeu", "Protégés", "Graphismes", "Graph. hors menus"}
     local graphicsFilters = {"Tout", "Décor", "Ombres", "Effets", "Image", "Raid"}
     local graphicsFilter = 1
@@ -288,7 +288,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button, "advanced") end
         return button
     end
-    Label(panel, L("Réglages avancés"), 16, -16, "GameFontNormalLarge")
+    local title = Label(panel, L("Réglages avancés"), 16, -16, "GameFontNormalLarge")
     local intro = Label(panel, "", 16, -44)
     intro:SetPoint("TOPRIGHT", -16, -44)
     intro:SetHeight(28)
@@ -297,10 +297,20 @@ function ns.InitializeAdvancedSettings(rootCategory)
     search:SetAutoFocus(false)
     search:SetMaxLetters(80)
     search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    local filterButton = Button(panel, "ArkannsQOLAdvancedFilter", L(filters[filter]), 130, function()
-        if tab == "graphics" then graphicsFilter = graphicsFilter % #graphicsFilters + 1
-        else filter = filter % #filters + 1 end
-        refresh(true)
+    local filterButton = Button(panel, "ArkannsQOLAdvancedFilter", L(filters[filter]), 130, function(self)
+        if not MenuUtil or not MenuUtil.CreateContextMenu then return end
+        local ownerTab = tab
+        local choices = ownerTab == "graphics" and graphicsFilters or filters
+        MenuUtil.CreateContextMenu(self, function(_, menu)
+            for index, caption in ipairs(choices) do
+                local selected = index
+                menu:CreateButton(L(caption), function()
+                    if tab ~= ownerTab then return end
+                    if tab == "graphics" then graphicsFilter = selected else filter = selected end
+                    refresh(true)
+                end)
+            end
+        end)
     end)
     local favoritesButton = Button(panel, "ArkannsQOLAdvancedFavorites", L("Favoris"), 94, function()
         favoritesOnly, resetReview = not favoritesOnly, nil
@@ -350,15 +360,22 @@ function ns.InitializeAdvancedSettings(rootCategory)
     end)
     local function SelectTab(id)
         tab, query, drafts = id, "", {}
-        resetReview = nil
+        resetReview, favoritesOnly = nil, false
         search:SetText("")
         search:ClearFocus()
         Instructions()
         if id == "inventory" then inventory, inventoryError = api.Inventory() end
         refresh(true)
     end
-    for index = 1, #categories + 1 do
-        local category = categories[index] or {id = "inventory", label = L("Inventaire")}
+    local expertToggle = CreateFrame("CheckButton", "ArkannsQOLAdvancedExpert", panel, "InterfaceOptionsCheckButtonTemplate")
+    expertToggle.Text:SetText(L("Afficher les graphismes experts"))
+    expertToggle:SetScript("OnClick", function(self)
+        expert = self:GetChecked() == true
+        if not expert and tab == "graphics" then SelectTab(categories[1].id) else refresh(true) end
+    end)
+    local returnButton = Button(panel, "ArkannsQOLAdvancedReturn", L("Revenir aux réglages"), 180, function() SelectTab(categories[1].id) end)
+    for index = 1, #categories do
+        local category = categories[index]
         local button = CreateFrame("Button", "ArkannsQOLAdvancedTab" .. index, panel)
         local background = button:CreateTexture(nil, "BACKGROUND")
         background:SetAllPoints()
@@ -426,12 +443,18 @@ function ns.InitializeAdvancedSettings(rootCategory)
         end)
         row.apply = Button(row, nil, L("Appliquer"), 84, function() Commit(row, row.input:GetText()) end)
         row.apply:SetPoint("TOPLEFT", 90, -60)
-        row.choice = Button(row, nil, "", 130, function()
+        row.choice = Button(row, nil, "", 130, function(self)
             if not row.option then return end
-            local current = api.Read(row.option.name).value
-            local selected = 0
-            for i, choice in ipairs(row.option.choices) do if Equal(current, choice[1]) then selected = i end end
-            Commit(row, row.option.choices[selected % #row.option.choices + 1][1])
+            if not MenuUtil or not MenuUtil.CreateContextMenu then return end
+            local option = row.option
+            MenuUtil.CreateContextMenu(self, function(_, menu)
+                for _, choice in ipairs(option.choices) do
+                    local value = choice[1]
+                    menu:CreateButton(choice[2], function()
+                        if row.option == option then Commit(row, value) end
+                    end)
+                end
+            end)
         end)
         row.choice:SetPoint("TOPLEFT", 0, -60)
         row.default = Button(row, nil, L("Défaut"), 80, function() Commit(row, nil, true) end)
@@ -536,10 +559,20 @@ function ns.InitializeAdvancedSettings(rootCategory)
         local width = math.max(320, panel:GetWidth())
         intro:SetHeight(math.max(28, intro:GetStringHeight()))
         local top = -52 - intro:GetHeight()
-        local columns = math.max(1, math.min(#tabs, math.floor((width - 32) / 72)))
-        local tabRows = math.ceil(#tabs / columns)
+        expertToggle:ClearAllPoints(); expertToggle:SetPoint("TOPLEFT", 12, top)
+        expertToggle.Text:SetWidth(width - 60); expertToggle.Text:SetJustifyH("LEFT")
+        returnButton:ClearAllPoints(); returnButton:SetPoint("TOPLEFT", 16, top)
+        top = top - 34
+        local visibleTabs = {}
+        for _, item in ipairs(tabs) do
+            local visible = tab ~= "inventory" and (item.id ~= "graphics" or expert)
+            item.button:SetShown(visible)
+            if visible then visibleTabs[#visibleTabs + 1] = item end
+        end
+        local columns = math.max(1, math.min(#visibleTabs, math.floor((width - 32) / 72)))
+        local tabRows = math.ceil(#visibleTabs / columns)
         local tabWidth = (width - 32) / columns
-        for index, item in ipairs(tabs) do
+        for index, item in ipairs(visibleTabs) do
             item.button:ClearAllPoints()
             item.button:SetPoint("TOPLEFT", 16 + ((index - 1) % columns) * tabWidth, top - math.floor((index - 1) / columns) * 32)
             item.button:SetSize(tabWidth - 2, 28)
@@ -575,6 +608,10 @@ function ns.InitializeAdvancedSettings(rootCategory)
         refreshing = true
         listing = {}
         local isInventory = tab == "inventory" and not favoritesOnly and not resetReview
+        title:SetText(isInventory and L("Diagnostic — inventaire du client") or L("Réglages avancés"))
+        expertToggle:SetShown(not isInventory); expertToggle:SetChecked(expert)
+        returnButton:SetShown(isInventory)
+        favoritesButton:SetShown(not isInventory); reviewButton:SetShown(not isInventory)
         favoritesButton:SetText(favoritesOnly and L("Favoris seuls") or L("Favoris"))
         modifiedButton:SetText(modifiedOnly and L("Modifiés seuls") or L("Modifiés"))
         confirmButton:SetShown(resetReview ~= nil)
@@ -587,7 +624,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         filterButton:SetShown(isInventory or (tab == "graphics" and not favoritesOnly and not resetReview))
         filterButton:SetText(L(tab == "graphics" and graphicsFilters[graphicsFilter] or filters[filter]))
         for _, item in ipairs(tabs) do
-            local active = tab == item.id
+            local active = not favoritesOnly and tab == item.id
             item.button:SetEnabled(not active)
             item.background:SetColorTexture(active and .24 or .09, active and .19 or .09, active and .09 or .09, .95)
             item.label:SetTextColor(1, active and .82 or .95, active and .38 or .95)
@@ -609,11 +646,13 @@ function ns.InitializeAdvancedSettings(rootCategory)
             end
             intro:SetText(inventoryError or L("Inventaire du client, en lecture seule. « Hors menus » : aucun menu natif identifié."))
         else
-            intro:SetText(tab == "graphics" and L("Le rendu dépend du mode actif. Les préréglages de WoW peuvent remplacer ces valeurs. L’inventaire liste les variables du client.")
-                or L("Réglages hors menus. Chaque bouton Défaut reprend la valeur du client."))
+            intro:SetText(favoritesOnly and L("Favoris de toutes les catégories. Active la vue expert pour inclure les graphismes.")
+                or (tab == "graphics" and L("Graphismes experts : le rendu dépend du mode actif. Les préréglages de WoW peuvent remplacer ces valeurs.")
+                or L("Réglages hors menus. Chaque bouton Défaut reprend la valeur du client.")))
             for _, option in ipairs(catalog) do
                 local state = api.Read(option.name)
                 if ((favoritesOnly and Preferences().favorites[option.name]) or (not favoritesOnly and option.category == tab)) and not state.native
+                    and (option.category ~= "graphics" or expert)
                     and (favoritesOnly or tab ~= "graphics" or graphicsFilter == 1 or option.group == graphicsFilters[graphicsFilter])
                     and (not modifiedOnly or (state.value and state.default and not Equal(state.value, state.default)))
                     and (query == "" or SearchText(option.label .. " " .. option.name .. " " .. option.help):find(query, 1, true)) then listing[#listing + 1] = option end
@@ -638,6 +677,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         drafts = {}
         resetReview = nil
         for _, row in ipairs(rows) do row.input:ClearFocus(); row.dirty = nil; HideRowTooltip(row) end
+        if tab == "inventory" then tab = categories[1].id end
     end)
     panel:HookScript("OnSizeChanged", function() refresh() end)
     local events = CreateFrame("Frame", "ArkannsQOLAdvancedEvents")
@@ -659,13 +699,21 @@ function ns.InitializeAdvancedSettings(rootCategory)
     end
     api.OpenFavorites = function()
         favoritesOnly, modifiedOnly, resetReview = true, false, nil
+        if tab == "inventory" then tab = categories[1].id end
         query = ""; search:SetText("")
         if Settings.OpenToCategory then Settings.OpenToCategory(ns.advancedCategory:GetID()) end
         refresh(true)
     end
     api.OpenFavorite = function(name)
+        local option = byName[type(name) == "string" and name:lower() or ""]
+        if option and option.category == "graphics" then expert = true end
         api.OpenFavorites()
         search:SetText(name); query = SearchText(name); refresh(true)
+    end
+    ns.OpenAdvancedInventory = function()
+        favoritesOnly, modifiedOnly, resetReview = false, false, nil
+        if Settings.OpenToCategory then Settings.OpenToCategory(ns.advancedCategory:GetID()) end
+        SelectTab("inventory")
     end
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel, "advanced") end
     if ns.RegisterModule then

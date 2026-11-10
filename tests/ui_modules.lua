@@ -1,0 +1,191 @@
+-- Exercise the real settings callbacks without starting the game.
+local env = setmetatable({}, {__index = _G})
+env._G = env
+local frames, modules, overrides, menuItems = {}, {}, {}, {}
+local combat, dead, confirmation, lastLayout, ended = false, false, nil, nil, nil
+local methods = {}
+local function noop() end
+local function Frame(name, parent)
+    local frame = setmetatable({name = name, parent = parent, scripts = {}, shown = true,
+        width = 620, height = 400, scale = 1, text = "", points = {}, enabled = true}, {__index = methods})
+    if name then frames[name], env[name] = frame, frame end
+    return frame
+end
+setmetatable(methods, {__index = function() return noop end})
+function methods:SetSize(w, h) self.width, self.height = w, h end
+function methods:SetWidth(w) self.width = w end
+function methods:SetHeight(h) self.height = h end
+function methods:GetWidth() return self.width end
+function methods:GetHeight() return self.height end
+function methods:GetVerticalScroll() return 0 end
+function methods:GetScale() return self.scale end
+function methods:GetEffectiveScale() return self.scale end
+function methods:SetScale(value) self.scale = value end
+function methods:GetLeft() return 100 end
+function methods:GetTop() return 500 end
+function methods:GetCenter() return 300, 300 end
+function methods:SetPoint(...) self.points[#self.points + 1] = {...} end
+function methods:ClearAllPoints() self.points = {} end
+function methods:SetText(value) self.text = value end
+function methods:GetText() return self.text end
+function methods:GetStringWidth() return #self.text * 6 end
+function methods:GetUnboundedStringWidth() return #self.text * 6 end
+function methods:GetStringHeight() return 14 * (1 + select(2, self.text:gsub("\n", ""))) end
+function methods:SetScript(key, fn) self.scripts[key] = fn end
+function methods:HookScript(key, fn)
+    local previous = self.scripts[key]
+    self.scripts[key] = function(...) if previous then previous(...) end; fn(...) end
+end
+function methods:Show() self.shown = true end
+function methods:Hide() self.shown = false end
+function methods:SetShown(value) self.shown = value == true end
+function methods:IsShown() return self.shown end
+function methods:IsVisible() return self.shown and (not rawget(self, "parent") or self.parent:IsVisible()) end
+function methods:SetEnabled(value) self.enabled = value == true end
+function methods:EnableMouse(value) self.mouse = value end
+function methods:EnableMouseMotion(value) self.mouseMotion = value end
+function methods:SetFrameStrata(value) self.strata = value end
+function methods:SetChecked(value) self.checked = value end
+function methods:GetChecked() return self.checked end
+function methods:SetValue(value) self.value = value end
+function methods:GetFontString() self.fontString = rawget(self, "fontString") or Frame(); return self.fontString end
+function methods:CreateFontString(name) return Frame(name, self) end
+function methods:CreateTexture(name) return Frame(name, self) end
+function methods:GetThumbTexture() return Frame() end
+function methods:HasFocus() return false end
+function methods:IsForbidden() return false end
+function methods:GetOwner() return self.owner end
+function methods:SetOwner(value) self.owner = value end
+function methods:SetParent(parent) self.parent = parent end
+env.CreateFrame = function(_, name, parent) return Frame(name, parent) end
+env.UIParent = Frame(); env.UIParent:SetSize(1440, 900)
+env.UISpecialFrames, env.SlashCmdList = {}, {}
+env.InCombatLockdown = function() return combat end
+env.UnitIsDeadOrGhost = function() return dead end
+env.GetTime = function() return 0 end
+env.C_Timer = {After = noop, NewTicker = function() return {Cancel = noop} end}
+env.Settings = {RegisterCanvasLayoutSubcategory = function() return {GetID = function() return 1 end} end}
+env.MenuUtil = {CreateContextMenu = function(_, build)
+    menuItems = {}
+    build(nil, setmetatable({CreateButton = function(_, text, callback) menuItems[text] = callback end}, {__index = function() return noop end}))
+end}
+local ns = {L = function(text) return text end, UI = {}, TalentPlanData = {Read = function() return nil end}}
+ns.UI.IsOverride = function(id) return overrides[id] == true end
+ns.UI.SetOverride = function(id, value) overrides[id] = value; if modules[id] then modules[id].Refresh() end end
+ns.UI.GetStyle = function() return nil end
+ns.UI.StyleFrame, ns.UI.StylePanel, ns.UI.StyleButton = noop, noop, noop
+ns.UI.StartLayout = function(id) lastLayout = id; return true end
+ns.UI.Confirm = function(_, accept) confirmation = accept; return true end
+ns.UI.PreviewEnded = function(id) ended = id end
+ns.RegisterModule = function(id, descriptor) modules[id] = descriptor end
+local function Load(path)
+    local chunk = assert(loadfile(path)); setfenv(chunk, env); chunk("QoLToolkit", ns)
+end
+Load("Core/WoWRuntime.lua")
+Load("Modules/AuraReminderModel.lua")
+Load("Modules/AuraReminders.lua")
+ns.InitializeReminders({})
+local previewStarted = modules.reminders.Preview(true)
+local reminder = frames.ArkannsQOLReminder
+assert(reminder.mouse == false and reminder.mouseMotion == false and reminder.strata == "HIGH", "Layout reminders must leave input to their mover")
+assert(previewStarted == true)
+assert(not frames.ArkannsQOLReminderTestControls.shown, "Layout has one set of controls")
+modules.reminders.StopPreview(); assert(ended == "reminders")
+combat = true
+local ok, reason = modules.reminders.Preview()
+assert(ok == false and type(reason) == "string", "Rejected preview must explain why")
+combat = false
+assert(frames.ArkannsQOLAppearancefontSize.enabled == false, "Inherited style cannot be edited")
+overrides.reminders = true; modules.reminders.Refresh()
+assert(frames.ArkannsQOLAppearancefontSize.enabled)
+local appearance = env.ArkannsQOLRemindersDB.appearance
+appearance.title, appearance.customTitle = "My reminder", true
+appearance.width, appearance.layout, appearance.columns = 555, "grid", 3
+frames.ArkannsQOLAppearanceTheme.scripts.OnClick(frames.ArkannsQOLAppearanceTheme)
+assert(menuItems["Compact"]); menuItems["Compact"]()
+assert(appearance.title == "My reminder" and appearance.customTitle)
+assert(appearance.width == 555 and appearance.layout == "grid" and appearance.columns == 3, "Theme keeps content and layout")
+frames.ArkannsQOLAppearancePlace.scripts.OnClick()
+assert(lastLayout == "reminders")
+frames.ArkannsQOLReminderSettings:SetWidth(340)
+frames.ArkannsQOLReminderSettings.scripts.OnSizeChanged()
+assert(frames.ArkannsQOLAppearanceTab.points[1][3] < frames.ArkannsQOLEffectsTab.points[1][3], "Narrow tabs stack")
+
+Load("Modules/SessionJournalModel.lua")
+Load("Modules/SessionJournal.lua")
+ns.InitializeSessionJournal({})
+assert(modules.session.toggleLabel == "Afficher le journal")
+assert(modules.session.Preview(true) == true and frames.ArkannsQOLSessionWindow.mouse == false)
+assert(frames.ArkannsQOLSessionWindow.strata == "MEDIUM")
+assert(frames.ArkannsQOLSessionTrackingToggle.mouse == false)
+assert(frames.ArkannsQOLSessionHover_xp.mouseMotion == false)
+modules.session.StopPreview(); assert(ended == "session")
+modules.session.Preview(); assert(frames.ArkannsQOLSessionWindow.strata == "DIALOG")
+modules.session.StopPreview(); assert(frames.ArkannsQOLSessionWindow.strata == "MEDIUM")
+assert(frames.ArkannsQOLSession_fontSize.enabled == false)
+overrides.session = true; modules.session.Refresh()
+assert(frames.ArkannsQOLSession_fontSize.enabled)
+frames.ArkannsQOLSessionPlace.scripts.OnClick()
+assert(lastLayout == "session")
+assert(frames.ArkannsQOLSessionHover_net and not frames.ArkannsQOLSessionHover_income, "Net hourly rate belongs to net gold")
+combat = true
+assert(modules.session.Preview() == false)
+combat = false
+
+Load("Modules/TalentPlanModel.lua")
+local first, second, third = {}, {}, {}
+local bucket = {plans = {first, second, third}, active = 3}
+assert(ns.TalentPlanModel.DeletePlan(bucket, second))
+assert(#bucket.plans == 2 and bucket.plans[1] == first and bucket.plans[2] == third and bucket.active == 2)
+assert(not ns.TalentPlanModel.DeletePlan(bucket, second), "Stale confirmation cannot delete another plan")
+assert(ns.TalentPlanModel.DeletePlan(bucket, third) and bucket.active == 1)
+assert(ns.TalentPlanModel.DeletePlan(bucket, first) and #bucket.plans == 0)
+Load("Modules/TalentPlanner.lua")
+ns.InitializeTalentPlanner({})
+assert(not frames.ArkannsQOLTalentAdvanced.shown)
+local moveY = frames.ArkannsQOLTalentMove.points[1][3]
+frames.ArkannsQOLTalentAdvancedToggle.scripts.OnClick()
+assert(frames.ArkannsQOLTalentAdvanced.shown and frames.ArkannsQOLTalentMove.points[1][3] < moveY)
+assert(-frames.ArkannsQOLTalentMove.points[1][3] + frames.ArkannsQOLTalentMove.height < 568, "Expanded appearance keeps placement controls inside the native canvas")
+frames.ArkannsQOLTalentAdvancedToggle.scripts.OnClick()
+assert(not frames.ArkannsQOLTalentAdvanced.shown and frames.ArkannsQOLTalentMove.points[1][3] == moveY)
+assert(modules.talents.Preview(true))
+local talentPreview = frames.ArkannsQOLTalentPreview
+assert(talentPreview.mouse == false and talentPreview.strata == "HIGH" and not talentPreview.close.shown)
+talentPreview.scripts.OnUpdate(talentPreview, 30)
+assert(talentPreview.shown, "Placement preview must not expire")
+modules.talents.Refresh()
+assert(talentPreview.mouse == false and not talentPreview.close.shown, "Refresh preserves passive placement")
+modules.talents.StopPreview(); assert(ended == "talents")
+modules.talents.Preview()
+talentPreview.scripts.OnUpdate(talentPreview, 13)
+assert(not talentPreview.shown and ended == "talents", "Expired preview dismisses global stop controls")
+frames.ArkannsQOLTalentMove.scripts.OnClick(); assert(lastLayout == "talents")
+combat = true; assert(modules.talents.Preview() == false); combat = false
+local native = Frame()
+native.EnumerateAllTalentButtons = function() return noop end
+env.PlayerSpellsFrame = {TalentsFrame = native}
+env.C_Timer.After = function(_, callback) callback() end
+ns.TalentPlanData.Read = function()
+    return {classToken = "TEST", className = "Test", treeID = 1, configID = 1, maxPoints = 51, availablePoints = 0,
+        nodes = {}, actualCounts = {}, actualChoices = {}}
+end
+local selected, other = {name = "Selected", order = {}}, {name = "Other", order = {}}
+local saved = {plans = {selected, other}, active = 1}
+env.ArkannsQOLTalentsDB.profiles["TEST:1:1"] = saved
+frames.ArkannsQOLTalentEvents.scripts.OnEvent(nil, "PLAYER_ENTERING_WORLD")
+frames.ArkannsQOLTalentBuild.scripts.OnClick(frames.ArkannsQOLTalentBuild)
+menuItems["Supprimer ce build"]()
+assert(confirmation and #saved.plans == 2, "Requesting deletion leaves saved builds untouched")
+menuItems.Other()
+confirmation()
+assert(#saved.plans == 1 and saved.plans[1] == other, "Confirmation deletes the named build despite selection changes")
+confirmation()
+assert(#saved.plans == 1, "Repeated acceptance cannot delete another build")
+frames.ArkannsQOLTalentBuild.scripts.OnClick(frames.ArkannsQOLTalentBuild)
+menuItems["Supprimer ce build"]()
+local replacement = {plans = {{name = "Replacement", order = {}}}, active = 1}
+env.ArkannsQOLTalentsDB.profiles["TEST:1:1"] = replacement
+modules.talents.Refresh(); confirmation()
+assert(#saved.plans == 1 and #replacement.plans == 1, "A changed profile invalidates pending deletion")
+print("PASS: passive module previews, inherited styles, theme preservation, layout shortcuts, narrow tabs, build deletion, and preview cleanup")

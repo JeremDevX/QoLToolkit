@@ -6,15 +6,17 @@ L’addon utilise la langue du client. Français pour le client français, angla
 ACCUEIL
 /qt : huit cartes avec activation, résumé, Configurer et Aperçu selon le module.
 L’étoile épingle un module. Les favoris des réglages avancés apparaissent aussi ici.
-Apparence, Disposition, Profils et Arrêter les aperçus sont accessibles depuis l'accueil.
+Les favoris apparaissent avant les cartes. Apparence, Disposition, Profils et Diagnostics
+sont accessibles depuis l'accueil. Le bouton de minicarte peut être déplacé ou masqué.
 
 THÈME CHALEUREUX
 Le fond, le texte et la bordure reprennent exactement le thème Chaleureux du journal.
-Apparence générale : police, taille, échelle, opacité, bordure, marges, espacement et couleurs.
-Pour les couleurs, saisis un code RRGGBB puis Appliquer ou Entrée.
+Apparence générale : taille du texte des modules, échelle et opacité.
+Personnalisation avancée : police, bordure, marges, espacement et couleurs.
+Pour les couleurs, utilise le sélecteur visuel ou saisis un code RRGGBB puis Appliquer.
 Chaque module hérite du thème commun. « Apparence propre à ce module » reprend
 ses réglages locaux ; « Reprendre le thème commun » rétablit l'héritage.
-Tes réglages locaux et les modules désactivés sont conservés.
+Les réglages hérités sont grisés. Tes réglages locaux et les modules désactivés sont conservés.
 Les couleurs d'alerte restent distinctes du texte normal.
 
 DISPOSITION
@@ -22,7 +24,9 @@ Ouvre Disposition hors combat : les fenêtres de démonstration apparaissent.
 Glisse les cadres ; les exemples suivent le déplacement. Grille et accrochage facultatifs.
 Clique sur un cadre pour régler précisément son centre avec X % et Y %.
 Recentrer agit sur le cadre sélectionné. Valider conserve les nouvelles positions.
-Annuler, Échap, clic droit ou Quitter les aperçus restaure les positions précédentes.
+Annuler, Échap ou clic droit restaure les positions précédentes.
+Les boutons Déplacer ouvrent cet éditeur sur le module concerné. Valider sans déplacer
+un module conserve son ancrage d'origine, notamment l'ancrage automatique des talents.
 Entrer en combat annule la disposition. Les coordonnées sont relatives à l'écran.
 Le panneau de talents utilise un exemple : le mode Disposition n'ouvre pas l'arbre WoW.
 Les badges de rang restent attachés aux boutons de sorts ; leur position se règle par coin.
@@ -56,6 +60,8 @@ Si ce nom existe déjà, le bouton Remplacer demande un second clic pour confirm
 Sélectionne les modules à copier, clique sur Voir les changements, puis Appliquer.
 Annuler l'application restaure la configuration précédente si elle n'a pas changé depuis.
 Les profils contiennent les préférences, apparences, positions et effets surveillés.
+Chaque module copié conserve son choix d'apparence commune ou personnalisée.
+Supprimer un profil demande confirmation ; les réglages actuellement appliqués restent en place.
 Ils ne copient pas les compteurs du journal, les builds de talents ni les valeurs graphiques
 du client. Les builds restent propres au personnage ; les favoris graphiques sont copiés.
 Aucun réglage du jeu n'est modifié simplement en ouvrant ou en prévisualisant un profil.
@@ -95,9 +101,9 @@ Apparence :
 - Police, tailles du texte et du titre, contour, ombre et alignement.
 - Icônes, titre personnalisé, couleurs, opacité et bordure.
 - Couleurs : clic sur le carré ou code hex + Entrée.
-- Classique : apparence par défaut. Liste et position conservées.
+- Les thèmes conservent le titre personnalisé, la disposition et les dimensions.
 - Tester : aperçu de 6 effets maximum.
-- Déplacer : glisser le cadre. Recentrer : retrouver le cadre.
+- Déplacer : ouvrir le mode Disposition. Son bouton Recentrer permet de retrouver le cadre.
 
 Fermer le test : ×, clic droit ou Échap.
 Le test s'arrête aussi en quittant l'onglet, en rouvrant ou fermant les options,
@@ -115,7 +121,7 @@ Stats : durée, XP, prochain niveau, or reçu, or dépensé, solde, morts et niv
 Icônes natives de WoW, à la taille du texte.
 Montants affichés avec les pièces d'or, d'argent et de cuivre.
 - Durée : temps de suivi. Les pauses et le chargement de /reload sont exclus.
-- Survol d'XP gagnée : XP/h. Survol d'Or reçu : or net/h (reçu − dépensé).
+- Survol d'XP gagnée : XP/h. Survol du Solde : or net/h (reçu − dépensé).
   Journal verrouillé, taux disponibles après 1 min. Les clics passent à travers.
 - Prochain niveau : estimation toujours affichée, basée sur l'XP moyenne de la session.
   « Calcul... » avant 1 min ou sans gain d'XP. « Niv. max » au niveau maximum.
@@ -127,20 +133,20 @@ Montants affichés avec les pièces d'or, d'argent et de cuivre.
 
 Choisis les stats, le thème, la largeur, le texte, l'opacité, le titre,
 la bordure et le mode compact. La largeur s'adapte aux chiffres longs.
-Déverrouiller : glisser le cadre. Verrouiller ou clic droit : fixer la position.
-Une fois verrouillé, le cadre laisse passer les clics. Recentrer permet de le retrouver.
+Déplacer ouvre le mode Disposition. Valider conserve le déplacement ; Annuler le restaure.
+Le cadre verrouillé laisse passer les clics. Recentrer, dans Disposition, permet de le retrouver.
 
 INFOBULLES
 Réglages communs aux personnages. /qttooltip options ouvre les options.
 Échelle : 50 à 200 %. 100 % correspond à la taille native, texte compris.
 Suivi du curseur : PNJ, objets, sacs et sorts. Hors comparaisons et fenêtres tierces.
 Position fixe : PNJ et objets du monde. Désactive le suivi du curseur pour la régler.
-Déplacer : glisser le cadre. Clic droit : verrouiller. Ancrage en bas à gauche.
+Déplacer ouvre le mode Disposition. Ancrage de l’infobulle en bas à gauche du cadre.
 Survole à nouveau après un réglage.
 Le contenu natif, dont les infos de quête déjà présentes, est conservé.
 La distance dans l’infobulle concerne l’unité survolée. Elle s’affiche sous forme
 de mesure ou de fourchette lorsque le client fournit assez d’informations.
-Tu peux désactiver « Afficher la distance au survol » dans Visibilité.
+Tu peux désactiver « Afficher la distance au survol » dans Distance de la cible.
 Si un autre addon déplace les tooltips, désactive son option de placement.
 
 BUILDS DE TALENTS
@@ -151,10 +157,11 @@ Plans enregistrés par personnage et spécialisation primaire / secondaire.
 - Nouveau : créer un build. Le champ de nom apparaît en mode édition.
 - Modifier le build : clic sur un talent pour ajouter le point du niveau suivant.
 - Clic droit : retirer son dernier rang, si le reste du plan reste valide.
-- Annuler : retirer le dernier point du plan.
+- Retirer le dernier point : retirer le dernier point du plan.
+- Supprimer : supprimer le build sélectionné après confirmation.
 - Terminer : revenir au suivi et aux clics normaux de l'arbre.
 - Aperçu au niveau, en édition : afficher les rangs prévus à ce niveau.
-- Glisse le titre pour déplacer le panneau. × ou Échap pour le fermer.
+- Glisser le titre ou cliquer Déplacer ouvre le mode Disposition. Croix de fermeture ou Échap pour fermer le panneau.
 - /qtbuild : réafficher le panneau quand l'arbre est ouvert.
 
 En suivi, le badge dans l'icône indique le prochain niveau de ce talent : 10,
@@ -212,15 +219,16 @@ et les couleurs du badge et de la ligne dans l’infobulle.
 
 SACS
 Le bouton QoL dans l’en-tête ouvre les réglages rapides au clic gauche.
-« Plus de réglages » ouvre la page complète. Le clic droit ouvre l’accueil.
+Les réglages rapides présentent Tri, Contours et Transmos, trois fonctions indépendantes.
+« Tous les réglages » ouvre la page complète. Le clic droit ouvre l’accueil.
 Personnalise la couleur par rareté, l’opacité, l’épaisseur et le halo intérieur.
 Une icône en haut à droite signale une apparence de transmogrification à collectionner.
 Tu peux désactiver « Transmos manquantes » dans les réglages rapides.
 Le tri facultatif se lance à l’ouverture manuelle des sacs, hors combat et hors banque.
 
 RACCOURCIS
-/qttooltip : afficher / masquer le cadre de placement.
-/qttooltip unlock ou /qttooltip placer : déplacer. /qttooltip lock : verrouiller.
+/qttooltip : ouvrir le mode Disposition avec le cadre Infobulles sélectionné.
+/qttooltip unlock ou /qttooltip placer : même éditeur. /qttooltip lock : valider et fermer.
 /qttooltip reset : réinitialiser la position, sans changer l'échelle.
 /qttooltip taille 120 : échelle à 120 %.
 /qttooltip curseur on ou off : suivi du curseur.
@@ -237,6 +245,7 @@ DIAGNOSTIC LOCAL
 - /qtlog stop : termine la capture.
 - /qtlog show : ouvre la trace hors combat. Copie le texte sélectionné avec Ctrl+C.
 - /qtlog clear : efface la trace.
+- /qtlog inventory : ouvre l'inventaire du client en lecture seule, également accessible dans Diagnostics.
 
 La trace relève deux fois par seconde les changements de position, d’ancrage,
 de taille, de visibilité et de couche des cadres suivis. Elle note certains
@@ -252,13 +261,13 @@ Description courte, recherche, valeur actuelle, défaut et reset par ligne.
 Nombres : Appliquer ou Entrée. Échap annule la saisie. Cases : effet immédiat.
 Une saisie refusée reste disponible. Les saisies sont conservées pendant le défilement.
 La recherche accepte les noms avec ou sans accents.
-Graphismes : 43 options, dont 15 variantes raid.
+Graphismes : activer la vue expert pour afficher les 43 options, dont 15 variantes raid.
 Filtre par famille : Tout, Décor, Ombres, Effets, Image, Raid.
 Le profil raid doit être activé dans les options graphiques de WoW pour s'appliquer.
 Les préréglages graphiques du jeu peuvent remplacer les valeurs personnalisées.
 Modifications hors combat uniquement. Aucun changement automatique à l'ouverture.
 Les variables absentes ou verrouillées restent désactivées. Les menus natifs sont exclus.
-L'onglet Inventaire recense les variables accessibles du client en lecture seule.
+Diagnostics > Inventaire du client recense les variables accessibles en lecture seule.
 Le filtre Hors menus signifie qu'aucun menu natif n'a été identifié.
 Les filtres Graphismes et Graph. hors menus recensent aussi les variables non exposées.
 Les commandes internes et les modes non documentés restent en lecture seule.

@@ -25,6 +25,8 @@ local backdrops = {
     text = false,
 }
 local activeTier
+local frameStrata = {BACKGROUND = true, LOW = true, MEDIUM = true, HIGH = true, DIALOG = true,
+    FULLSCREEN = true, FULLSCREEN_DIALOG = true, TOOLTIP = true}
 local itemBands, checkingItemUnit
 local blockedItemChecks = {}
 local mouseoverEnabled, monitoring
@@ -262,6 +264,8 @@ end
 local function CreateBadge(parent)
     local frame = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     frame:SetSize(48, 23)
+    frame:SetClampedToScreen(true)
+    frame:EnableMouse(false)
     local text = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     text:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
     text:SetPoint("CENTER")
@@ -302,6 +306,18 @@ local function UpdateDistance()
     if not badge then
         badge, label = CreateBadge(driver)
         badge:Hide()
+    end
+    local layer, level = Read(frame.GetFrameStrata, frame), Read(frame.GetFrameLevel, frame)
+    if frameStrata[layer] then badge:SetFrameStrata(layer) end
+    if IsFiniteNumber(level) and level >= 0 then badge:SetFrameLevel(level + 1) end
+    local targetScale, parentScale = Read(frame.GetEffectiveScale, frame), Read(driver.GetEffectiveScale, driver)
+    if IsFiniteNumber(targetScale) and IsFiniteNumber(parentScale) and targetScale > 0 and parentScale > 0 then
+        badge:SetScale(targetScale / parentScale)
+    end
+    local alpha = Read(frame.GetEffectiveAlpha, frame)
+    local parentAlpha = Read(driver.GetEffectiveAlpha, driver)
+    if IsFiniteNumber(alpha) and IsFiniteNumber(parentAlpha) and parentAlpha > 0 then
+        badge:SetAlpha(math.max(0, math.min(1, alpha / parentAlpha)))
     end
     if anchor ~= relativeTo then
         badge:ClearAllPoints()
@@ -391,6 +407,17 @@ local function AppearanceChanged(reanchor)
     if refreshSettings then refreshSettings() end
 end
 
+local function MouseoverSetting()
+    if ns.GetMouseoverDistanceSetting then return ns.GetMouseoverDistanceSetting() end
+    return ForeverTooltipLibreDB.mouseoverDistance ~= false
+end
+
+local function SetMouseoverSetting(value)
+    if ns.SetMouseoverDistanceSetting then ns.SetMouseoverDistanceSetting(value)
+    else ForeverTooltipLibreDB.mouseoverDistance = value == true end
+    if refreshSettings then refreshSettings() end
+end
+
 local function RegisterSettings(root)
     if not root or not Settings or not Settings.RegisterCanvasLayoutSubcategory then return end
     local UI = ns.UI
@@ -403,23 +430,24 @@ local function RegisterSettings(root)
     scroll:SetPoint("TOPLEFT", 20, -54)
     scroll:SetPoint("BOTTOMRIGHT", -34, 16)
     local body = CreateFrame("Frame", nil, scroll)
-    body:SetSize(508, 466)
+    body:SetSize(508, 556)
     scroll:SetScrollChild(body)
 
     local toggle = UI.Check(body, "ArkannsQOLTargetDistanceEnabled", L("Afficher le badge de la cible"), 0, 0, SetEnabled)
-    local rounded = UI.Check(body, nil, L("Arrondir les estimations par pas de 5 m"), 0, -30, function(value)
+    local mouseover = UI.Check(body, "ArkannsQOLDistanceMouseover", L("Afficher la distance au survol"), 0, -30, SetMouseoverSetting)
+    local rounded = UI.Check(body, nil, L("Arrondir les estimations par pas de 5 m"), 0, -60, function(value)
         db.appearance.rounded = value
     end)
-    UI.Label(body, L("≈ indique une estimation. ≥ indique une distance minimale."), 4, -65)
+    local estimateHelp = UI.Label(body, L("≈ indique une estimation. ≥ indique une distance minimale."), 4, -95)
 
-    UI.Label(body, L("Placement du badge"), 4, -101, 15)
-    local portrait = UI.Check(body, nil, L("Ancrer au portrait plutôt qu’au nom"), 0, -123, function(value)
+    local placementTitle = UI.Label(body, L("Placement du badge"), 4, -131, 15)
+    local portrait = UI.Check(body, nil, L("Ancrer au portrait plutôt qu’au nom"), 0, -153, function(value)
         db.appearance.portrait = value
         AppearanceChanged(true)
     end)
-    UI.Label(body, L("Décalage X / Y"), 4, -167)
-    local offsetX = UI.Input(body, "ArkannsQOLTargetDistanceOffsetX", 110, -161, 54)
-    local offsetY = UI.Input(body, "ArkannsQOLTargetDistanceOffsetY", 174, -161, 54)
+    local offsetLabel = UI.Label(body, L("Décalage X / Y"), 4, -197)
+    local offsetX = UI.Input(body, "ArkannsQOLTargetDistanceOffsetX", 110, -191, 54)
+    local offsetY = UI.Input(body, "ArkannsQOLTargetDistanceOffsetY", 174, -191, 54)
     local function ApplyOffsets()
         local x = tonumber((offsetX:GetText():gsub(",", ".")))
         local y = tonumber((offsetY:GetText():gsub(",", ".")))
@@ -428,13 +456,17 @@ local function RegisterSettings(root)
         offsetY:ClearFocus()
         AppearanceChanged(true)
     end
-    UI.Button(body, nil, L("Appliquer"), 240, -161, 100, ApplyOffsets)
+    local applyOffsets = UI.Button(body, nil, L("Appliquer"), 240, -191, 100, ApplyOffsets)
     offsetX:SetScript("OnEnterPressed", ApplyOffsets)
     offsetY:SetScript("OnEnterPressed", ApplyOffsets)
 
-    UI.Label(body, L("Couleurs et aperçu"), 4, -213, 15)
+    local resetPosition = UI.Button(body, "ArkannsQOLDistanceResetPosition", L("Réinitialiser le placement"), 4, -228, 260, function()
+        db.appearance.portrait, db.appearance.x, db.appearance.y = false, 0, 0
+        AppearanceChanged(true)
+    end)
+    local colorsTitle = UI.Label(body, L("Couleurs et aperçu"), 4, -273, 15)
     local frameModes = {framed = L("Fond et bordure"), background = L("Fond seul"), text = L("Texte seul")}
-    local frame = UI.Button(body, nil, "", 4, -238, 165, function(self)
+    local frame = UI.Button(body, nil, "", 4, -298, 165, function(self)
         if not MenuUtil then return end
         MenuUtil.CreateContextMenu(self, function(_, menu)
             for _, mode in ipairs({"framed", "background", "text"}) do
@@ -473,6 +505,7 @@ local function RegisterSettings(root)
             updateColor = function(r, g, b) line:SetTextColor(r, g, b) end
         else
             local swatch = button:CreateTexture(nil, "OVERLAY")
+            button.swatch = swatch
             swatch:SetSize(18, 12)
             if caption == "" then swatch:SetPoint("CENTER") else swatch:SetPoint("RIGHT", -8, 0) end
             updateColor = function(r, g, b) swatch:SetColorTexture(r, g, b) end
@@ -482,39 +515,95 @@ local function RegisterSettings(root)
             if key == "border" then button:SetEnabled(appearance.frame == "framed") end
             if key == "background" then button:SetEnabled(appearance.frame ~= "text") end
         end
+        return button
     end
-    ColorButton(180, -238, 130, L("Bordure"), "border")
-    UI.Button(body, nil, L("Réinitialiser"), 368, -207, 130, function()
-        db.appearance = NormalizeAppearance()
-        AppearanceChanged(true)
+    local borderButton = ColorButton(180, -298, 130, L("Bordure"), "border")
+    local resetColors = UI.Button(body, "ArkannsQOLDistanceResetColors", L("Réinitialiser les couleurs"), 4, -503, 260, function()
+        local defaults = NormalizeAppearance()
+        for _, key in ipairs({"border", "tooltip", "text", "background"}) do db.appearance[key] = defaults[key] end
+        AppearanceChanged()
     end)
 
-    UI.Label(body, L("Aperçu du badge"), 110, -283)
-    UI.Label(body, L("Texte"), 219, -283)
-    UI.Label(body, L("Fond"), 277, -283)
-    UI.Label(body, L("Infobulle au survol"), 352, -283)
+    local headings = {
+        UI.Label(body, L("Aperçu du badge"), 110, -343), UI.Label(body, L("Texte"), 219, -343),
+        UI.Label(body, L("Fond"), 277, -343), UI.Label(body, L("Infobulle au survol"), 352, -343),
+    }
+    local rowControls = {}
     local rows = {
         {L("Proche · ≤ 10 m"), "8 m"},
         {L("Intermédiaire"), "≈ 15–25 m"},
         {L("Loin · > 30 m"), "≥ 35 m"},
     }
     for tier, row in ipairs(rows) do
-        local y = -306 - (tier - 1) * 35
-        UI.Label(body, row[1], 4, y - 6)
+        local y = -366 - (tier - 1) * 35
+        local caption = UI.Label(body, row[1], 4, y - 6)
         local example, text = CreateBadge(body)
         example:SetPoint("CENTER", body, "TOPLEFT", 158, y - 13)
         SetBadgeText(example, text, row[2])
         previews[#previews + 1] = function(appearance) PaintBadge(example, text, appearance, tier) end
-        ColorButton(215, y, 48, "", "text", tier)
-        ColorButton(273, y, 70, "", "background", tier)
-        ColorButton(351, y, 147, "", "tooltip", tier, row[2])
+        rowControls[tier] = {caption = caption, badge = example,
+            text = ColorButton(215, y, 48, "", "text", tier),
+            background = ColorButton(273, y, 70, "", "background", tier),
+            tooltip = ColorButton(351, y, 147, "", "tooltip", tier, row[2])}
     end
-    local colorHelp = UI.Label(body, L("Clique sur un échantillon ou sur le texte d’une infobulle pour changer sa couleur. Les fourchettes qui chevauchent un seuil prennent la couleur intermédiaire."), 4, -420)
+    local colorHelp = UI.Label(body, L("Clique sur un échantillon ou sur le texte d’une infobulle pour changer sa couleur. Les fourchettes qui chevauchent un seuil prennent la couleur intermédiaire."), 4, -460)
     colorHelp:SetWidth(496)
+
+    local function Layout()
+        local width = math.max(270, panel:GetWidth() - 54)
+        local narrow = width < 508
+        local extra = width < 344 and 34 or 0
+        local function Place(control, x, y)
+            control:ClearAllPoints(); control:SetPoint("TOPLEFT", body, "TOPLEFT", x, y)
+        end
+        local y = 0
+        for _, check in ipairs({toggle, mouseover, rounded, portrait}) do
+            if check.label then check.label:SetWidth(width - 38) end
+        end
+        local function CheckRow(check)
+            Place(check, 0, -y)
+            y = y + math.max(30, check.label and check.label:GetStringHeight() + 8 or 30)
+        end
+        for _, check in ipairs({toggle, mouseover, rounded}) do CheckRow(check) end
+        y = y + 5; Place(estimateHelp, 4, -y); estimateHelp:SetWidth(width - 8)
+        y = y + estimateHelp:GetStringHeight() + 20
+        Place(placementTitle, 4, -y); y = y + 22; CheckRow(portrait)
+        y = y + 8; Place(offsetLabel, 4, -y - 6); Place(offsetX, 110, -y); Place(offsetY, 174, -y)
+        Place(applyOffsets, extra > 0 and 4 or 240, -y - extra)
+        y = y + 36 + extra; Place(resetPosition, 4, -y)
+        y = y + 45; Place(colorsTitle, 4, -y)
+        y = y + 25; Place(frame, 4, -y)
+        local borderExtra = width < 320 and 34 or 0
+        Place(borderButton, borderExtra > 0 and 4 or 180, -y - borderExtra)
+        y = y + 45 + borderExtra
+        for index, heading in ipairs(headings) do
+            heading:SetShown(not narrow); Place(heading, ({110, 219, 277, 352})[index], -y)
+        end
+        local top = -y - 23
+        for index, controls in ipairs(rowControls) do
+            local y = top - (index - 1) * (narrow and 110 or 35)
+            Place(controls.caption, 4, y - 6)
+            controls.badge:ClearAllPoints(); controls.badge:SetPoint("CENTER", body, "TOPLEFT", narrow and math.min(width - 64, 200) or 158, y - 13)
+            Place(controls.text, narrow and 4 or 215, y - (narrow and 34 or 0))
+            Place(controls.background, narrow and 120 or 273, y - (narrow and 34 or 0))
+            controls.text:SetWidth(narrow and 106 or 48); controls.text:SetText(narrow and L("Texte") or "")
+            controls.background:SetWidth(narrow and 106 or 70); controls.background:SetText(narrow and L("Fond") or "")
+            for _, button in ipairs({controls.text, controls.background}) do
+                button.swatch:ClearAllPoints(); button.swatch:SetPoint(narrow and "RIGHT" or "CENTER", narrow and -8 or 0, 0)
+            end
+            Place(controls.tooltip, narrow and 4 or 351, y - (narrow and 68 or 0))
+        end
+        local bottom = -top + (narrow and 330 or 105)
+        Place(colorHelp, 4, -bottom); colorHelp:SetWidth(width - 8)
+        local helpHeight = math.max(40, colorHelp:GetStringHeight())
+        Place(resetColors, 4, -bottom - helpHeight - 12)
+        body:SetSize(width, bottom + helpHeight + 60)
+    end
 
     refreshSettings = function()
         local appearance = db.appearance
         toggle:SetChecked(db.enabled)
+        mouseover:SetChecked(MouseoverSetting())
         rounded:SetChecked(appearance.rounded)
         portrait:SetChecked(appearance.portrait)
         offsetX:SetText(tostring(appearance.x))
@@ -522,7 +611,8 @@ local function RegisterSettings(root)
         frame:SetText(frameModes[appearance.frame])
         for _, refresh in ipairs(previews) do refresh(appearance) end
     end
-    panel:SetScript("OnShow", refreshSettings)
+    panel:SetScript("OnShow", function() refreshSettings(); Layout() end)
+    panel:HookScript("OnSizeChanged", Layout)
     return Settings.RegisterCanvasLayoutSubcategory(root, panel, title)
 end
 
@@ -533,22 +623,27 @@ function ns.InitializeTargetDistance(root)
     if type(db.enabled) ~= "boolean" then db.enabled = true end
     db.appearance = NormalizeAppearance(db.appearance)
     local category = RegisterSettings(root)
+    ns.targetDistanceCategory = category
     SetEnabled(db.enabled)
     ns.RegisterModule("distance", {
         label = title, icon = "Interface\\Icons\\INV_Misc_Spyglass_02",
         category = function() return category end,
         DiagnosticFrame = function() return badge end,
         IsEnabled = function() return db.enabled end, SetEnabled = SetEnabled,
+        toggleLabel = L("Afficher le badge de la cible"),
         Summary = function() return L("Mesure ou estimation · mètres") end,
-        ExportSettings = function() return {enabled = db.enabled, appearance = NormalizeAppearance(db.appearance)} end,
-        profileMigrations = {function(config, current) config.appearance = current.appearance end},
+        ExportSettings = function() return {enabled = db.enabled, appearance = NormalizeAppearance(db.appearance), mouseoverDistance = MouseoverSetting()} end,
+        profileMigrations = {function(config, current) config.appearance = current.appearance end,
+            function(config, current) if config.mouseoverDistance == nil then config.mouseoverDistance = current.mouseoverDistance end end},
         ImportSettings = function(config)
             if type(config) ~= "table" or type(config.enabled) ~= "boolean" then return false end
+            if config.mouseoverDistance ~= nil and type(config.mouseoverDistance) ~= "boolean" then return false end
             if config.appearance ~= nil then
                 db.appearance = NormalizeAppearance(config.appearance)
                 activeTier, anchor = nil, nil
             end
             SetEnabled(config.enabled)
+            if config.mouseoverDistance ~= nil then SetMouseoverSetting(config.mouseoverDistance) end
             return true
         end,
     })

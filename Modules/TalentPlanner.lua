@@ -13,6 +13,7 @@ local overlays, rows = {}, {}
 local Refresh, Draw, QueueRefresh, PositionPanel
 local Model = ns.TalentPlanModel
 local preview, previewRemaining, options, PositionPreview
+local previewForLayout = false
 local defaults = {enabled = true, glowIntensity = 1, futureSteps = 0, compact = false,
     nextColor = {1, 0.72, 0.15}, futureColor = {0.82, 0.77, 0.69}, errorColor = {1, 0.4, 0.32}}
 local function Copy(value, depth)
@@ -114,7 +115,7 @@ local function Layout()
     local style = ns.UI and ns.UI.GetStyle and ns.UI.GetStyle("talents")
     local fontSize = style and style.fontSize or 13
     panel:SetHeight((db.compact and not editing and 460 or 600) + math.max(0, fontSize - 13) * 8)
-    editButton:SetWidth(editing and 196 or 296)
+    editButton:SetWidth(editing and 92 or 296)
     nameInput:SetShown(editing); undoButton:SetShown(editing)
     levelLabel:SetShown(editing); levelSlider:SetShown(editing); firstButton:SetShown(editing)
     local cardTop = editing and 156 or 122
@@ -130,7 +131,7 @@ local function Layout()
     local listTop = editing and (levelTop + fontSize + 77) or (cardTop + cardHeight + 18)
     listTitle:SetText(editing and L("Ordre du build") or L("Prochains points"))
     listTitle:ClearAllPoints(); listTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -listTop)
-    footer:SetText(editing and L("Clic : +1 • Clic droit : retirer\nAnnuler : dernier point du build") or L("Badge : prochain niveau du talent\nHalo : point disponible"))
+    footer:SetText(editing and L("Planification — aucun point dépensé\nClic : +1 • Clic droit : retirer") or L("Badge : prochain niveau du talent\nHalo : point disponible"))
     scroll:ClearAllPoints(); scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -listTop - fontSize - 11)
     scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -30, math.max(52, footer:GetStringHeight() + 24))
 end
@@ -449,11 +450,13 @@ local function Attach()
 end
 
 local function StopPreview()
-    previewRemaining = 0
+    previewRemaining, previewForLayout = 0, false
+    if ns.UI.PreviewEnded then ns.UI.PreviewEnded("talents") end
     if preview then preview:Hide() end
 end
-local function Preview()
-    if Combat() then return end
+local function Preview(forLayout)
+    forLayout = forLayout == true
+    if Combat() then return false, L("Aperçu disponible hors combat.") end
     if not preview then
         preview = CreateFrame("Frame", "ArkannsQOLTalentPreview", UIParent, "BackdropTemplate")
         preview:SetPoint("CENTER", UIParent, "CENTER", 0, 0); preview:SetSize(320, 220)
@@ -469,14 +472,18 @@ local function Preview()
         preview.glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border"); preview.glow:SetBlendMode("ADD")
         preview.glow:SetPoint("RIGHT", preview, "RIGHT", -12, 30); preview.glow:SetSize(68, 68)
         local close = CreateFrame("Button", nil, preview, "UIPanelButtonTemplate")
+        preview.close = close
         close:SetPoint("BOTTOM", preview, "BOTTOM", 0, 12); close:SetSize(150, 26); close:SetText(L("Arrêter l’aperçu"))
         close:SetScript("OnClick", StopPreview)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(close) end
         preview:SetScript("OnUpdate", function(_, delta)
-            if ns.UI and ns.UI.layoutActive then return end
+            if previewForLayout then return end
             previewRemaining = previewRemaining - delta; if previewRemaining <= 0 then StopPreview() end
         end)
-        preview:SetScript("OnHide", function() previewRemaining = 0 end)
+        preview:SetScript("OnHide", function()
+            previewRemaining, previewForLayout = 0, false
+            if ns.UI.PreviewEnded then ns.UI.PreviewEnded("talents") end
+        end)
     end
     preview:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12})
     preview:SetBackdropColor(0.08, 0.065, 0.05, 0.97); preview:SetBackdropBorderColor(0.65, 0.5, 0.2, 1)
@@ -497,13 +504,17 @@ local function Preview()
     preview.labels[4]:SetTextColor(unpack(Color("error")))
     preview.glow:SetVertexColor(nextColor[1], nextColor[2], nextColor[3], db.glowIntensity)
     preview.glow:SetShown(db.glowIntensity > 0)
-    previewRemaining = 12; preview:Show()
+    preview:SetFrameStrata(forLayout and "HIGH" or "DIALOG")
+    preview:EnableMouse(not forLayout)
+    preview.close:SetShown(not forLayout)
+    previewRemaining, previewForLayout = 12, forLayout; preview:Show()
+    return true
 end
 
 local function SettingsChanged()
     ApplyStyle(); dismissed = false; Refresh()
     if options and options.OnRefresh then options:OnRefresh() end
-    if previewRemaining and previewRemaining > 0 then Preview() end
+    if previewRemaining and previewRemaining > 0 then Preview(previewForLayout) end
 end
 local function SetEnabled(value)
     db.enabled = value == true
@@ -571,16 +582,10 @@ function ns.InitializeTalentPlanner(parentCategory)
     title:SetWidth(264); title:SetWordWrap(false)
     local header = CreateFrame("Frame", nil, panel)
     header:SetPoint("TOPLEFT", 4, -4); header:SetSize(274, 32); header:EnableMouse(true); header:RegisterForDrag("LeftButton")
-    header:SetScript("OnDragStart", function() panel:StartMoving() end)
-    header:SetScript("OnDragStop", function()
-        panel:StopMovingOrSizing()
-        local x, y = panel:GetLeft(), panel:GetTop()
-        if x and y and UIParent:GetWidth() > 0 and UIParent:GetHeight() > 0 then
-            local ratio = FrameRatio()
-            db.x = math.max(0, math.min(1, x * ratio / UIParent:GetWidth())); db.y = math.max(0, math.min(1, y * ratio / UIParent:GetHeight()))
-        end
-    end)
-    Button("Close", "×", 284, -6, 26, function() dismissed = true; panel:Hide() end)
+    header:SetScript("OnDragStart", function() ns.UI.StartLayout("talents") end)
+    local close = CreateFrame("Button", "ArkannsQOLTalentClose", panel, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", -4, -4); close:SetSize(28, 28)
+    close:SetScript("OnClick", function() dismissed = true; panel:Hide() end)
     tooltip = CreateFrame("GameTooltip", "ArkannsQOLTalentPlanTooltip", UIParent, "GameTooltipTemplate")
     tooltip:SetClampedToScreen(true); tooltip:Hide()
     panel:SetScript("OnHide", function()
@@ -598,6 +603,17 @@ function ns.InitializeTalentPlanner(parentCategory)
                     bucket.active = selected; editing = false; CurrentBucket(); Draw()
                 end)
             end
+            menu:CreateDivider()
+            menu:CreateButton(L("Supprimer ce build"), function()
+                local selectedBucket, selectedPlan = bucket, plan
+                if not selectedPlan or Combat() then return end
+                ns.UI.Confirm(L("Supprimer le build « %s » ?"):format(selectedPlan.name), function()
+                    if Combat() or bucket ~= selectedBucket then return end
+                    if Model.DeletePlan(selectedBucket, selectedPlan) then
+                        editing = false; CurrentBucket(); Draw()
+                    end
+                end)
+            end)
         end)
     end)
     buildButton:GetFontString():SetWidth(180); buildButton:GetFontString():SetWordWrap(false)
@@ -623,7 +639,7 @@ function ns.InitializeTalentPlanner(parentCategory)
         nameInput:ClearFocus()
         editing = not editing; if editing then previewLevel = 60 end; Draw()
     end)
-    undoButton = Button("Undo", L("Annuler", "talent.undo"), 216, -84, 92, function()
+    undoButton = Button("Undo", L("Retirer le dernier point"), 112, -84, 196, function()
         if plan and not Combat() then Model.Undo(plan.order); Draw() end
     end)
     infoCard = CreateFrame("Frame", "ArkannsQOLTalentProgress", panel, "BackdropTemplate")
@@ -720,9 +736,11 @@ function ns.InitializeTalentPlanner(parentCategory)
     local compactLabel = compact:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     compactLabel:SetPoint("LEFT", compact, "RIGHT", 2, 0); compactLabel:SetText(L("Panneau compact"))
     compact:SetScript("OnClick", function(self) db.compact = self:GetChecked() == true; SettingsChanged() end)
+    local advanced = CreateFrame("Frame", "ArkannsQOLTalentAdvanced", options)
+    advanced:SetPoint("TOPLEFT", 0, -374); advanced:SetPoint("TOPRIGHT", 0, -374); advanced:SetHeight(32); advanced:Hide()
     for index, item in ipairs({{"nextColor", L("Prochain")}, {"futureColor", L("Suivants")}, {"errorColor", L("Erreur")}}) do
         local key, label = item[1], item[2]
-        OptionButton("Color" .. key, label, 16 + (index - 1) * 180, -296, 165, function()
+        local colorButton = OptionButton("Color" .. key, label, 16 + (index - 1) * 180, -334, 165, function()
             if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
             local old, oldOverride = Copy(db[key]), ns.UI and ns.UI.IsOverride and ns.UI.IsOverride("talents")
             ColorPickerFrame:SetupColorPickerAndShow({r = old[1], g = old[2], b = old[3], hasOpacity = false,
@@ -737,26 +755,43 @@ function ns.InitializeTalentPlanner(parentCategory)
                     SettingsChanged()
                 end})
         end)
+        colorButton:SetParent(advanced); colorButton:ClearAllPoints(); colorButton:SetPoint("TOPLEFT", 16 + (index - 1) * 180, 0)
+        updates[#updates + 1] = function()
+            colorButton:SetEnabled(key == "errorColor" or ns.UI.IsOverride("talents"))
+        end
     end
     if ns.UI and ns.UI.IsOverride and ns.UI.SetOverride then
         local own = CreateFrame("CheckButton", "ArkannsQOLTalentOwnStyle", options, "UICheckButtonTemplate")
-        own:SetPoint("TOPLEFT", 12, -334)
+        own:SetPoint("TOPLEFT", 12, -296)
         local ownLabel = own:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
         ownLabel:SetPoint("LEFT", own, "RIGHT", 2, 0); ownLabel:SetText(L("Apparence propre à ce module"))
         own:SetScript("OnClick", function(self) ns.UI.SetOverride("talents", self:GetChecked() == true) end)
         updates[#updates + 1] = function() own:SetChecked(ns.UI.IsOverride("talents")) end
     end
-    OptionButton("Preview", L("Aperçu · 12 s"), 16, -378, 260, Preview)
-    OptionButton("StopPreview", L("Arrêter l’aperçu"), 296, -378, 240, StopPreview)
+    local LayoutAppearance
+    local advancedButton = OptionButton("AdvancedToggle", L("Personnalisation avancée"), 16, -334, 260, function()
+        advanced:SetShown(not advanced:IsShown()); LayoutAppearance()
+    end)
+    local previewButton = OptionButton("Preview", L("Aperçu · 12 s"), 16, -378, 260, Preview)
+    local stopPreviewButton = OptionButton("StopPreview", L("Arrêter l’aperçu"), 296, -378, 240, StopPreview)
     OptionButton("ResetAppearance", L("Réinitialiser"), 430, -218, 110, function()
         for _, key in ipairs({"compact", "glowIntensity", "nextColor", "futureColor", "errorColor"}) do db[key] = Copy(defaults[key]) end
         if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("talents", false) end
         SettingsChanged()
     end)
 
-    Text(options, L("Disposition"), 16, -438, "GameFontNormal")
-    OptionButton("Reposition", L("Replacer près des talents"), 16, -466, 260, function() db.x, db.y = nil, nil; SettingsChanged() end)
-    local tip = Text(options, L("Ouvre les talents (N). Glisse le titre pour déplacer le panneau.\n/aqbuild réaffiche le panneau fermé.\nLes profils généraux copient les réglages, jamais tes builds."), 16, -510); tip:SetWidth(550)
+    local placementTitle = Text(options, L("Disposition"), 16, -418, "GameFontNormal")
+    local moveButton = OptionButton("Move", L("Déplacer"), 16, -442, 120, function() ns.UI.StartLayout("talents") end)
+    local repositionButton = OptionButton("Reposition", L("Replacer près des talents"), 146, -442, 260, function() db.x, db.y = nil, nil; SettingsChanged() end)
+    local tip = Text(options, L("Ouvre les talents (N). Déplacer ouvre le mode Disposition.\n/qtbuild réaffiche le panneau fermé.\nLes profils généraux copient les réglages, jamais tes builds."), 16, -478); tip:SetWidth(550)
+    LayoutAppearance = function()
+        local extra = advanced:IsShown() and 40 or 0
+        advancedButton:SetText(advanced:IsShown() and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
+        for _, item in ipairs({{previewButton,16,378},{stopPreviewButton,296,378},{placementTitle,16,418},
+            {moveButton,16,442},{repositionButton,146,442},{tip,16,478}}) do
+            item[1]:ClearAllPoints(); item[1]:SetPoint("TOPLEFT", item[2], -item[3] - extra)
+        end
+    end
     options.OnRefresh = function()
         check:SetChecked(db.enabled); compact:SetChecked(db.compact)
         for _, update in ipairs(updates) do update() end

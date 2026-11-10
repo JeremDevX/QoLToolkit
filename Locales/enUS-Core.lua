@@ -172,8 +172,22 @@ for source, translation in pairs({
     ["Ouvre la trace hors combat."] = "Open the trace out of combat.",
     ["Aucune capture en cours."] = "No capture is running.",
     ["Trace effacée."] = "Trace cleared.",
-    ["/qtlog start : enregistrer • mark : marquer • stop : arrêter • show : copier • clear : effacer"] = "/qtlog start to record • mark to bookmark • stop to end • show to copy • clear to erase",
+    ["/qtlog start : enregistrer • mark : marquer • stop : arrêter • show : copier • clear : effacer • inventory : inventaire du client"] = "/qtlog start to record • mark to bookmark • stop to end • show to copy • clear to erase • inventory for the client inventory",
     ["Afficher la distance au survol"] = "Show Mouseover Distance",
+    ["Action disponible hors combat."] = "This action is available out of combat.",
+    ["Confirmation indisponible sur ce client."] = "Confirmation is unavailable on this client.",
+    ["Aperçu disponible hors combat."] = "Preview is available out of combat.",
+    ["Aperçu indisponible."] = "Preview unavailable.",
+    ["Aucun cadre disponible à déplacer."] = "No frame is available to move.",
+    ["Taille du texte des modules"] = "Module text size",
+    ["Diagnostics"] = "Diagnostics",
+    ["Inventaire du client"] = "Client inventory",
+    ["Afficher le bouton de minicarte"] = "Show the minimap button",
+    ["Activer ce module"] = "Enable this module",
+    ["Enregistre une trace pour comprendre un problème d’affichage. La capture s’arrête après deux minutes."] = "Record a trace to investigate a display problem. Recording stops after two minutes.",
+    ["Démarrer une capture"] = "Start recording",
+    ["Arrêter la capture"] = "Stop recording",
+    ["Copier la dernière trace"] = "Copy the latest trace",
 }) do
     ns.English[source] = translation
 end

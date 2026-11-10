@@ -213,13 +213,15 @@ local function Show()
     scroll:SetVerticalScroll(0)
 end
 
-function ns.InitializeDiagnostics()
+function ns.InitializeDiagnostics(root)
     SLASH_QOLTOOLKITDIAGNOSTICS1 = "/qtlog"
     SLASH_QOLTOOLKITDIAGNOSTICS2 = "/aqlog"
     SlashCmdList.QOLTOOLKITDIAGNOSTICS = function(input)
         local command = input:lower():match("^%s*(%S*)")
         local message
-        if command == "start" then
+        if command == "inventory" then
+            if ns.OpenAdvancedInventory then ns.OpenAdvancedInventory() end
+        elseif command == "start" then
             message = Start()
         elseif command == "stop" then
             message = Stop("stop") and L("Capture terminée. /qtlog show pour la copier.") or L("Aucune capture en cours.")
@@ -233,8 +235,25 @@ function ns.InitializeDiagnostics()
             if export then export:Hide(); editBox:SetText("") end
             message = L("Trace effacée.")
         else
-            message = L("/qtlog start : enregistrer • mark : marquer • stop : arrêter • show : copier • clear : effacer")
+            message = L("/qtlog start : enregistrer • mark : marquer • stop : arrêter • show : copier • clear : effacer • inventory : inventaire du client")
         end
         if message then print(message) end
+    end
+    if root and ns.UI then
+        local panel = CreateFrame("Frame", "ArkannsQOLDiagnosticsPanel", UIParent, "BackdropTemplate")
+        panel:Hide(); ns.UI.StylePanel(panel)
+        ns.UI.Label(panel, L("Diagnostics"), 16, -16, 18)
+        local help = ns.UI.Label(panel, L("Enregistre une trace pour comprendre un problème d’affichage. La capture s’arrête après deux minutes."), 16, -52)
+        help:SetPoint("TOPRIGHT", -16, -52); help:SetHeight(64)
+        for index, item in ipairs({
+            {L("Démarrer une capture"), "start"}, {L("Arrêter la capture"), "stop"},
+            {L("Copier la dernière trace"), "show"}, {L("Inventaire du client"), "inventory"},
+        }) do
+            local command = item[2]
+            ns.UI.Button(panel, nil, item[1], 16, -126-(index-1)*38, 250, function()
+                SlashCmdList.QOLTOOLKITDIAGNOSTICS(command)
+            end)
+        end
+        ns.diagnosticsCategory = Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Diagnostics"))
     end
 end

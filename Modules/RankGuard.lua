@@ -253,9 +253,10 @@ local function StopPreview()
     if preview then preview:Hide() end
     if not enabled then driver:UnregisterEvent("PLAYER_REGEN_DISABLED") end
     UpdateDriver()
+    if ns.UI and ns.UI.PreviewEnded then ns.UI.PreviewEnded("ranks") end
 end
 local function Preview()
-    if not db or Read(InCombatLockdown) ~= false then return end
+    if not db or Read(InCombatLockdown) ~= false then return false, L("Aperçu disponible hors combat.") end
     if not preview then
         preview = NewBadge(); preview:SetFrameStrata("TOOLTIP")
         preview:SetScript("OnHide", StopPreview)
@@ -265,6 +266,7 @@ local function Preview()
     preview:SetAlpha(db.opacity); preview:Show(); previewRemaining = 12
     if not enabled then driver:RegisterEvent("PLAYER_REGEN_DISABLED") end
     driver:Show()
+    return true
 end
 local function Changed()
     UpdateDriver()
@@ -296,32 +298,44 @@ end
 
 local function RegisterSettings(rootCategory)
     if settingsPanel or not rootCategory or not Settings or not Settings.RegisterCanvasLayoutSubcategory then return end
-    local panel = CreateFrame("Frame", "ArkannsQOLRankSettings", UIParent, "BackdropTemplate")
-    panel:Hide()
-    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -20)
+    local canvas = CreateFrame("Frame", "ArkannsQOLRankSettings", UIParent, "BackdropTemplate")
+    canvas:Hide()
+    local title = canvas:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", canvas, "TOPLEFT", 20, -20)
     title:SetText(L("Rangs de sorts"))
+    local scroll = CreateFrame("ScrollFrame", nil, canvas, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 16, -54); scroll:SetPoint("BOTTOMRIGHT", -34, 16)
+    local panel = CreateFrame("Frame", nil, scroll)
+    panel:SetSize(540, 1000); scroll:SetScrollChild(panel)
+    local items, advanced, appearanceSection, Layout = {}, false, false
+    local function Track(frame, kind, width)
+        items[#items + 1] = {frame = frame, kind = kind, width = width, advanced = appearanceSection}
+        return frame
+    end
     local updates = {}
     local function Text(text, x, y)
         local label = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        label:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y); label:SetText(text); return label
+        label:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y); label:SetText(text); label:SetJustifyH("LEFT")
+        return Track(label, "text")
     end
     local function Button(name, label, x, y, width, action)
         local button = CreateFrame("Button", "ArkannsQOLRank" .. name, panel, "UIPanelButtonTemplate")
         button:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y); button:SetSize(width, 26); button:SetText(label)
         button:SetScript("OnClick", action)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button) end
-        return button
+        return Track(button, "button", width)
     end
     local function Check(name, label, key, x, y)
         local check = CreateFrame("CheckButton", "ArkannsQOLRank" .. name, panel, "UICheckButtonTemplate")
         check:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
         local text = check:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        text:SetPoint("LEFT", check, "RIGHT", 4, 0); text:SetText(label)
+        text:SetPoint("TOPLEFT", check, "TOPRIGHT", 4, -6); text:SetText(label)
         check:SetScript("OnClick", function(self)
             if key == "enabled" then SetEnabled(self:GetChecked()) else db[key] = self:GetChecked() == true; Changed() end
         end)
         updates[#updates + 1] = function() check:SetChecked(db[key]) end
+        check.caption = text
+        Track(check, "check")
     end
     local function Choice(name, label, key, values, x, y, width)
         local button = Button(name, label, x, y, width or 185, function(self)
@@ -340,16 +354,28 @@ local function RegisterSettings(rootCategory)
     end
     Text(L("Fonctionnement"), 24, -62)
     Check("Enabled", L("Avertissements de rang"), "enabled", 20, -86)
-    Choice("Interval", L("Actualisation"), "interval", {{0.5, L("0,5 s")}, {1, "1 s"}, {2, "2 s"}, {5, "5 s"}, {10, "10 s"}}, 320, -88, 220)
     Text(L("Rang supérieur appris uniquement. Macros ignorées. Aucun sort remplacé."), 24, -128)
     Button("ResetBehavior", L("Réinitialiser"), 430, -54, 110, function() db.interval = 2; SetEnabled(true) end)
 
-    Text(L("Apparence"), 24, -176)
+    Button("AppearanceToggle", L("Personnalisation avancée"), 24, -176, 280, function(self)
+        advanced = not advanced
+        self:SetText(advanced and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
+        Layout()
+    end)
+    appearanceSection = true
+    if ns.UI and ns.UI.IsOverride and ns.UI.SetOverride then
+        local own = CreateFrame("CheckButton", "ArkannsQOLRankOwnStyle", panel, "UICheckButtonTemplate")
+        local ownLabel = own:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        ownLabel:SetPoint("TOPLEFT", own, "TOPRIGHT", 4, -6); ownLabel:SetText(L("Apparence propre à ce module"))
+        own.caption = ownLabel; Track(own, "check")
+        own:SetScript("OnClick", function(self) ns.UI.SetOverride("ranks", self:GetChecked() == true); Changed() end)
+        updates[#updates + 1] = function() own:SetChecked(ns.UI.IsOverride("ranks")) end
+    end
     Choice("Style", L("Badge"), "style", {{"mark", "!"}, {"dot", L("Point")}, {"border", L("Bordure")}}, 24, -204)
     Choice("Corner", L("Coin"), "corner", {{"BOTTOMLEFT", L("Bas gauche")}, {"BOTTOMRIGHT", L("Bas droite")}, {"TOPLEFT", L("Haut gauche")}, {"TOPRIGHT", L("Haut droite")}}, 224, -204, 190)
     Choice("Size", L("Taille"), "size", {{10, "10"}, {14, "14"}, {18, "18"}, {24, "24"}, {32, "32"}}, 24, -240)
     Choice("Opacity", L("Opacité"), "opacity", {{0.25, L("25 %")}, {0.5, L("50 %")}, {0.75, L("75 %")}, {1, L("100 %")}}, 224, -240, 190)
-    Button("Color", L("Couleur"), 430, -240, 110, function()
+    local colorButton = Button("Color", L("Couleur"), 430, -240, 110, function()
         if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
         local old = Copy(db.color)
         local oldOverride = ns.UI and ns.UI.IsOverride and ns.UI.IsOverride("ranks")
@@ -365,13 +391,15 @@ local function RegisterSettings(rootCategory)
                 Changed()
             end})
     end)
-    Button("Preview", L("Aperçu · 12 s"), 24, -278, 185, Preview)
+    updates[#updates + 1] = function() colorButton:SetEnabled(not ns.UI or ns.UI.IsOverride("ranks")) end
+    Button("Preview", L("Aperçu · 12 s"), 24, -278, 185, function() ns.UI.PreviewModule("ranks") end)
     Button("StopPreview", L("Arrêter l’aperçu"), 224, -278, 190, StopPreview)
     Button("ResetAppearance", L("Réinitialiser"), 430, -168, 110, function()
         for _, key in ipairs({"style", "corner", "size", "opacity", "color"}) do db[key] = Copy(defaults[key]) end
         if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("ranks", false) end
         Changed()
     end)
+    appearanceSection = false
 
     Text(L("Visibilité"), 24, -356)
     Check("Combat", L("En combat"), "showCombat", 20, -380)
@@ -409,30 +437,46 @@ local function RegisterSettings(rootCategory)
     local input = CreateFrame("EditBox", "ArkannsQOLRankExceptionID", panel, "InputBoxTemplate")
     input:SetPoint("TOPLEFT", panel, "TOPLEFT", 30, -532); input:SetSize(150, 24)
     input:SetAutoFocus(false); input:SetMaxLetters(10)
-    local status = Text("", 24, -570)
+    Track(input, "input", 150)
+    local status
     local function AddID()
         local id = tonumber(input:GetText())
-        if not Identifier(id) then status:SetText(L("Saisis un identifiant numérique valide.")); return end
+        if not Identifier(id) then status:SetText(L("Saisis un identifiant numérique valide.")); Layout(); return end
         db.exceptions[id] = true; input:SetText(""); input:ClearFocus(); status:SetText(string.format(L("Exception ajoutée : %s"), tostring(id))); Changed()
     end
     input:SetScript("OnEnterPressed", AddID)
     input:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     Button("AddID", L("Ajouter l’identifiant"), 200, -530, 180, AddID)
     Button("ResetExceptions", L("Tout retirer"), 400, -530, 140, function() db.exceptions = {}; status:SetText(""); Changed() end)
-    if ns.UI and ns.UI.IsOverride and ns.UI.SetOverride then
-        local own = CreateFrame("CheckButton", "ArkannsQOLRankOwnStyle", panel, "UICheckButtonTemplate")
-        own:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -312)
-        local ownLabel = own:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        ownLabel:SetPoint("LEFT", own, "RIGHT", 4, 0); ownLabel:SetText(L("Apparence propre à ce module"))
-        own:SetScript("OnClick", function(self) ns.UI.SetOverride("ranks", self:GetChecked() == true) end)
-        updates[#updates + 1] = function() own:SetChecked(ns.UI.IsOverride("ranks")) end
+    status = Text("", 24, -570)
+    Layout = function()
+        local width = math.max(240, canvas:GetWidth() - 50)
+        local y = 0
+        for _, item in ipairs(items) do
+            local control = item.frame
+            local visible = not item.advanced or advanced
+            control:SetShown(visible)
+            if visible then
+                control:ClearAllPoints(); control:SetPoint("TOPLEFT", panel, "TOPLEFT", item.kind == "input" and 6 or 0, -y)
+                local height = 26
+                if item.kind == "text" then
+                    control:SetWidth(width); height = math.max(20, control:GetStringHeight())
+                elseif item.kind == "check" then
+                    control.caption:SetWidth(width - 38); control.caption:SetJustifyH("LEFT")
+                    height = math.max(28, control.caption:GetStringHeight() + 8)
+                else control:SetWidth(math.min(item.width or 280, width - 8)) end
+                y = y + height + 10
+            end
+        end
+        panel:SetSize(width, y + 12)
     end
-    panel.OnRefresh = function() for _, update in ipairs(updates) do update() end end
-    panel:SetScript("OnShow", panel.OnRefresh)
-    panel:SetScript("OnHide", StopPreview)
-    if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel) end
-    ns.rankGuardCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Rangs de sorts"))
-    settingsPanel = panel
+    canvas.OnRefresh = function() for _, update in ipairs(updates) do update() end; Layout() end
+    canvas:SetScript("OnShow", canvas.OnRefresh)
+    canvas:HookScript("OnSizeChanged", Layout)
+    canvas:SetScript("OnHide", StopPreview)
+    if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(canvas) end
+    ns.rankGuardCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, canvas, L("Rangs de sorts"))
+    settingsPanel = canvas
 end
 
 local function MigrateRankGuard(root)

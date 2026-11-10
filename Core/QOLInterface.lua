@@ -3,7 +3,7 @@ local L = ns.L
 ns.modules = {}
 local UI = {}
 ns.UI = UI
-local config, previewBar, layout, home, appearanceRefresh
+local config, previewBar, previewModule, layout, home, appearanceRefresh
 local styledPanels, styledButtons, styledLabels = {}, {}, {}
 local moduleOrder = {"tooltips", "reminders", "session", "talents", "ranks", "distance", "bags", "advanced"}
 local defaults = {bg = {.12, .065, .025}, text = {1, .94, .8}, accent = {1, .76, .3},
@@ -149,7 +149,7 @@ local function Button(parent, name, text, x, y, width, callback)
 end
 local function Check(parent, name, text, x, y, callback)
     local check = CreateFrame("CheckButton", name, parent, "UICheckButtonTemplate")
-    check:SetPoint("TOPLEFT", x, y); Label(check, text, 32, -6)
+    check:SetPoint("TOPLEFT", x, y); check.label = Label(check, text, 32, -6)
     check:SetScript("OnClick", function(self) callback(self:GetChecked() == true) end)
     return check
 end
@@ -161,8 +161,33 @@ local function Input(parent, name, x, y, width)
 end
 UI.Label, UI.Button, UI.Check, UI.Input = Label, Button, Check, Input
 
+function UI.Notify(message)
+    if message then print("|cff33ccffQoL Toolkit :|r " .. message) end
+end
+
+function UI.Confirm(text, onAccept)
+    if ns.WoW.ReadValue(InCombatLockdown) ~= false then
+        UI.Notify(L("Action disponible hors combat.")); return false
+    end
+    if type(StaticPopup_ShowGenericConfirmation) ~= "function" then
+        UI.Notify(L("Confirmation indisponible sur ce client.")); return false
+    end
+    StaticPopup_ShowGenericConfirmation(text, function()
+        if ns.WoW.ReadValue(InCombatLockdown) == false then onAccept()
+        else UI.Notify(L("Action disponible hors combat.")) end
+    end)
+    return true
+end
+
+function UI.PreviewEnded(id)
+    if previewModule ~= id then return end
+    previewModule = nil
+    if previewBar then previewBar:Hide() end
+end
+
 local function StopModulePreviews()
     for _, module in pairs(ns.modules) do if module.StopPreview then pcall(module.StopPreview) end end
+    previewModule = nil
     if previewBar then previewBar:Hide() end
 end
 function ns.StopAllPreviews()
@@ -171,8 +196,13 @@ end
 function UI.PreviewModule(id)
     ns.StopAllPreviews()
     local module = ns.modules[id]
-    if not module or not module.Preview then return end
-    module.Preview()
+    if not module or not module.Preview then return false end
+    if ns.WoW.ReadValue(InCombatLockdown) ~= false then
+        UI.Notify(L("Aperçu disponible hors combat.")); return false
+    end
+    local started, reason = module.Preview()
+    if started ~= true then UI.Notify(reason or L("Aperçu indisponible.")); return false end
+    previewModule = id
     if not previewBar then
         previewBar = CreateFrame("Frame", "ArkannsQOLPreviewBar", UIParent, "BackdropTemplate")
         previewBar:SetSize(250, 42); previewBar:SetPoint("TOP", UIParent, "TOP", 0, -25)
@@ -181,10 +211,11 @@ function UI.PreviewModule(id)
     end
     UI.StyleFrame(previewBar)
     previewBar:Show()
+    return true
 end
 
 -- Movers are owned frames. Never move or restyle Blizzard's protected action buttons.
-local movers, savedPositions, savedLayouts, selected = {}, {}, {}, nil
+local movers, savedPositions, savedLayouts, changedPositions, selected = {}, {}, {}, {}, nil
 local endingLayout
 local function PositionMover(mover, x, y)
     mover:ClearAllPoints(); mover:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x * UIParent:GetWidth(), y * UIParent:GetHeight())
@@ -227,7 +258,7 @@ local function SaveMover(id)
     local x, y = mover:GetCenter()
     if Number(x) and Number(y) then
         x, y = UI.SnapPosition(id, x / UIParent:GetWidth(), y / UIParent:GetHeight())
-        if x then module.SetPosition(x, y); PositionMover(mover, x, y) end
+        if x then changedPositions[id] = true; module.SetPosition(x, y); PositionMover(mover, x, y) end
     end
     UpdateCoordinates()
 end
@@ -245,29 +276,34 @@ function UI.EndLayout(cancel)
     UI.layoutActive = false
     if layout then layout:Hide(); layout.guides:Hide() end
     StopModulePreviews()
-    if cancel then for id, position in pairs(savedPositions) do
+    for id, position in pairs(savedPositions) do
         local module = ns.modules[id]
-        if savedLayouts[id] and module.ImportSettings then module.ImportSettings(savedLayouts[id])
-        elseif module and module.SetPosition then module.SetPosition(position[1], position[2]) end
-    end else for id,position in pairs(positions) do ns.modules[id].SetPosition(position[1],position[2]) end end
+        if cancel or not changedPositions[id] then
+            if savedLayouts[id] and module.ImportSettings then module.ImportSettings(savedLayouts[id])
+            elseif changedPositions[id] then module.SetPosition(position[1], position[2]) end
+        else module.SetPosition(positions[id][1], positions[id][2]) end
+    end
     endingLayout = nil
     if ns.Diagnostics then ns.Diagnostics.Note(cancel and "layout.cancel" or "layout.apply") end
 end
-function UI.StartLayout()
-    if InCombatLockdown and InCombatLockdown() then return false, L("Disposition disponible hors combat.") end
+function UI.StartLayout(focusId)
+    if ns.WoW.ReadValue(InCombatLockdown) ~= false then
+        local reason = L("Disposition disponible hors combat.")
+        UI.Notify(reason); return false, reason
+    end
+    if type(focusId) ~= "string" then focusId = nil end
     ns.StopAllPreviews()
     if SettingsPanel and SettingsPanel:IsShown() then HideUIPanel(SettingsPanel) end
     if not layout then
         layout = CreateFrame("Frame", "ArkannsQOLLayout", UIParent, "BackdropTemplate")
         layout:SetSize(620, 150); layout:SetPoint("TOP", UIParent, "TOP", 0, -28)
-        layout:SetFrameStrata("DIALOG"); layout:SetClampedToScreen(true)
+        layout:SetFrameStrata("DIALOG"); layout:SetFrameLevel(30); layout:SetClampedToScreen(true)
         Label(layout, L("Disposition — glisse les cadres"), 16, -12, 16)
         Button(layout, "ArkannsQOLLayoutApply", L("Valider"), 16, -42, 110, function() UI.EndLayout(false) end)
         Button(layout, "ArkannsQOLLayoutCancel", L("Annuler"), 136, -42, 110, function() UI.EndLayout(true) end)
         Button(layout, "ArkannsQOLLayoutCenter", L("Recentrer"), 256, -42, 110, function()
-            if selected then ns.modules[selected].SetPosition(.5, .5); PositionMover(movers[selected], .5, .5); UpdateCoordinates() end
+            if selected then changedPositions[selected] = true; ns.modules[selected].SetPosition(.5, .5); PositionMover(movers[selected], .5, .5); UpdateCoordinates() end
         end)
-        Button(layout, "ArkannsQOLLayoutStop", L("Quitter les aperçus"), 376, -42, 226, function() UI.EndLayout(true) end)
         layout.grid = Check(layout, "ArkannsQOLLayoutGrid", L("Grille"), 12, -78, function(value)
             config.grid = value; layout.guides:SetShown(value)
         end)
@@ -278,7 +314,9 @@ function UI.StartLayout()
         local function ApplyCoordinates()
             local x, y = tonumber((layout.x:GetText():gsub(",", "."))), tonumber((layout.y:GetText():gsub(",", ".")))
             if selected and Number(x) and Number(y) and x >= 0 and x <= 100 and y >= 0 and y <= 100 then
-                ns.modules[selected].SetPosition(x/100, y/100); PositionMover(movers[selected], x/100, y/100)
+                x, y = UI.SnapPosition(selected, x/100, y/100)
+                changedPositions[selected] = true
+                ns.modules[selected].SetPosition(x, y); PositionMover(movers[selected], x, y)
                 layout.x:ClearFocus(); layout.y:ClearFocus(); UpdateCoordinates()
             else layout.selection:SetText(L("Coordonnées : 0 à 100 %.")) end
         end
@@ -290,7 +328,7 @@ function UI.StartLayout()
         layout.guides:SetAllPoints(); layout.guides:EnableMouse(false)
         layout.lines = {}
     end
-    UI.layoutActive, savedPositions, savedLayouts, selected = true, {}, {}, nil
+    UI.layoutActive, savedPositions, savedLayouts, changedPositions, selected = true, {}, {}, {}, nil
     for _, id in ipairs(moduleOrder) do
         local module = ns.modules[id]
         if module and module.GetPosition and module.SetPosition and module.frame then
@@ -298,14 +336,14 @@ function UI.StartLayout()
             if Number(x) and Number(y) then
                 savedPositions[id] = {x, y}
                 if module.ExportSettings then savedLayouts[id]=module.ExportSettings() end
-                if module.Preview then module.Preview() end
-                module.SetPosition(x,y)
+                local started = not module.Preview or module.Preview(true)
+                if started == true then
                 local mover = movers[id]
                 if not mover then
                     mover = CreateFrame("Frame", "ArkannsQOLMover_" .. id, UIParent, "BackdropTemplate")
                     movers[id] = mover
                     mover:SetMovable(true); mover:EnableMouse(true); mover:RegisterForDrag("LeftButton"); mover:SetClampedToScreen(true)
-                    mover:SetFrameStrata("DIALOG")
+                    mover:SetFrameStrata("DIALOG"); mover:SetFrameLevel(20)
                     mover.caption = Label(mover, module.label, 12, -10)
                     mover.caption:ClearAllPoints(); mover.caption:SetPoint("BOTTOMLEFT",mover,"TOPLEFT",4,4)
                     mover:SetScript("OnDragStart", function(self)
@@ -318,7 +356,7 @@ function UI.StartLayout()
                         if self.elapsed<.05 then return end
                         self.elapsed=0
                         local mx,my=self:GetCenter()
-                        if Number(mx) and Number(my) then module.SetPosition(mx/UIParent:GetWidth(),my/UIParent:GetHeight()); UpdateCoordinates() end
+                        if Number(mx) and Number(my) then changedPositions[id] = true; module.SetPosition(mx/UIParent:GetWidth(),my/UIParent:GetHeight()); UpdateCoordinates() end
                     end)
                     mover:SetScript("OnMouseUp", function(_, button)
                         selected = id; UpdateCoordinates()
@@ -331,9 +369,12 @@ function UI.StartLayout()
                 local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
                 mover:SetSize(math.max(130, module.frame:GetWidth() * scale / parentScale), math.max(45, module.frame:GetHeight() * scale / parentScale))
                 PositionMover(mover, x, y); mover:Show(); selected = selected or id
+                if id == focusId then selected = id end
+                else savedPositions[id], savedLayouts[id] = nil, nil end
             end
         end
     end
+    if not selected then UI.EndLayout(true); UI.Notify(L("Aucun cadre disponible à déplacer.")); return false end
     local width, height, index = UIParent:GetWidth(), UIParent:GetHeight(), 0
     local function Line(vertical, at, center)
         index = index + 1
@@ -360,7 +401,8 @@ local function BuildAppearance(root)
     local body = CreateFrame("Frame", nil, scroll); body:SetSize(580, 1050); scroll:SetScrollChild(body)
     local heading=Label(body, L("Apparence générale — Chaleureux"), 0, 0, 18)
     local description=Label(body, L("Même thème pour tous les modules. Les exceptions restent personnalisables."), 0, -34)
-    local fields, syncing = {}, false
+    local fields, syncing, advanced = {}, false, false
+    local LayoutAppearance
     local function Slider(key, title, y, minimum, maximum, factor)
         factor = factor or 1
         local caption = Label(body, "", 0, y)
@@ -375,14 +417,23 @@ local function BuildAppearance(root)
         end)
         fields[key] = {slider=slider, caption=caption, title=title, factor=factor}
     end
-    Slider("fontSize", L("Taille du texte"), -80, 10, 24)
+    Slider("fontSize", L("Taille du texte des modules"), -80, 10, 24)
     Slider("scale", L("Échelle (%)"), -150, 60, 160, 100)
     Slider("opacity", L("Opacité du fond (%)"), -220, 0, 100, 100)
     Slider("borderSize", L("Épaisseur de bordure"), -290, 1, 24)
     Slider("padding", L("Marge intérieure"), -360, 4, 24)
     Slider("gap", L("Espacement"), -430, 0, 20)
-    local fontButton = Button(body, "ArkannsQOLCommonFont", "", 0, -500, 330, function()
-        config.font = config.font == "standard" and "narrow" or config.font == "narrow" and "fantasy" or "standard"; UI.Refresh()
+    local advancedButton = Button(body, "ArkannsQOLCommonAdvanced", L("Personnalisation avancée"), 0, -290, 260, function()
+        advanced = not advanced; LayoutAppearance()
+    end)
+    local fontButton = Button(body, "ArkannsQOLCommonFont", "", 0, -500, 330, function(self)
+        if not MenuUtil or not MenuUtil.CreateContextMenu then return end
+        MenuUtil.CreateContextMenu(self, function(_, menu)
+            for _, option in ipairs({{"standard", L("Classique")}, {"narrow", "Arial"}, {"fantasy", "Morpheus"}}) do
+                local key = option[1]
+                menu:CreateButton(option[2], function() config.font = key; UI.Refresh() end)
+            end
+        end)
     end)
     local colors, colorLabels, colorButtons = {}, {}, {}
     for index, spec in ipairs({{"bg", L("Fond")}, {"text", L("Texte")}, {"accent", L("Bordure et accents")}}) do
@@ -396,10 +447,18 @@ local function BuildAppearance(root)
             if text:match("^%x%x%x%x%x%x$") then
                 config[key] = {tonumber(text:sub(1,2),16)/255,tonumber(text:sub(3,4),16)/255,tonumber(text:sub(5,6),16)/255}
                 input:ClearFocus(); UI.Refresh()
-            end
+            else UI.Notify(L("Code hex invalide. Exemple : FFCC44.")) end
         end
         input:SetScript("OnEnterPressed", Apply)
         colorButtons[key]=Button(body, nil, L("Appliquer"), 340, y, 95, Apply)
+        local picker = Button(body, nil, label, 0, y, 190, function()
+            if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
+            local old = Copy(config[key])
+            ColorPickerFrame:SetupColorPickerAndShow({r=old[1],g=old[2],b=old[3],hasOpacity=false,
+                swatchFunc=function() config[key]={ColorPickerFrame:GetColorRGB()}; UI.Refresh() end,
+                cancelFunc=function() config[key]=old; UI.Refresh() end})
+        end)
+        colorLabels[key]:Hide(); colorLabels[key] = picker
     end
     local reset=Button(body, "ArkannsQOLCommonDefaults", L("Rétablir Chaleureux"), 0, -687, 220, function()
         local overrides, pins = config.overrides, config.pins
@@ -407,16 +466,6 @@ local function BuildAppearance(root)
         UI.ImportSettings(value)
     end)
     local preview=Button(body, "ArkannsQOLCommonPreview", L("Aperçu du journal"), 232, -687, 200, function() UI.PreviewModule("session") end)
-    local overrideTitle=Label(body, L("Apparence propre à un module"), 0, -742, 16)
-    local overrides = {}
-    local overrideOrder = {}
-    for _,id in ipairs(moduleOrder) do
-        local module = ns.modules[id]
-        if module and id ~= "advanced" and id ~= "bags" and id ~= "distance" then
-            overrideOrder[#overrideOrder + 1] = id
-            overrides[id] = Check(body, "ArkannsQOLCommonOverride_"..id, module.label, 0, -774-(#overrideOrder-1)*34, function(value) UI.SetOverride(id,value) end)
-        end
-    end
     appearanceRefresh = function()
         syncing = true
         for key, field in pairs(fields) do field.slider:SetValue(config[key]*field.factor); field.caption:SetText(field.title .. " : " .. math.floor(config[key]*field.factor+.5)) end
@@ -424,30 +473,38 @@ local function BuildAppearance(root)
             local c=config[key]; input:SetText(string.format("%02X%02X%02X",math.floor(c[1]*255+.5),math.floor(c[2]*255+.5),math.floor(c[3]*255+.5)))
         end end
         fontButton:SetText(L("Police : ") .. ({standard=L("Classique"),narrow="Arial",fantasy="Morpheus"})[config.font])
-        for id,check in pairs(overrides) do check:SetChecked(UI.IsOverride(id)) end
         syncing = false
     end
-    local function LayoutAppearance()
+    LayoutAppearance = function()
         local width=math.max(270,panel:GetWidth()-50)
         local narrow=width<435
         local extra=narrow and 118 or 0
-        body:SetSize(width,1050+extra)
+        body:SetSize(width,advanced and 820+extra or 420)
         heading:SetWidth(width); heading:SetHeight(44)
         description:ClearAllPoints(); description:SetPoint("TOPLEFT",0,-48); description:SetWidth(width); description:SetHeight(30)
         for _,field in pairs(fields) do field.slider:SetWidth(math.min(330,width-8)) end
         fontButton:SetWidth(math.min(330,width))
+        fontButton:SetShown(advanced)
+        advancedButton:SetText(advanced and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
+        advancedButton:SetWidth(math.min(330,width))
+        for index,key in ipairs({"borderSize","padding","gap"}) do
+            local field=fields[key]
+            local y=-340-(index-1)*70
+            field.caption:ClearAllPoints(); field.caption:SetPoint("TOPLEFT",0,y)
+            field.slider:ClearAllPoints(); field.slider:SetPoint("TOPLEFT",4,y-26)
+            field.caption:SetShown(advanced); field.slider:SetShown(advanced)
+        end
+        fontButton:ClearAllPoints(); fontButton:SetPoint("TOPLEFT",0,-550)
         for index,key in ipairs({"bg","text","accent"}) do
-            local y=-548-(index-1)*(narrow and 70 or 42)
+            local y=-592-(index-1)*(narrow and 70 or 42)
             colorLabels[key]:ClearAllPoints(); colorLabels[key]:SetPoint("TOPLEFT",0,y-5)
+            colorLabels[key]:SetShown(advanced); colors[key]:SetShown(advanced); colorButtons[key]:SetShown(advanced)
             colors[key]:ClearAllPoints(); colors[key]:SetPoint("TOPLEFT",narrow and 4 or 240,y-(narrow and 28 or 0))
             colorButtons[key]:ClearAllPoints(); colorButtons[key]:SetPoint("TOPLEFT",narrow and 110 or 340,y-(narrow and 28 or 0))
         end
-        reset:ClearAllPoints(); reset:SetPoint("TOPLEFT",0,-687-(narrow and 84 or 0))
-        preview:ClearAllPoints(); preview:SetPoint("TOPLEFT",narrow and 0 or 232,-687-extra)
-        overrideTitle:ClearAllPoints(); overrideTitle:SetPoint("TOPLEFT",0,-742-extra); overrideTitle:SetWidth(width); overrideTitle:SetHeight(38)
-        for index,id in ipairs(overrideOrder) do
-            overrides[id]:ClearAllPoints(); overrides[id]:SetPoint("TOPLEFT",0,-790-extra-(index-1)*34)
-        end
+        local bottom=advanced and -735-(narrow and 84 or 0) or -340
+        reset:ClearAllPoints(); reset:SetPoint("TOPLEFT",0,bottom)
+        preview:ClearAllPoints(); preview:SetPoint("TOPLEFT",narrow and 0 or 232,bottom-(narrow and 34 or 0))
     end
     panel:SetScript("OnShow", function() LayoutAppearance(); appearanceRefresh() end)
     panel:HookScript("OnSizeChanged",LayoutAppearance)
@@ -465,7 +522,13 @@ function UI.BuildHome(panel, root)
     toolbar[1]=Button(home,"ArkannsQOLHomeAppearance",L("Apparence"),16,-76,130,function() ns.StopAllPreviews(); Settings.OpenToCategory(ns.appearanceCategory:GetID()) end)
     toolbar[2]=Button(home,"ArkannsQOLHomeLayout",L("Disposition"),156,-76,130,UI.StartLayout)
     toolbar[3]=Button(home,"ArkannsQOLHomeProfiles",L("Profils"),296,-76,130,function() ns.StopAllPreviews(); if ns.profilesCategory then Settings.OpenToCategory(ns.profilesCategory:GetID()) end end)
-    toolbar[4]=Button(home,"ArkannsQOLHomeStop",L("Arrêter les aperçus"),436,-76,180,ns.StopAllPreviews)
+    toolbar[4]=Button(home,"ArkannsQOLHomeDiagnostics",L("Diagnostics"),436,-76,180,function()
+        ns.StopAllPreviews()
+        if ns.diagnosticsCategory then Settings.OpenToCategory(ns.diagnosticsCategory:GetID()) end
+    end)
+    local minimap = Check(home,"ArkannsQOLShowMinimap",L("Afficher le bouton de minicarte"),12,-110,function(value)
+        if ns.SetMinimapVisible then ns.SetMinimapVisible(value) end
+    end)
     local scroll=CreateFrame("ScrollFrame",nil,home,"UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT",16,-118); scroll:SetPoint("BOTTOMRIGHT",-34,18)
     local body=CreateFrame("Frame",nil,scroll); body:SetSize(580,700); scroll:SetScrollChild(body)
@@ -483,15 +546,14 @@ function UI.BuildHome(panel, root)
                 card.icon:SetSize(30*atlas.width/longest,30*atlas.height/longest)
             else card.icon:SetTexture(module.icon or "Interface\\Icons\\INV_Misc_QuestionMark") end
             card.title=Label(card,module.label,52,-14,14)
-            card.title:SetPoint("TOPRIGHT",-42,-14); card.title:SetHeight(22)
+            card.title:SetPoint("TOPRIGHT",-12,-14); card.title:SetHeight(22)
             card.summary=Label(card,"",12,-52,12); card.summary:SetHeight(34); card.summary:SetPoint("TOPRIGHT",-12,-52)
-            card.configure=Button(card,"ArkannsQOLHome"..names[id],L("Configurer"),12,-91,100,function()
+            card.configure=Button(card,"ArkannsQOLHome"..names[id],L("Configurer"),12,-124,100,function()
                 ns.StopAllPreviews(); local category=module.category and module.category(); if category then Settings.OpenToCategory(category:GetID()) end
             end)
-            if module.Preview then Button(card,nil,L("Aperçu"),120,-91,90,function() UI.PreviewModule(id) end) end
+            if module.Preview then Button(card,nil,L("Aperçu"),120,-124,90,function() UI.PreviewModule(id) end) end
             if module.IsEnabled and module.SetEnabled then
-                card.enabled=Check(card,"ArkannsQOLHomeEnabled_"..id,"",0,0,function(value) module.SetEnabled(value); home.Refresh() end)
-                card.enabled:ClearAllPoints(); card.enabled:SetPoint("TOPRIGHT",-6,-8)
+                card.enabled=Check(card,"ArkannsQOLHomeEnabled_"..id,module.toggleLabel or L("Activer ce module"),8,-84,function(value) module.SetEnabled(value); home.Refresh() end)
             end
             card.pin=Button(card,nil,"",218,-91,38,function() config.pins[id]=not config.pins[id]; home.Refresh() end)
             card.module,card.id=module,id
@@ -507,19 +569,24 @@ function UI.BuildHome(panel, root)
             button:ClearAllPoints(); button:SetPoint("TOPLEFT",16+((index-1)%toolbarColumns)*(toolbarWidth+10),-76-math.floor((index-1)/toolbarColumns)*34)
             button:SetWidth(toolbarWidth)
         end
-        scroll:ClearAllPoints(); scroll:SetPoint("TOPLEFT",16,-84-math.ceil(4/toolbarColumns)*34); scroll:SetPoint("BOTTOMRIGHT",-34,18)
+        local headerBottom=-84-math.ceil(4/toolbarColumns)*34
+        minimap:ClearAllPoints(); minimap:SetPoint("TOPLEFT",12,headerBottom)
+        minimap:SetChecked(ns.IsMinimapVisible and ns.IsMinimapVisible())
+        minimap:SetShown(ns.IsMinimapVisible ~= nil)
+        scroll:ClearAllPoints(); scroll:SetPoint("TOPLEFT",16,headerBottom-36); scroll:SetPoint("BOTTOMRIGHT",-34,18)
         local columns=width>=540 and 2 or 1
         local cardWidth=(width-12*(columns-1))/columns
         for index,card in ipairs(cards) do
-            card:ClearAllPoints(); card:SetPoint("TOPLEFT",((index-1)%columns)*(cardWidth+12),-math.floor((index-1)/columns)*136)
-            card:SetSize(cardWidth,126); UI.StyleFrame(card)
+            card:SetSize(cardWidth,160); UI.StyleFrame(card)
             card.pin:ClearAllPoints(); card.pin:SetPoint("BOTTOMRIGHT",-10,9)
             UI.SetFavoriteIcon(card.pin,config.pins[card.id])
             card.summary:SetText(card.module.Summary and card.module.Summary() or L("Options et préférences."))
-            if card.enabled then card.enabled:SetChecked(card.module.IsEnabled()) end
+            if card.enabled then
+                card.enabled:SetChecked(card.module.IsEnabled())
+                card.enabled.label:SetWidth(cardWidth-48)
+            end
         end
-        local bottom=math.ceil(#cards/columns)*136+8
-        favoritesTitle:ClearAllPoints(); favoritesTitle:SetPoint("TOPLEFT",0,-bottom)
+        favoritesTitle:ClearAllPoints(); favoritesTitle:SetPoint("TOPLEFT",0,0)
         favoritesTitle:SetWidth(width); favoritesTitle:SetHeight(40)
         local entries={}
         for _,id in ipairs(moduleOrder) do if config.pins[id] and ns.modules[id] then
@@ -531,15 +598,19 @@ function UI.BuildHome(panel, root)
             local list=advanced.Favorites()
             for _,entry in ipairs(list or {}) do entries[#entries+1]=entry end
         end
-        favoritesTitle:SetText(#entries>0 and L("Favoris") or L("Clique sur l’étoile pour épingler un module."))
+        favoritesTitle:SetShown(#entries>0)
         for index,entry in ipairs(entries) do
             local button=favoriteButtons[index]
             if not button then button=Button(body,nil,"",0,0,cardWidth,function() end); favoriteButtons[index]=button end
-            button:ClearAllPoints(); button:SetPoint("TOPLEFT",0,-bottom-48-(index-1)*32); button:SetWidth(math.min(width,430))
+            button:ClearAllPoints(); button:SetPoint("TOPLEFT",0,-40-(index-1)*32); button:SetWidth(math.min(width,430))
             button:SetText(entry.label); button:SetScript("OnClick",function() ns.StopAllPreviews(); entry.Open() end); button:Show()
         end
         for index=#entries+1,#favoriteButtons do favoriteButtons[index]:Hide() end
-        body:SetSize(width,bottom+88+#entries*32)
+        local favoritesHeight=#entries>0 and 52+#entries*32 or 0
+        for index,card in ipairs(cards) do
+            card:ClearAllPoints(); card:SetPoint("TOPLEFT",((index-1)%columns)*(cardWidth+12),-favoritesHeight-math.floor((index-1)/columns)*170)
+        end
+        body:SetSize(width,favoritesHeight+math.ceil(#cards/columns)*170)
     end
     home:SetScript("OnShow",home.Refresh)
     home:HookScript("OnSizeChanged",home.Refresh)

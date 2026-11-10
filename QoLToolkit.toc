@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: QoL Toolkit
-## IconTexture: Interface\AddOns\QoLToolkit\Media\Icon.tga
+## IconTexture: Interface\Icons\INV_Misc_Wrench_01
 ## Notes: Tooltips, effect reminders, session journal, talents, spell ranks, target distance, bags, and advanced settings. /qt
 ## Notes-frFR: Infobulles, rappels, journal, talents, rangs de sorts, distance, sacs et réglages avancés. /qt
 ## Author: Arkann

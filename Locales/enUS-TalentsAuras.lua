@@ -1,6 +1,21 @@
 local _, ns = ...
 
 for source, translation in pairs({
+    ["Thème commun"] = "Common theme",
+    ["Les réglages grisés utilisent le thème commun."] = "Disabled controls use the common theme.",
+    ["Les réglages grisés utilisent le thème commun.\nDéplacer ouvre le mode Disposition."] = "Disabled controls use the common theme.\nMove opens Layout mode.",
+    ["Thème personnalisé"] = "Custom theme",
+    ["Retirer le dernier point"] = "Remove last point",
+    ["Supprimer ce build"] = "Delete this build",
+    ["Supprimer le build « %s » ?"] = "Delete build \"%s\"?",
+    ["Planification — aucun point dépensé\nClic : +1 • Clic droit : retirer"] = "Planning — no points spent\nClick: +1 • Right-click: remove",
+    ["Ouvre les talents (N). Déplacer ouvre le mode Disposition.\n/qtbuild réaffiche le panneau fermé.\nLes profils généraux copient les réglages, jamais tes builds."] = "Open talents (N). Move opens Layout mode.\n/qtbuild reopens the closed panel.\nGeneral profiles copy settings, never your builds.",
+    ["Remettre les statistiques de cette session à zéro ?"] = "Reset this session's statistics?",
+    ["Survole XP gagnée ou Solde pour le taux horaire.\nLe démarrage reprend les compteurs. L’option AFK suspend le suivi jusqu’au retour.\nUne nouvelle connexion remet les compteurs à zéro et démarre le suivi.\n/reload conserve les compteurs et l’arrêt manuel. ≥ indique des données XP incomplètes."] = "Hover over XP gained or Net gold for the hourly rate.\nStarting resumes the counters. The AFK option pauses tracking until you return.\nA new login resets the counters and starts tracking.\n/reload preserves counters and manual stops. ≥ indicates incomplete XP data.",
+    ["Déplacer ouvre le mode Disposition.\nL'aperçu disparaît à la fermeture des réglages."] = "Move opens Layout mode.\nThe preview closes with the settings.",
+    ["Afficher le journal"] = "Show the journal",
+    ["Fenêtre affichée"] = "Window shown",
+    ["Fenêtre masquée"] = "Window hidden",
     ["%d / %d points appris"] = "%d / %d points learned",
     ["%d / %d points prévus"] = "%d / %d points planned",
     ["Afficher %d"] = "Show %d",

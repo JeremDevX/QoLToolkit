@@ -8,6 +8,8 @@ local afkUnavailable
 local ticker, xpRetry, Draw
 local rateTooltip, hovered
 local moveHint
+local trackingToggle, trackingTooltip
+local trackingToggleSize = 20
 local hoverRows = {}
 local horizontalTexts = {}
 local preview, expanded = false, false
@@ -75,6 +77,10 @@ end
 
 local function IsTracking()
     return ready and not session.pause
+end
+
+local function TrackingAction()
+    return ready and session.pause == "manual" and L("Démarrer le suivi") or L("Arrêter le suivi")
 end
 
 local function Money(copper)
@@ -284,9 +290,26 @@ Draw = function()
     local spacing = collapsed and 2 or (style and style.gap or 6)
     names:SetSpacing(spacing); values:SetSpacing(spacing)
     title:SetShown(db.showTitle)
+    local headerHeight = math.max(trackingToggleSize, fontSize + 2)
+    local headerY = -padding - headerHeight / 2
+    trackingToggle:ClearAllPoints()
+    trackingToggle:SetPoint("RIGHT", window, "TOPRIGHT", -padding, headerY)
+    trackingToggle:SetShown(db.showTitle)
+    local canToggle = ready and not preview
+    trackingToggle:SetEnabled(canToggle)
+    trackingToggle.icon:SetAlpha(canToggle and 1 or 0.5)
+    -- An AFK pause still resumes automatically unless the player stops tracking.
+    trackingToggle.icon:SetTexture(ready and session.pause ~= "manual"
+        and "Interface\\TimeManager\\PauseButton" or "Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
+    if trackingTooltip:IsShown() then
+        if canToggle then trackingTooltip:SetText(TrackingAction()); trackingTooltip:Show()
+        else trackingTooltip:Hide() end
+    end
     names:ClearAllPoints(); values:ClearAllPoints()
-    local top = db.showTitle and (fontSize + padding * 2 + 2) or padding
-    title:ClearAllPoints(); title:SetPoint("TOPLEFT", padding, -padding)
+    local top = db.showTitle and (headerHeight + padding * 2) or padding
+    title:ClearAllPoints()
+    title:SetPoint("LEFT", window, "TOPLEFT", padding, headerY)
+    title:SetPoint("RIGHT", trackingToggle, "LEFT", -6, 0)
     title:SetText(preview and L("Journal de session • Aperçu") or ready and pauseLabels[session.pause] or L("Journal de session"))
     names:SetPoint("TOPLEFT", padding, -top)
     values:SetPoint("TOPRIGHT", -padding, -top)
@@ -422,7 +445,31 @@ function ns.InitializeSessionJournal(parentCategory)
     window:RegisterForDrag("LeftButton")
     window:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 12, insets = {left = 3, right = 3, top = 3, bottom = 3}})
     title = window:CreateFontString("ArkannsQOLSessionTitle", "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOPLEFT", 12, -10); title:SetText(L("Journal de session"))
+    title:SetJustifyH("LEFT"); title:SetWordWrap(false)
+    trackingToggle = CreateFrame("Button", "ArkannsQOLSessionTrackingToggle", window)
+    trackingToggle:SetSize(trackingToggleSize, trackingToggleSize)
+    trackingToggle:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+    trackingToggle.icon = trackingToggle:CreateTexture(nil, "ARTWORK")
+    trackingToggle.icon:SetAllPoints()
+    trackingTooltip = CreateFrame("GameTooltip", "ArkannsQOLSessionTrackingTooltip", UIParent, "GameTooltipTemplate")
+    trackingTooltip:SetClampedToScreen(true); trackingTooltip:Hide()
+    trackingToggle:SetScript("OnClick", function()
+        if ready and not preview then SetTracking(session.pause == "manual") end
+    end)
+    trackingToggle:SetScript("OnEnter", function(self)
+        if not ready or preview then return end
+        trackingTooltip:SetOwner(self, "ANCHOR_TOP")
+        trackingTooltip:SetText(TrackingAction())
+        trackingTooltip:Show()
+    end)
+    local function CollapseOnLeave()
+        if expanded and not (window.IsMouseOver and window:IsMouseOver()) then expanded = false; Draw() end
+    end
+    trackingToggle:SetScript("OnLeave", function()
+        trackingTooltip:Hide()
+        CollapseOnLeave()
+    end)
+    trackingToggle:SetScript("OnHide", function() trackingTooltip:Hide() end)
     names = window:CreateFontString("ArkannsQOLSessionNames", "OVERLAY", "GameFontHighlight")
     names:SetJustifyH("LEFT")
     values = window:CreateFontString("ArkannsQOLSessionValues", "OVERLAY", "GameFontHighlight")
@@ -462,9 +509,7 @@ function ns.InitializeSessionJournal(parentCategory)
         SyncTicker()
     end)
     window:SetScript("OnEnter", function() if db.compact and db.expandOnHover then expanded = true; Draw() end end)
-    window:SetScript("OnLeave", function()
-        if expanded and not (window.IsMouseOver and window:IsMouseOver()) then expanded = false; Draw() end
-    end)
+    window:SetScript("OnLeave", CollapseOnLeave)
     RestorePosition()
 
     local panel = CreateFrame("Frame", "ArkannsQOLSessionSettings", UIParent, "BackdropTemplate")
@@ -664,7 +709,7 @@ function ns.InitializeSessionJournal(parentCategory)
         local status = TrackingStatus()
         if ready and pause ~= "manual" and afkUnavailable then status = status .. "\n" .. L("Statut AFK indisponible") end
         trackingStatus:SetText(status)
-        trackingButton:SetText(pause == "manual" and L("Démarrer le suivi") or L("Arrêter le suivi"))
+        trackingButton:SetText(TrackingAction())
         trackingButton:SetEnabled(ready)
         resetButton:SetEnabled(ready)
         themeButton:SetText(string.format(L("Thème : %s"), themes[db.theme].label))

@@ -43,7 +43,7 @@ local function BuildFallbackHome(home)
         if ns.rankGuardCategory then Settings.OpenToCategory(ns.rankGuardCategory:GetID()) end
     end)
     HomeText(L("Un ! sur les sorts dont un meilleur rang est déjà appris."), -482)
-    HomeText(L("/aqol : accueil • /ft options : infobulles\n/aqsession : journal • /aqbuild : talents • /arkrang : rangs"), -524)
+    HomeText(L("/qt : accueil • /qttooltip options : infobulles\n/aqsession : journal • /qtbuild : talents • /qtrank : rangs"), -524)
     home:SetScript("OnShow", function()
         remindersButton:SetEnabled(ns.reminderCategory ~= nil)
         sessionButton:SetEnabled(ns.sessionCategory ~= nil)
@@ -60,7 +60,8 @@ local function RegisterHome()
     if not ns.UI then BuildFallbackHome(home) end
     local root = Settings.RegisterCanvasLayoutCategory(home, "QoL Toolkit")
     Settings.RegisterAddOnCategory(root)
-    SLASH_ARKANNSQOL1 = "/aqol"
+    SLASH_ARKANNSQOL1 = "/qt"
+    SLASH_ARKANNSQOL2 = "/aqol"
     SlashCmdList.ARKANNSQOL = function()
         if ns.StopAllPreviews then ns.StopAllPreviews() end
         Settings.OpenToCategory(root:GetID())
@@ -105,5 +106,5 @@ events:SetScript("OnEvent", function(self, event, name)
         end
     end
     if #failures > 0 then error(table.concat(failures, "\n")) end
-    if firstRun then print(L("|cff33ccffQoL Toolkit :|r /aqol : options.")) end
+    if firstRun then print(L("|cff33ccffQoL Toolkit :|r /qt : options.")) end
 end)

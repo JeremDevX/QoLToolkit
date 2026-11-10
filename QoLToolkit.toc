@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: QoL Toolkit
-## Notes: Tooltips, effect reminders, session journal, talents, spell ranks, target distance, bags, and advanced settings. /aqol
-## Notes-frFR: Infobulles, rappels, journal, talents, rangs de sorts, distance, sacs et réglages avancés. /aqol
+## Notes: Tooltips, effect reminders, session journal, talents, spell ranks, target distance, bags, and advanced settings. /qt
+## Notes-frFR: Infobulles, rappels, journal, talents, rangs de sorts, distance, sacs et réglages avancés. /qt
 ## Author: Arkann
 ## Version: 0.1.0
 ## SavedVariables: ForeverTooltipLibreDB

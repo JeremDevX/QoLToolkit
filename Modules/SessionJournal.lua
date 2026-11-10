@@ -594,7 +594,8 @@ function ns.InitializeSessionJournal(parentCategory)
     panel:SetScript("OnHide", StopPreview)
     settings = Settings.RegisterCanvasLayoutSubcategory(parentCategory, panel, L("Journal de session"))
     ns.sessionCategory = settings
-    SLASH_ARKANNSQOLSESSION1 = "/aqsession"
+    SLASH_ARKANNSQOLSESSION1 = "/qtsession"
+    SLASH_ARKANNSQOLSESSION2 = "/aqsession"
     SlashCmdList.ARKANNSQOLSESSION = function() Settings.OpenToCategory(settings:GetID()) end
     refreshSettings(); Draw()
 

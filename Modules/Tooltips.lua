@@ -221,7 +221,7 @@ anchor:SetScript("OnMouseUp", function(self, button)
     if button == "RightButton" then
         SavePosition()
         self:Hide()
-        Say(L("Position enregistrée. /ft pour la modifier."))
+        Say(L("Position enregistrée. /qttooltip pour la modifier."))
     end
 end)
 
@@ -240,8 +240,9 @@ local function SetEditing(editing)
     end
 end
 
-SLASH_FOREVERTOOLTIPLIBRE1 = "/ft"
-SLASH_FOREVERTOOLTIPLIBRE2 = "/tooltiplibre"
+SLASH_FOREVERTOOLTIPLIBRE1 = "/qttooltip"
+SLASH_FOREVERTOOLTIPLIBRE2 = "/ft"
+SLASH_FOREVERTOOLTIPLIBRE3 = "/tooltiplibre"
 SlashCmdList.FOREVERTOOLTIPLIBRE = function(message)
     if not db then return end
     local command, argument = message:lower():match("^%s*(%S*)%s*(.-)%s*$")
@@ -261,18 +262,18 @@ SlashCmdList.FOREVERTOOLTIPLIBRE = function(message)
         db.enabled = false
         anchor:Hide()
         HideTooltip()
-        Say(L("Désactivé. /ft on pour réactiver."))
+        Say(L("Désactivé. /qttooltip on pour réactiver."))
     elseif command == "on" then
         db.enabled = true
         Say(L("Activé."))
     elseif command == "taille" or command == "scale" then
         if argument == "" then
-            Say(L("Échelle : %s %%. Exemple : /ft taille 120 (50 à 200)."):format(db.scale))
+            Say(L("Échelle : %s %%. Exemple : /qttooltip taille 120 (50 à 200)."):format(db.scale))
             return
         end
         local value = tonumber((argument:gsub(",", ".")))
         if not value or value ~= value or value < 50 or value > 200 then
-            Say(L("Indiquez une taille entre 50 et 200 %. Exemple : /ft taille 120."))
+            Say(L("Indiquez une taille entre 50 et 200 %. Exemple : /qttooltip taille 120."))
             return
         end
         db.scale = value
@@ -280,7 +281,7 @@ SlashCmdList.FOREVERTOOLTIPLIBRE = function(message)
         Say(L("Échelle : %s %%."):format(value))
     elseif command == "curseur" or command == "cursor" then
         if argument ~= "" and argument ~= "on" and argument ~= "off" then
-            Say(L("/ft curseur on : suivre la souris ; /ft curseur off : position fixe."))
+            Say(L("/qttooltip curseur on : suivre la souris ; /qttooltip curseur off : position fixe."))
             return
         end
         if argument == "" then db.cursor = not db.cursor else db.cursor = argument == "on" end
@@ -291,7 +292,7 @@ SlashCmdList.FOREVERTOOLTIPLIBRE = function(message)
     elseif command == "options" or command == "parametres" then
         if settingsCategory then Settings.OpenToCategory(settingsCategory:GetID()) end
     else
-        Say(L("/ft options : paramètres ; /ft : placer ; /ft taille 120 : taille ; /ft curseur on ou off : suivi ; /ft reset : recentrer ; /ft off ou on : désactiver ou activer."))
+        Say(L("/qttooltip options : paramètres ; /qttooltip : placer ; /qttooltip taille 120 : taille ; /qttooltip curseur on ou off : suivi ; /qttooltip reset : recentrer ; /qttooltip off ou on : désactiver ou activer."))
     end
     RefreshSettings()
 end

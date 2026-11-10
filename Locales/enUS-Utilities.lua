@@ -111,7 +111,7 @@ for source, translation in pairs({
     ["Tout retirer"] = "Remove all",
     ["activé."] = "enabled.",
     ["désactivé."] = "disabled.",
-    ["Un ! orange indique un rang supérieur déjà appris. /arkrang on ou /arkrang off."] = "An orange ! marks a spell with a learned higher rank. /arkrang on or /arkrang off.",
+    ["Un ! orange indique un rang supérieur déjà appris. /qtrank on ou /qtrank off."] = "An orange ! marks a spell with a learned higher rank. /qtrank on or /qtrank off.",
     ["API de rangs Forever indisponible : aucun avertissement affiché."] = "The Forever spell rank API is unavailable. Rank warnings are off.",
     ["Distance de la cible"] = "Target Distance",
     ["Afficher la distance en mètres"] = "Show distance in meters",

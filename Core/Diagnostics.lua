@@ -132,7 +132,7 @@ local function Tick()
     if not started then return end
     if GetTime() - started >= duration then
         Stop("timeout")
-        print(L("Capture terminée. /aqlog show pour la copier."))
+        print(L("Capture terminée. /qtlog show pour la copier."))
     else
         Capture()
     end
@@ -158,7 +158,7 @@ local function Start()
     trace = {header = Header(), rows = {}}
     ForeverTooltipLibreDB.diagnostics = trace
     Capture("start")
-    return L("Capture démarrée pour 2 min. /aqlog stop pour l’arrêter.")
+    return L("Capture démarrée pour 2 min. /qtlog stop pour l’arrêter.")
 end
 
 local function CreateExport()
@@ -190,7 +190,7 @@ end
 local function Show()
     local saved = ForeverTooltipLibreDB.diagnostics
     if type(saved) ~= "table" or type(saved.header) ~= "string" or type(saved.rows) ~= "table" then
-        return L("Aucune trace. Utilise /aqlog start pour commencer.")
+        return L("Aucune trace. Utilise /qtlog start pour commencer.")
     end
     if WoW.ReadValue(InCombatLockdown) ~= false then return L("Ouvre la trace hors combat.") end
     if not export then CreateExport() end
@@ -214,14 +214,15 @@ local function Show()
 end
 
 function ns.InitializeDiagnostics()
-    SLASH_QOLTOOLKITDIAGNOSTICS1 = "/aqlog"
+    SLASH_QOLTOOLKITDIAGNOSTICS1 = "/qtlog"
+    SLASH_QOLTOOLKITDIAGNOSTICS2 = "/aqlog"
     SlashCmdList.QOLTOOLKITDIAGNOSTICS = function(input)
         local command = input:lower():match("^%s*(%S*)")
         local message
         if command == "start" then
             message = Start()
         elseif command == "stop" then
-            message = Stop("stop") and L("Capture terminée. /aqlog show pour la copier.") or L("Aucune capture en cours.")
+            message = Stop("stop") and L("Capture terminée. /qtlog show pour la copier.") or L("Aucune capture en cours.")
         elseif command == "mark" then
             if started then Capture("mark") else message = L("Aucune capture en cours.") end
         elseif command == "show" then
@@ -232,7 +233,7 @@ function ns.InitializeDiagnostics()
             if export then export:Hide(); editBox:SetText("") end
             message = L("Trace effacée.")
         else
-            message = L("/aqlog start : enregistrer • mark : marquer • stop : arrêter • show : copier • clear : effacer")
+            message = L("/qtlog start : enregistrer • mark : marquer • stop : arrêter • show : copier • clear : effacer")
         end
         if message then print(message) end
     end

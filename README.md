@@ -20,7 +20,7 @@ Use the dashboard to pin modules, preview appearance changes, and position suppo
 ## Install
 
 1. Put the addon folder in `World of Warcraft/_forever_/Interface/AddOns/` and name it `QoLToolkit`. The `QoLToolkit.toc` file should sit directly inside that folder.
-2. Restart WoW after installing. Open **Settings > Add-ons > QoL Toolkit** or type `/aqol`.
+2. Restart WoW after installing. Open **Settings > Add-ons > QoL Toolkit** or type `/qt`.
 3. Open the default talent window with `N` to use the planner. Click **QoL** in the Blizzard bag header for quick bag settings.
 
 The addon follows the game client language. A French client uses French. English is used on English clients and as the default on other clients.
@@ -29,7 +29,7 @@ When updating, keep the folder name and your existing SavedVariables.
 
 ## Local diagnostics
 
-Type `/aqlog start`, reproduce the behavior manually, then use `/aqlog stop`. Open `/aqlog show` out of combat and copy the selected trace with Ctrl+C. Use `/aqlog mark` during capture to mark a step or `/aqlog clear` to erase the trace.
+Type `/qtlog start`, reproduce the behavior manually, then use `/qtlog stop`. Open `/qtlog show` out of combat and copy the selected trace with Ctrl+C. Use `/qtlog mark` during capture to mark a step or `/qtlog clear` to erase the trace.
 
 The addon samples frame geometry and selected events twice per second for up to two minutes. The trace includes visibility, anchors, scale, strata, and frame level. It stores the latest capture in WoW's local addon settings and starts a fresh trace on each explicit start. Copy the trace from the export window to share it.
 

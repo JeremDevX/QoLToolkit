@@ -514,14 +514,15 @@ driver:SetScript("OnUpdate", function(_, delta)
     end
 end)
 
-SLASH_ARKANNSRANKGUARD1 = "/arkrang"
-SLASH_ARKANNSRANKGUARD2 = "/rankguard"
+SLASH_ARKANNSRANKGUARD1 = "/qtrank"
+SLASH_ARKANNSRANKGUARD2 = "/arkrang"
+SLASH_ARKANNSRANKGUARD3 = "/rankguard"
 SlashCmdList.ARKANNSRANKGUARD = function(message)
     local command = (message or ""):lower():match("^%s*(.-)%s*$")
     if command == "on" or command == "activer" then SetEnabled(true)
     elseif command == "off" or command == "desactiver" or command == "désactiver" then SetEnabled(false) end
     print(string.format(L("|cffffb829QoL Toolkit — Rangs de sorts|r : %s"), enabled and L("activé.") or L("désactivé.")))
-    print(L("Un ! orange indique un rang supérieur déjà appris. /arkrang on ou /arkrang off."))
+    print(L("Un ! orange indique un rang supérieur déjà appris. /qtrank on ou /qtrank off."))
     if not C_SpellBook or not C_SpellBook.IsSpellBookItemLowRank then
         print(L("API de rangs Forever indisponible : aucun avertissement affiché."))
     end

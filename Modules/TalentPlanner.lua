@@ -791,10 +791,11 @@ function ns.InitializeTalentPlanner(parentCategory)
         end,
     }) end
     ApplyStyle()
-    SLASH_ARKANNSQOLTALENTS1 = "/aqbuild"
+    SLASH_ARKANNSQOLTALENTS1 = "/qtbuild"
+    SLASH_ARKANNSQOLTALENTS2 = "/aqbuild"
     SlashCmdList.ARKANNSQOLTALENTS = function()
         dismissed = false; Attach(); Refresh()
-        if not panel:IsShown() then print(L("|cff33ccffQoL Toolkit :|r Ouvre tes talents (N) et active le module dans /aqol.")) end
+        if not panel:IsShown() then print(L("|cff33ccffQoL Toolkit :|r Ouvre tes talents (N) et active le module dans /qt.")) end
     end
     local events = CreateFrame("Frame", "ArkannsQOLTalentEvents")
     for _, event in ipairs({"ADDON_LOADED", "PLAYER_ENTERING_WORLD", "TRAIT_CONFIG_UPDATED", "TRAIT_NODE_CHANGED", "TRAIT_NODE_CHANGED_PARTIAL", "TRAIT_NODE_ENTRY_UPDATED", "TRAIT_TREE_CURRENCY_INFO_UPDATED", "TRAIT_SUB_TREE_CHANGED", "TRAIT_TREE_CHANGED", "SPELL_DATA_LOAD_RESULT", "PLAYER_LEVEL_UP", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED"}) do events:RegisterEvent(event) end

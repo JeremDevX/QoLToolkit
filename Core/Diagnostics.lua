@@ -4,7 +4,7 @@ local diagnostics = {}
 ns.Diagnostics = diagnostics
 
 local interval, duration, rowLimit, eventLimit = 0.5, 120, 260, 24
-local ticker, listener, export, editBox, scroll
+local ticker, listener, export, editBox, scroll, refreshPanel
 local started, trace, previous, modules, pending, droppedEvents
 
 local events = {
@@ -132,6 +132,7 @@ local function Tick()
     if not started then return end
     if GetTime() - started >= duration then
         Stop("timeout")
+        if refreshPanel then refreshPanel() end
         print(L("Capture terminée. /qtlog show pour la copier."))
     else
         Capture()
@@ -163,7 +164,6 @@ end
 
 local function CreateExport()
     export = CreateFrame("Frame", "QoLToolkitDiagnosticsExport", UIParent, "BackdropTemplate")
-    export:SetSize(700, 440)
     export:SetPoint("CENTER")
     export:SetFrameStrata("DIALOG")
     export:SetClampedToScreen(true)
@@ -178,7 +178,6 @@ local function CreateExport()
     scroll:SetPoint("TOPLEFT", 16, -70)
     scroll:SetPoint("BOTTOMRIGHT", -34, 16)
     editBox = CreateFrame("EditBox", nil, scroll)
-    editBox:SetSize(648, 354)
     editBox:SetMultiLine(true)
     editBox:SetFontObject(GameFontHighlightSmall)
     editBox:SetAutoFocus(false)
@@ -187,13 +186,20 @@ local function CreateExport()
     scroll:SetScrollChild(editBox)
 end
 
-local function Show()
+local function SavedTrace()
     local saved = ForeverTooltipLibreDB.diagnostics
-    if type(saved) ~= "table" or type(saved.header) ~= "string" or type(saved.rows) ~= "table" then
-        return L("Aucune trace. Utilise /qtlog start pour commencer.")
-    end
+    if type(saved) == "table" and type(saved.header) == "string" and type(saved.rows) == "table" then return saved end
+end
+
+local function Show()
+    local saved = SavedTrace()
+    if not saved then return L("Aucune trace. Utilise /qtlog start pour commencer.") end
     if WoW.ReadValue(InCombatLockdown) ~= false then return L("Ouvre la trace hors combat.") end
     if not export then CreateExport() end
+    local width, height = math.min(700, UIParent:GetWidth() - 32), math.min(440, UIParent:GetHeight() - 32)
+    export:SetSize(width, height)
+    editBox:SetWidth(width - 50)
+    editBox:SetHeight(height - 86)
     local lines = {saved.header, "rect=left,bottom,width,height (frame units)"}
     for index = math.max(1, #saved.rows - rowLimit + 1), #saved.rows do
         local row = saved.rows[index]
@@ -207,7 +213,7 @@ local function Show()
         local _, newlines = text:gsub("\n", "\n")
         lineCount = newlines + 1
     end
-    editBox:SetHeight(math.max(354, lineCount * 16))
+    editBox:SetHeight(math.max(height - 86, lineCount * 16))
     editBox:SetFocus()
     editBox:HighlightText()
     scroll:SetVerticalScroll(0)
@@ -238,22 +244,56 @@ function ns.InitializeDiagnostics(root)
             message = L("/qtlog start : enregistrer • mark : marquer • stop : arrêter • show : copier • clear : effacer • inventory : inventaire du client")
         end
         if message then print(message) end
+        if refreshPanel then
+            refreshPanel((command == "show" or (command == "start" and not started)) and message or nil)
+        end
     end
     if root and ns.UI then
         local panel = CreateFrame("Frame", "ArkannsQOLDiagnosticsPanel", UIParent, "BackdropTemplate")
         panel:Hide(); ns.UI.StylePanel(panel)
-        ns.UI.Label(panel, L("Diagnostics"), 16, -16, 18)
-        local help = ns.UI.Label(panel, L("Enregistre une trace pour comprendre un problème d’affichage. La capture s’arrête après deux minutes."), 16, -52)
-        help:SetPoint("TOPRIGHT", -16, -52); help:SetHeight(64)
+        local viewport = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+        viewport:SetPoint("TOPLEFT", 16, -16); viewport:SetPoint("BOTTOMRIGHT", -34, 16)
+        local body = CreateFrame("Frame", nil, viewport); body:SetSize(1, 1); viewport:SetScrollChild(body)
+        local title = ns.UI.Label(body, L("Diagnostics"), 0, 0, 18)
+        local help = ns.UI.Label(body, L("Enregistre une trace pour comprendre un problème d’affichage. La capture s’arrête après deux minutes."), 0, 0)
+        local status = ns.UI.Label(body, "", 0, 0)
+        local buttons = {}
         for index, item in ipairs({
             {L("Démarrer une capture"), "start"}, {L("Arrêter la capture"), "stop"},
             {L("Copier la dernière trace"), "show"}, {L("Inventaire du client"), "inventory"},
         }) do
             local command = item[2]
-            ns.UI.Button(panel, nil, item[1], 16, -126-(index-1)*38, 250, function()
+            buttons[index] = ns.UI.Button(body, nil, item[1], 0, 0, 250, function()
                 SlashCmdList.QOLTOOLKITDIAGNOSTICS(command)
             end)
         end
+        local function Layout()
+            local width = math.max(1, panel:GetWidth() - 50)
+            body:SetWidth(width)
+            local y = 0
+            for _, label in ipairs({title, help, status}) do
+                label:ClearAllPoints(); label:SetPoint("TOPLEFT", 0, -y); label:SetWidth(width)
+                y = y + label:GetStringHeight() + 10
+            end
+            local columns = width >= 470 and 2 or 1
+            local buttonWidth = math.min(250, (width - 10 * (columns - 1)) / columns)
+            for index, button in ipairs(buttons) do
+                button:ClearAllPoints()
+                button:SetPoint("TOPLEFT", (index - 1) % columns * (buttonWidth + 10), -y - math.floor((index - 1) / columns) * 34)
+                button:SetWidth(buttonWidth)
+            end
+            local height = y + math.ceil(#buttons / columns) * 34
+            body:SetHeight(height)
+            ns.UI.ClampScroll(viewport, height)
+        end
+        refreshPanel = function(message)
+            local available = SavedTrace() ~= nil
+            status:SetText(message or (started and L("Capture en cours.") or (available and L("Trace disponible.") or L("Aucune trace enregistrée."))))
+            buttons[1]:SetEnabled(not started); buttons[2]:SetEnabled(started ~= nil); buttons[3]:SetEnabled(available)
+            if panel:IsShown() then Layout() end
+        end
+        panel:SetScript("OnShow", function() refreshPanel() end)
+        panel:HookScript("OnSizeChanged", function() if panel:IsShown() then Layout() end end)
         ns.diagnosticsCategory = Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Diagnostics"))
     end
 end

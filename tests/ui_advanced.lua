@@ -87,4 +87,21 @@ assert(not frames.ArkannsQOLAdvancedTab1.shown and frames.ArkannsQOLAdvancedRetu
 assert(row.option == nil and not row.choice.enabled and writes == 1, "Diagnostic inventory stays read-only")
 frames.ArkannsQOLAdvancedReturn.scripts.OnClick()
 assert(frames.ArkannsQOLAdvancedTab1.shown and not frames.ArkannsQOLAdvancedReturn.shown)
-print("PASS: expert opt-in, explicit choices, favorites navigation, and read-only diagnostic inventory")
+
+-- A narrow reset review should dedicate the viewport to the selected changes.
+panel:SetWidth(360); panel.scripts.OnSizeChanged()
+row.select:SetChecked(true); row.select.scripts.OnClick(row.select)
+local review = frames.ArkannsQOLAdvancedReviewReset
+local viewport = frames.ArkannsQOLAdvancedScroll
+local browsingHeight = viewport:GetHeight()
+review.scripts.OnClick()
+assert(not frames.ArkannsQOLAdvancedSearch.shown and not frames.ArkannsQOLAdvancedTab1.shown)
+assert(not row.select.shown and not row.input.shown and not row.default.shown and not row.favorite.shown)
+assert(row.info.text:find("Actuel : 10 • Défaut : 0", 1, true) and viewport:GetHeight() > browsingHeight)
+assert(writes == 1 and values.cameraZoomSpeed == "10")
+frames.ArkannsQOLAdvancedCancelReset.scripts.OnClick()
+assert(frames.ArkannsQOLAdvancedSearch.shown and row.select.shown and row.input.shown and writes == 1)
+review.scripts.OnClick()
+frames.ArkannsQOLAdvancedConfirmReset.scripts.OnClick()
+assert(writes == 2 and values.cameraZoomSpeed == "0")
+print("PASS: expert opt-in, explicit choices, favorites navigation, diagnostic inventory, and focused reset review")

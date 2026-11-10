@@ -2,7 +2,7 @@ local _, ns = ...
 local L = ns.L
 local Model, WoW = ns.AuraReminderModel, ns.WoW
 local db, reminder, message, category, manualInput, status, enabled, list, listBody, emptyList
-local apiNotice
+local apiNotice, layoutEffects
 local rows = {}
 local testMode, testControls
 local reminderRows = {}
@@ -390,6 +390,36 @@ local function Kind(rule, key, forms, name)
     return "buff"
 end
 
+local function LayoutRows()
+    local narrow = listBody:GetWidth() < 420
+    local step = narrow and 48 or 38
+    local count = 0
+    for index, row in ipairs(rows) do
+        if row:IsShown() then
+            local y = -(index - 1) * step
+            row:ClearAllPoints(); row:SetPoint("TOPLEFT", 0, y); row:SetPoint("TOPRIGHT", 0, y)
+            row:SetHeight(step - 2)
+            row.kindLabel:ClearAllPoints(); row.nameLabel:ClearAllPoints()
+            if narrow then
+                row.nameLabel:SetPoint("LEFT", row.icon, "RIGHT", 8, 8)
+                row.nameLabel:SetPoint("RIGHT", row.priority, "LEFT", -8, 8)
+                row.kindLabel:SetPoint("TOPLEFT", row.nameLabel, "BOTTOMLEFT", 0, -1)
+                row.kindLabel:SetJustifyH("LEFT")
+            else
+                row.kindLabel:SetPoint("RIGHT", row.priority, "LEFT", -6, 0)
+                row.kindLabel:SetJustifyH("RIGHT")
+                row.nameLabel:SetPoint("LEFT", row.icon, "RIGHT", 10, 0)
+                row.nameLabel:SetPoint("RIGHT", row.kindLabel, "LEFT", -10, 0)
+            end
+            count = count + 1
+        end
+    end
+    local height = count * step
+    list:SetHeight(math.max(1, math.min(height, 152)))
+    listBody:SetHeight(math.max(1, height))
+    ns.UI.ClampScroll(list, height)
+end
+
 local Refresh
 Refresh = function()
     local entries = {}
@@ -418,34 +448,41 @@ Refresh = function()
         local row = rows[index]
         if not row then
             row = CreateFrame("Frame", "ArkannsQOLEffectRow" .. index, listBody)
-            row:SetHeight(36)
-            row:SetPoint("TOPLEFT", 0, -(index - 1) * 38)
-            row:SetPoint("TOPRIGHT", 0, -(index - 1) * 38)
             row.icon = row:CreateTexture(nil, "ARTWORK")
             row.icon:SetSize(28, 28); row.icon:SetPoint("LEFT", 4, 0)
-            row.delete = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-            row.delete:SetSize(26, 26); row.delete:SetPoint("RIGHT", -4, 0); row.delete:SetText("×")
+            row.delete = CreateFrame("Button", nil, row, "UIPanelCloseButton")
+            row.delete:SetSize(26, 26); row.delete:SetPoint("RIGHT", -4, 0)
+            row.delete:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_TOP")
+                GameTooltip:SetText(L("Supprimer le rappel"))
+                GameTooltip:Show()
+            end)
+            local function HideDeleteTooltip(self)
+                if GameTooltip:GetOwner() == self then GameTooltip:Hide() end
+            end
+            row.delete:SetScript("OnLeave", HideDeleteTooltip)
+            row.delete:SetScript("OnHide", HideDeleteTooltip)
             row.kindLabel = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
             row.priority = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
             row.priority:SetSize(78, 26); row.priority:SetPoint("RIGHT", row.delete, "LEFT", -6, 0)
             row.priority:SetScript("OnClick", function()
                 row.rule.priority = (row.rule.priority or 2) % 3 + 1; Refresh(); Update()
             end)
-            if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(row.priority); ns.UI.StyleButton(row.delete) end
-            row.kindLabel:SetWidth(96); row.kindLabel:SetPoint("RIGHT", row.priority, "LEFT", -6, 0)
-            row.kindLabel:SetJustifyH("RIGHT")
+            if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(row.priority) end
+            row.kindLabel:SetWidth(96)
             row.nameLabel = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-            row.nameLabel:SetPoint("LEFT", row.icon, "RIGHT", 10, 0)
-            row.nameLabel:SetPoint("RIGHT", row.kindLabel, "LEFT", -10, 0)
             row.nameLabel:SetJustifyH("LEFT"); row.nameLabel:SetWordWrap(false)
             row.delete:SetScript("OnClick", function()
-                for itemIndex, rule in ipairs(db[row.key]) do
-                    if rule == row.rule then
-                        table.remove(db[row.key], itemIndex)
-                        status:SetText(L("%s : rappel supprimé."):format(row.nameLabel:GetText()))
-                        Refresh(); Update(); break
+                local selected, key, name = row.rule, row.key, row.nameLabel:GetText()
+                ns.UI.Confirm(L("Supprimer le rappel « %s » ?"):format(name), function()
+                    for itemIndex, rule in ipairs(db[key]) do
+                        if rule == selected then
+                            table.remove(db[key], itemIndex)
+                            status:SetText(L("%s : rappel supprimé."):format(name))
+                            Refresh(); Update(); break
+                        end
                     end
-                end
+                end)
             end)
             rows[index] = row
         end
@@ -458,10 +495,10 @@ Refresh = function()
         row:Show()
     end
     for index = #entries + 1, #rows do rows[index]:Hide() end
-    listBody:SetHeight(math.max(1, #entries * 38))
-    list:SetVerticalScroll(math.min(list:GetVerticalScroll(), math.max(0, #entries * 38 - list:GetHeight())))
+    list:SetShown(#entries > 0)
     emptyList:SetShown(#entries == 0)
     enabled:SetChecked(db.enabled)
+    layoutEffects()
 end
 
 local function AddEffect(name, kind, spellID, icon)
@@ -562,7 +599,7 @@ end
 
 local function Place()
     if Blocked() then
-        status:SetText(L("Indisponible en combat ou à la mort."))
+        ns.UI.Notify(L("Indisponible en combat ou à la mort."))
         return
     end
     return ns.UI.StartLayout("reminders")
@@ -578,7 +615,7 @@ local function Preview(forLayout)
     return true
 end
 
-local function BuildAppearance(body, visibilityBody)
+local function BuildAppearance(body, scroll)
     local appearanceBody = body
     local refreshers, syncing = {}, false
     local inherited = {font = true, fontSize = true, titleSize = true, gap = true, padding = true,
@@ -612,7 +649,7 @@ local function BuildAppearance(body, visibilityBody)
         if appearanceRefresh then appearanceRefresh() end
     end
     local function Choice(key, label, x, y)
-        Text(label, x, y)
+        local caption = Text(label, x, y)
         local button = Button(key, "", x, y - 22, function(self)
             if not HasMenus() then note:SetText(L("Menu indisponible.")); return end
             MenuUtil.CreateContextMenu(self, function(_, root)
@@ -626,6 +663,10 @@ local function BuildAppearance(body, visibilityBody)
         Inherited(button, key)
         refreshers[#refreshers + 1] = function()
             for _, option in ipairs(choices[key]) do if option[1] == db.appearance[key] then button:SetText(option[2]) end end
+        end
+        return function(y)
+            caption:ClearAllPoints(); caption:SetPoint("TOPLEFT", x, -y); caption:SetPoint("TOPRIGHT", -16, -y)
+            button:ClearAllPoints(); button:SetPoint("TOPLEFT", x, -y - 22)
         end
     end
     local function Slider(key, label, x, y, suffix)
@@ -645,6 +686,12 @@ local function BuildAppearance(body, visibilityBody)
         Inherited(slider, key)
         refreshers[#refreshers + 1] = function()
             slider:SetValue(db.appearance[key]); caption:SetText(L("%s : %d%s"):format(label, db.appearance[key], suffix or ""))
+        end
+        return function(y, shown, left)
+            left = left or x
+            caption:ClearAllPoints(); caption:SetPoint("TOPLEFT", left, -y)
+            slider:ClearAllPoints(); slider:SetPoint("TOPLEFT", left, -y - 26)
+            caption:SetShown(shown); slider:SetShown(shown)
         end
     end
     local function Check(key, label, x, y)
@@ -737,9 +784,9 @@ local function BuildAppearance(body, visibilityBody)
     end)
     Inherited(themeButton, "font")
     Slider("fontSize", L("Taille du texte"), 16, -194, " px")
-    Slider("backgroundAlpha", L("Opacité du fond"), 16, -258, " %")
-    Slider("width", L("Largeur"), 16, -322, " px")
-    local previewButton = Button("Preview", L("Tester"), 16, -386, function()
+    local opacity = Slider("backgroundAlpha", L("Opacité du fond"), 16, -258, " %")
+    local frameWidth = Slider("width", L("Largeur"), 16, -322, " px")
+    local previewButton = Button("Preview", L("Aperçu"), 16, -386, function()
         if testMode then EndTest(); return end
         if Blocked() then
             note:SetText(L("Indisponible en combat ou à la mort.")); return
@@ -747,48 +794,94 @@ local function BuildAppearance(body, visibilityBody)
         Preview()
         Changed()
     end)
-    refreshers[#refreshers + 1] = function() previewButton:SetText(testMode and L("Fermer le test") or L("Tester")) end
+    refreshers[#refreshers + 1] = function() previewButton:SetText(testMode and L("Arrêter l’aperçu") or L("Aperçu")) end
     local advanced = CreateFrame("Frame", nil, appearanceBody)
-    advanced:SetPoint("TOPLEFT", 0, -466); advanced:SetPoint("TOPRIGHT", 0, -466); advanced:SetHeight(1390); advanced:Hide()
+    advanced:Hide()
+    local Layout
     local advancedButton = Button("Advanced", L("Personnalisation avancée"), 16, -426, function(self)
         advanced:SetShown(not advanced:IsShown())
         self:SetText(advanced:IsShown() and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
-        appearanceBody:SetHeight(advanced:IsShown() and 1860 or 470)
+        Layout()
     end)
+    local layoutGroup = CreateFrame("Frame", nil, advanced); body = layoutGroup
+    Text(L("Cadre"), 0, 0)
+    Choice("layout", L("Disposition"), 0, -26)
+    local columns = Slider("columns", L("Colonnes (grille)"), 0, -86)
+    local gap = Slider("gap", L("Espacement"), 0, -148, " px")
+    local padding = Slider("padding", L("Marges"), 0, -210, " px")
+    local align = Choice("align", L("Alignement"), 0, -272)
+    local textGroup = CreateFrame("Frame", nil, advanced); body = textGroup
+    Text(L("Texte et icônes"), 0, 0)
+    Choice("font", L("Police"), 0, -26)
+    Choice("outline", L("Contour"), 0, -86)
+    Check("shadow", L("Ombre du texte"), 0, -136)
+    Check("showTitle", L("Afficher le titre"), 0, -170)
+    Input("title", L("Titre personnalisé"), 0, -210)
+    Slider("titleSize", L("Taille du titre"), 0, -272, " px")
+    Check("showIcons", L("Afficher les icônes"), 0, -330)
+    Slider("iconSize", L("Taille des icônes"), 0, -372, " px")
+    local colorsGroup = CreateFrame("Frame", nil, advanced); body = colorsGroup
+    Text(L("Couleurs"), 0, 0)
+    Text(L("Couleurs : clic sur le carré ou code hex + Entrée."), 0, -26, "GameFontHighlightSmall")
+    Input("background", L("Fond"), 0, -68, true)
+    Input("textColor", L("Texte"), 0, -130, true)
+    Input("titleColor", L("Titre"), 0, -192, true)
+    local borderGroup = CreateFrame("Frame", nil, advanced); body = borderGroup
+    Text(L("Bordure"), 0, 0)
+    Choice("border", L("Type de bordure"), 0, -26)
+    Slider("borderSize", L("Épaisseur de bordure"), 0, -86, " px")
+    Input("borderColor", L("Bordure"), 0, -148, true)
     body = advanced
-    Choice("layout", L("Disposition"), 16, -16)
-    Choice("align", L("Alignement"), 16, -80)
-    Slider("columns", L("Colonnes (grille)"), 16, -144)
-    Slider("gap", L("Espacement"), 16, -208, " px")
-    Slider("padding", L("Marges"), 16, -272, " px")
-    Choice("font", L("Police"), 16, -336)
-    Choice("outline", L("Contour"), 16, -400)
-    Slider("titleSize", L("Taille du titre"), 16, -464, " px")
-    Slider("iconSize", L("Taille des icônes"), 16, -528, " px")
-    Check("showIcons", L("Afficher les icônes"), 16, -592)
-    Check("showTitle", L("Afficher le titre"), 16, -630)
-    Check("shadow", L("Ombre du texte"), 16, -668)
-    Input("title", L("Titre personnalisé"), 16, -712)
-    Text(L("Couleurs : clic sur le carré ou code hex + Entrée."), 16, -780, "GameFontHighlightSmall")
-    Input("background", L("Fond"), 16, -820, true)
-    Input("textColor", L("Texte"), 16, -900, true)
-    Input("titleColor", L("Titre"), 16, -980, true)
-    Input("borderColor", L("Bordure"), 16, -1060, true)
-    Choice("border", L("Bordure"), 16, -1140)
-    Slider("borderSize", L("Épaisseur de bordure"), 16, -1204, " px")
-    body = visibilityBody
-    Button("Place", L("Déplacer"), 16, -240, Place)
-    body = advanced
-    Button("Defaults", L("Défauts de cette section"), 16, -1270, function()
-        for key, value in pairs(defaults) do db.appearance[key] = value end
-        if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("reminders", false) end
-        Changed()
+    local reset = Button("Defaults", L("Défauts de cette section"), 0, 0, function()
+        ns.UI.Confirm(L("Rétablir l’apparence par défaut des rappels ?"), function()
+            for key, value in pairs(defaults) do db.appearance[key] = value end
+            ns.UI.SetOverride("reminders", false)
+            Changed()
+        end)
     end)
-    Text(L("Les réglages grisés utilisent le thème commun.\nDéplacer ouvre le mode Disposition."), 16, -1314, "GameFontHighlightSmall")
-    appearanceBody:SetHeight(470)
+    local function Position(widget, x, y, width, height)
+        widget:ClearAllPoints(); widget:SetPoint("TOPLEFT", x, -y)
+        if width then widget:SetWidth(width) end
+        if height then widget:SetHeight(height) end
+    end
+    Layout = function()
+        local width = math.max(1, appearanceBody:GetWidth() - 32)
+        local wide = width >= 522
+        local height = wide and 366 or 466
+        Position(previewButton, wide and 282 or 16, wide and 48 or 386, wide and 210 or math.min(250, width))
+        opacity(wide and 194 or 258, true, wide and 282 or 16)
+        frameWidth(wide and 258 or 322, true)
+        Position(advancedButton, 16, height - 38, math.min(295, width))
+        if advanced:IsShown() then
+            local groupWidth = wide and (width - 20) / 2 or width
+            local grid = db.appearance.layout == "grid" and not db.grouped
+            local afterLayout = grid and 148 or 86
+            columns(86, grid)
+            gap(afterLayout, true)
+            padding(afterLayout + 62, true)
+            align(afterLayout + 124)
+            local leftHeight = afterLayout + 190
+            local rightX = wide and groupWidth + 20 or 0
+            local textY = wide and 0 or leftHeight
+            local colorsY = textY + 440
+            local borderY = colorsY + (wide and 0 or 262)
+            local resetY = math.max(colorsY + 262, borderY + 222)
+            Position(layoutGroup, 0, 0, groupWidth, leftHeight)
+            Position(textGroup, rightX, textY, groupWidth, 440)
+            Position(colorsGroup, 0, colorsY, groupWidth, 262)
+            Position(borderGroup, rightX, borderY, groupWidth, 222)
+            Position(reset, 0, resetY)
+            Position(advanced, 16, height, width, resetY + 38)
+            height = height + resetY + 38
+        end
+        appearanceBody:SetHeight(height)
+        ns.UI.ClampScroll(scroll, height)
+    end
+    scroll:HookScript("OnSizeChanged", Layout)
     appearanceRefresh = function()
         syncing = true
         for _, refresh in ipairs(refreshers) do refresh() end
+        Layout()
         syncing = false
     end
     appearanceRefresh()
@@ -818,7 +911,7 @@ function ns.InitializeReminders(parentCategory)
     testControls = CreateFrame("Frame", "ArkannsQOLReminderTestControls", reminder)
     testControls:SetPoint("TOPLEFT", 6, -4); testControls:SetPoint("TOPRIGHT", -6, -4); testControls:SetHeight(24)
     local testLabel = testControls:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    testLabel:SetPoint("LEFT", 4, 0); testLabel:SetText("Test")
+    testLabel:SetPoint("LEFT", 4, 0); testLabel:SetText(L("Aperçu"))
     local close = CreateFrame("Button", "ArkannsQOLReminderTestClose", testControls, "UIPanelCloseButton")
     close:SetPoint("RIGHT", 0, 0); close:SetSize(26, 26); close:SetScript("OnClick", EndTest)
     testControls:Hide()
@@ -843,13 +936,16 @@ function ns.InitializeReminders(parentCategory)
     local visibilityPage, visibilityBody = ScrollPage("ArkannsQOLReminderVisibility", 390)
     visibilityPage:Hide()
     appearancePage:Hide()
-    local tabs = {}
+    local tabs, activePage = {}, effectsPage
     local function Tab(name, text, x, page)
         local button = CreateFrame("Button", name, settingsPanel, "UIPanelButtonTemplate")
         button:SetPoint("TOPLEFT", x, -10); button:SetSize(190, 26); button:SetText(text)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button) end
         tabs[#tabs + 1] = button
+        button:SetEnabled(page ~= activePage)
         button:SetScript("OnClick", function()
+            activePage = page
+            for _, tab in ipairs(tabs) do tab:SetEnabled(tab ~= button) end
             EndTest()
             effectsPage:SetShown(page == effectsPage); appearancePage:SetShown(page == appearancePage); visibilityPage:SetShown(page == visibilityPage)
             if page == appearancePage then Preview() end
@@ -885,8 +981,8 @@ function ns.InitializeReminders(parentCategory)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button) end
         return button
     end
-    Text(L("Rappels d'effets"), -16, "GameFontNormalLarge")
-    Text(L("Par personnage • Masqué en combat et à la mort."), -44)
+    local heading = Text(L("Rappels d'effets"), -16, "GameFontNormalLarge")
+    local scope = Text(L("Par personnage • Masqué en combat et à la mort."), -44)
     apiNotice = Text("", -72)
     enabled = CreateFrame("CheckButton", "ArkannsQOLReminderEnabled", panel, "UICheckButtonTemplate")
     enabled:SetPoint("TOPLEFT", 12, -82)
@@ -899,7 +995,7 @@ function ns.InitializeReminders(parentCategory)
     end)
     local chooseButtons = {
         Button("ArkannsQOLChooseAura", L("+ Auras / postures"), 16, -120, function(self) ChooseEffect(self, "aura") end),
-        Button("ArkannsQOLChooseBuff", "+ Buffs", 216, -120, function(self) ChooseEffect(self, "buff") end),
+        Button("ArkannsQOLChooseBuff", L("+ Buffs"), 216, -120, function(self) ChooseEffect(self, "buff") end),
         Button("ArkannsQOLChooseTracking", L("+ Minicarte"), 416, -120, function(self) ChooseEffect(self, "tracking") end),
     }
     local effectsTitle = Text(L("Effets suivis"), -160, "GameFontNormal")
@@ -908,7 +1004,6 @@ function ns.InitializeReminders(parentCategory)
     listBody = CreateFrame("Frame", nil, list)
     listBody:SetSize(580, 1)
     list:SetScrollChild(listBody)
-    list:SetScript("OnSizeChanged", function(_, width) listBody:SetWidth(math.max(1, width)) end)
     emptyList = Text(L("Aucun effet. Ajoute une aura, un buff ou un suivi."), -198)
     rows = {}
     manualInput = CreateFrame("EditBox", "ArkannsQOLManualInput", panel, "InputBoxTemplate")
@@ -918,58 +1013,89 @@ function ns.InitializeReminders(parentCategory)
     manualInput:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     local addManual = Button("ArkannsQOLAddManual", L("Ajouter par nom / ID"), 416, -370, AddManual)
     status = Text("", -408)
-    local manualHelp = Text(L("Buff absent du menu ? Active-le ou saisis son nom / ID.\nPlacement : onglet Visibilité."), -446)
+    local manualHelp = Text(L("Buff absent du menu ? Active-le ou saisis son nom / ID."), -446)
     local behaviorControls = {}
-    local function BehaviorCheck(key, text, y)
+    local function BehaviorCheck(key, text, y, onChange)
         local box = CreateFrame("CheckButton", "ArkannsQOLReminder_" .. key, panel, "UICheckButtonTemplate")
         box:SetPoint("TOPLEFT", 12, y)
         local label = box:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         label:SetPoint("LEFT", box, "RIGHT", 2, 0); label:SetText(text); box:SetFontString(label)
         behaviorControls[#behaviorControls + 1] = function() box:SetChecked(db[key]) end
-        box:SetScript("OnClick", function(self) db[key] = self:GetChecked() == true; Update() end)
+        box:SetScript("OnClick", function(self)
+            db[key] = self:GetChecked() == true
+            if onChange then onChange() end
+            Update()
+        end)
         return box
     end
-    local grouped = BehaviorCheck("grouped", L("Regrouper par type d'effet"), -496)
+    local grouped = BehaviorCheck("grouped", L("Regrouper par type d'effet"), -496, function() appearanceRefresh() end)
     local priorityHelp = Text(L("Priorité : clique Haute, Normale ou Basse dans la liste."), -538)
     local behaviorDefaults = Button(nil, L("Défauts de cette section"), 16, -574, function()
-        db.grouped = false
-        for _, key in ipairs({"auras", "tracking"}) do for _, rule in ipairs(db[key]) do rule.priority = 2 end end
-        for _, sync in ipairs(behaviorControls) do sync() end
-        Refresh(); Update()
+        ns.UI.Confirm(L("Rétablir le regroupement et les priorités par défaut des rappels ?"), function()
+            db.grouped = false
+            for _, key in ipairs({"auras", "tracking"}) do for _, rule in ipairs(db[key]) do rule.priority = 2 end end
+            for _, sync in ipairs(behaviorControls) do sync() end
+            Refresh(); Update(); appearanceRefresh()
+        end)
     end)
     local effectsBody = panel
-    local function LayoutEffects()
-        local width = math.max(280, effectsBody:GetWidth())
-        local columns = width >= 590 and 3 or 1
-        local size = math.min(250, (width - 32 - (columns - 1) * 10) / columns)
+    local function Position(widget, x, y)
+        widget:ClearAllPoints(); widget:SetPoint("TOPLEFT", x, -y)
+    end
+    local function TextBlock(widget, y, width)
+        Position(widget, 16, y); widget:SetWidth(math.max(1, width - 32))
+        return y + widget:GetStringHeight() + 8
+    end
+    layoutEffects = function()
+        local width = effectsBody:GetWidth()
+        local columns = width >= 500 and 3 or width >= 310 and 2 or 1
+        local size = math.min(250, math.max(1, (width - 32 - (columns - 1) * 10) / columns))
+        local y = TextBlock(heading, 16, width)
+        Position(enabled, 12, y)
+        y = TextBlock(scope, y + 32, width)
+        if apiNotice:GetText() ~= "" then
+            apiNotice:Show()
+            y = TextBlock(apiNotice, y, width)
+        else apiNotice:Hide() end
+        chooseButtons[1]:SetEnabled(HasMenus() and HasForms() and true or false)
+        chooseButtons[2]:SetEnabled(HasMenus() and HasBuffs() and true or false)
+        chooseButtons[3]:SetEnabled(HasMenus() and HasTracking() and true or false)
         for index, button in ipairs(chooseButtons) do
-            button:ClearAllPoints(); button:SetPoint("TOPLEFT", 16 + ((index - 1) % columns) * (size + 10), -120 - math.floor((index - 1) / columns) * 34)
+            Position(button, 16 + ((index - 1) % columns) * (size + 10), y + math.floor((index - 1) / columns) * 34)
             button:SetWidth(size)
         end
-        local top = 150 + math.ceil(3 / columns) * 34
-        local extra = columns == 1 and 34 or 0
-        local function Position(widget, x, y)
-            widget:ClearAllPoints(); widget:SetPoint("TOPLEFT", x, y)
+        y = TextBlock(manualHelp, y + math.ceil(3 / columns) * 34, width)
+        local inline = columns == 3
+        Position(manualInput, 22, y); manualInput:SetWidth(math.max(1, width - (inline and 250 or 44)))
+        Position(addManual, inline and width - 206 or 16, y + (inline and 0 or 34))
+        y = y + (inline and 34 or 68)
+        Position(status, 16, y); status:SetWidth(math.max(1, width - 32)); status:SetHeight(38)
+        y = TextBlock(effectsTitle, y + 44, width)
+        if list:IsShown() then
+            y = TextBlock(priorityHelp, y, width)
+            Position(list, 16, y); list:SetPoint("TOPRIGHT", -36, -y)
+            listBody:SetWidth(math.max(1, width - 52))
+            LayoutRows()
+            y = y + list:GetHeight() + 8
+        else
+            ns.UI.ClampScroll(list, 0)
+            y = TextBlock(emptyList, y, width)
         end
-        Position(effectsTitle, 16, -top + 24)
-        Position(list, 16, -top); list:SetPoint("TOPRIGHT", -36, -top)
-        Position(emptyList, 16, -top - 14); emptyList:SetPoint("TOPRIGHT", -16, -top - 14)
-        Position(manualInput, 22, -top - 186); manualInput:SetWidth(columns == 1 and width - 44 or width - 250)
-        Position(addManual, columns == 1 and 16 or width - 206, -top - 186 - extra)
-        for _, spec in ipairs({{status,224},{manualHelp,262},{priorityHelp,354}}) do
-            Position(spec[1], 16, -top - spec[2] - extra); spec[1]:SetPoint("TOPRIGHT", -16, -top - spec[2] - extra)
-        end
-        Position(grouped, 12, -top - 312 - extra)
-        Position(behaviorDefaults, 16, -top - 390 - extra)
-        effectsBody:SetHeight(top + 450 + extra)
+        priorityHelp:SetShown(list:IsShown())
+        Position(grouped, 12, y)
+        Position(behaviorDefaults, 16, y + 38)
+        effectsBody:SetHeight(y + 78)
+        ns.UI.ClampScroll(effectsPage, y + 78)
     end
-    effectsBody:HookScript("OnSizeChanged", function(_, width) if width ~= effectsBody.layoutWidth then effectsBody.layoutWidth = width; LayoutEffects() end end)
+    effectsBody:HookScript("OnSizeChanged", function(_, width)
+        if width ~= effectsBody.layoutWidth then effectsBody.layoutWidth = width; layoutEffects() end
+    end)
     panel = visibilityBody
-    enabled:SetParent(panel); enabled:ClearAllPoints(); enabled:SetPoint("TOPLEFT", 12, -48)
     Text(L("Visibilité"), -16, "GameFontNormalLarge")
-    Text(L("Masqué en combat et à la mort. Aucun rappel pour un effet inconnu."), -88)
-    BehaviorCheck("compact", L("Mode compact : 2 effets"), -116)
-    BehaviorCheck("expandOnHover", L("Développer au survol"), -148)
+    local visibilityHelp = Text(L("Masqué en combat et à la mort. Aucun rappel pour un effet inconnu."), -50)
+    local LayoutVisibility
+    local compact = BehaviorCheck("compact", L("Mode compact : 2 effets"), -116, function() LayoutVisibility() end)
+    local expand = BehaviorCheck("expandOnHover", L("Développer au survol"), -148)
     local limitButton = Button(nil, "", 16, -194, function(self)
         if not HasMenus() then return end
         MenuUtil.CreateContextMenu(self, function(_, root)
@@ -979,25 +1105,41 @@ function ns.InitializeReminders(parentCategory)
             end
         end)
     end)
-    Button(nil, L("Défauts de cette section"), 16, -332, function()
-        db.enabled, db.compact, db.expandOnHover, db.visibleLimit = true, false, true, 6
-        EndTest()
-        for _, sync in ipairs(behaviorControls) do sync() end
-        limitButton:SetText(L("Limite : %d"):format(db.visibleLimit)); Refresh(); Update()
+    local place = Button("ArkannsQOLAppearancePlace", L("Déplacer"), 16, -240, Place)
+    local visibilityDefaults = Button(nil, L("Défauts de cette section"), 16, -332, function()
+        ns.UI.Confirm(L("Rétablir la visibilité par défaut des rappels ?"), function()
+            db.enabled, db.compact, db.expandOnHover, db.visibleLimit = true, false, true, 6
+            EndTest()
+            for _, sync in ipairs(behaviorControls) do sync() end
+            limitButton:SetText(L("Limite : %d"):format(db.visibleLimit)); LayoutVisibility(); Refresh(); Update()
+        end)
     end)
-    Text(L("Les effets restants sont indiqués par +N.\nL'aperçu disparaît à la fermeture des réglages."), -284)
+    local limitHelp = Text(L("Les effets restants sont indiqués par +N.\nL'aperçu disparaît à la fermeture des réglages."), -284)
+    LayoutVisibility = function()
+        local width = visibilityBody:GetWidth()
+        local y = TextBlock(visibilityHelp, 50, width)
+        Position(compact, 12, y)
+        Position(expand, 28, y + 34); expand:SetShown(db.compact)
+        y = y + (db.compact and 72 or 38)
+        Position(limitButton, 16, y)
+        y = TextBlock(limitHelp, y + 34, width)
+        Position(place, 16, y)
+        Position(visibilityDefaults, 16, y + 36)
+        visibilityBody:SetHeight(y + 74)
+        ns.UI.ClampScroll(visibilityPage, y + 74)
+    end
+    visibilityPage:HookScript("OnSizeChanged", LayoutVisibility)
     panel = effectsBody
-    BuildAppearance(appearanceBody, visibilityBody)
+    BuildAppearance(appearanceBody, appearancePage)
     settingsPanel:SetScript("OnShow", function()
         LayoutTabs()
         EndTest()
         panel:SetWidth(math.max(1, effectsPage:GetWidth()))
         appearanceBody:SetWidth(math.max(1, appearancePage:GetWidth()))
-        listBody:SetWidth(math.max(1, list:GetWidth()))
-        LayoutEffects()
         Refresh(); status:SetText("")
         appearanceRefresh()
         for _, sync in ipairs(behaviorControls) do sync() end
+        LayoutVisibility()
         limitButton:SetText(L("Limite : %d"):format(db.visibleLimit))
         if appearancePage:IsShown() then Preview() end
     end)
@@ -1010,6 +1152,7 @@ function ns.InitializeReminders(parentCategory)
         local function RefreshAll()
             Refresh(); Update(); appearanceRefresh()
             for _, sync in ipairs(behaviorControls) do sync() end
+            LayoutVisibility()
             limitButton:SetText(L("Limite : %d"):format(db.visibleLimit))
         end
         local configKeys = {"enabled", "grouped", "compact", "expandOnHover", "visibleLimit", "x", "y"}

@@ -7,7 +7,8 @@ function methods:SetBackdrop(value) self.backdrop = value end
 for _, key in ipairs({"SetBackdropColor", "SetBackdropBorderColor", "SetTextColor", "SetFont",
     "SetJustifyH", "SetOrientation", "SetMinMaxValues", "SetValueStep", "SetObeyStepOnDrag", "SetMaxLetters",
     "SetAutoFocus", "RegisterForDrag", "SetClampedToScreen", "SetMovable", "SetVertexColor", "SetTexCoord",
-    "SetColorTexture", "SetTexture", "SetAlpha", "RegisterEvent", "ClearFocus", "StartMoving", "StopMovingOrSizing"}) do
+    "SetColorTexture", "SetTexture", "SetAlpha", "RegisterEvent", "ClearFocus", "StartMoving", "StopMovingOrSizing",
+    "SetWordWrap"}) do
     methods[key] = noop
 end
 function methods:SetScript(key, callback) self.scripts[key] = callback end
@@ -39,9 +40,13 @@ function methods:SetAllPoints() end
 function methods:SetFrameStrata(value) self.strata=value end
 function methods:SetFrameLevel(value) self.level=value end
 function methods:EnableMouse(value) self.mouse=value end
-function methods:SetText(value) self.text=value end
+function methods:SetText(value)
+    self.text=value
+    if self.fontString then self.fontString:SetText(value) end
+end
 function methods:GetText() return self.text or "" end
 function methods:GetStringHeight() return 20 end
+function methods:GetUnboundedStringWidth() return #self:GetText()*6 end
 function methods:SetChecked(value) self.checked=value end
 function methods:GetChecked() return self.checked end
 function methods:SetEnabled(value) self.enabled=value end
@@ -49,11 +54,18 @@ function methods:SetValue(value) self.value=value end
 local function Frame(_, name, parent)
     local frame=setmetatable({scripts={},points={},shown=true,width=200,height=80,parent=parent},{__index=methods})
     if name then frames[name]=frame; env[name]=frame end
+    if parent then
+        parent.children=parent.children or {}
+        parent.children[#parent.children+1]=frame
+    end
     return frame
 end
 function methods:CreateTexture() return Frame() end
 function methods:CreateFontString() return Frame() end
-function methods:GetFontString() self.fontString=self.fontString or Frame(); return self.fontString end
+function methods:GetFontString()
+    if not self.fontString then self.fontString=Frame(); self.fontString:SetText(self:GetText()) end
+    return self.fontString
+end
 function methods:SetNormalTexture() self.normal=Frame() end
 function methods:GetNormalTexture() return self.normal end
 function methods:SetHighlightTexture() self.highlight=Frame() end
@@ -61,6 +73,8 @@ function methods:GetHighlightTexture() return self.highlight end
 function methods:SetThumbTexture() self.thumb=Frame() end
 function methods:GetThumbTexture() return self.thumb end
 function methods:SetScrollChild(frame) self.child=frame end
+function methods:GetVerticalScroll() return self.offset or 0 end
+function methods:SetVerticalScroll(value) self.offset=value end
 env.CreateFrame=Frame
 env.UIParent=Frame(); env.UIParent:SetSize(1000,800)
 env.UISpecialFrames={}
@@ -104,6 +118,12 @@ UI.EndLayout(false)
 assert(settings.x==.5,"Apply must retain an explicitly moved position")
 assert(not frames.ArkannsQOLLayoutStop,"Remove the duplicate cancel action")
 assert(frames.ArkannsQOLLayout.level > frames.ArkannsQOLMover_talents.level)
+assert(UI.StartLayout("talents"))
+local mover = frames.ArkannsQOLMover_talents
+mover.scripts.OnDragStart(mover)
+assert(mover.scripts.OnUpdate)
+UI.EndLayout(true)
+assert(not mover.scripts.OnUpdate and not mover:IsShown(), "Cancelling a drag releases the mover")
 combat=true; message=nil
 assert(UI.StartLayout()==false and message:find("hors combat",1,true))
 combat=false
@@ -121,16 +141,56 @@ local deleted=false
 assert(UI.Confirm("Supprimer ?",function() deleted=true end))
 assert(not deleted); combat=true; popup.callback(); assert(not deleted)
 combat=false; UI.Confirm("Supprimer ?",function() deleted=true end); popup.callback(); assert(deleted)
-env.Settings={RegisterCanvasLayoutSubcategory=function() return {GetID=function() return 1 end} end}
+local opened
+env.Settings={RegisterCanvasLayoutSubcategory=function() return {GetID=function() return 1 end} end,
+    OpenToCategory=function(id) opened=id end}
+module.category=function() return {GetID=function() return 2 end} end
+ns.RegisterModule("session", {label="Journal"})
 ns.home=Frame(); ns.home:SetSize(400,600)
 ns.InitializeInterface({})
-frames.ArkannsQOLCommonAppearance:SetSize(400,600)
-frames.ArkannsQOLCommonAppearance.scripts.OnShow()
+local panel=frames.ArkannsQOLCommonAppearance
+panel:SetSize(400,600)
+panel.scripts.OnShow()
+local scroll=frames.ArkannsQOLCommonTheme.parent.parent
+local collapsedHeight=scroll.child:GetHeight()
+assert(frames.ArkannsQOLCommon_fontSize:IsShown() and frames.ArkannsQOLCommonPreview:IsShown())
+assert(not frames.ArkannsQOLCommonBorder:IsShown(), "Border type belongs with its advanced adjustments")
 assert(not frames.ArkannsQOLCommon_borderSize:IsShown(),"Detailed appearance starts collapsed")
 frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
 assert(frames.ArkannsQOLCommon_borderSize:IsShown())
 assert(frames.ArkannsQOLCommon_borderSize:GetWidth()<=350,"Appearance controls fit a narrow panel")
+panel:SetWidth(619); panel.scripts.OnSizeChanged()
+local scale, opacity=frames.ArkannsQOLCommon_scale, frames.ArkannsQOLCommon_opacity
+assert(scale.points.TOPLEFT[2]>opacity.points.TOPLEFT[2])
+local oneColumnHeight=scroll.child:GetHeight()
+panel:SetWidth(620); panel.scripts.OnSizeChanged()
+assert(scale.points.TOPLEFT[2]==opacity.points.TOPLEFT[2] and opacity.points.TOPLEFT[1]>scale.points.TOPLEFT[1])
+assert(scroll.child:GetHeight()<oneColumnHeight)
+scroll:SetHeight(400); scroll:SetVerticalScroll(250)
+frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
+assert(scroll:GetVerticalScroll()==0 and scroll.child:GetHeight()==collapsedHeight)
+assert(not frames.ArkannsQOLCommonColor_bg:IsShown())
+frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
 local appearance=UI.ExportSettings(); appearance.pins.talents=true; UI.ImportSettings(appearance)
+local card=frames.ArkannsQOLHomeTalents
+card.scripts.OnClick()
+assert(opened==2)
+local homeScroll=frames.ArkannsQOLHomeScroll
+local favoriteOpened
+for _, button in ipairs(homeScroll.child.children) do
+    if button:GetText()==module.label then
+        opened=nil; button.scripts.OnClick(); favoriteOpened=opened
+        break
+    end
+end
+assert(favoriteOpened==2 and card.parent.parent==homeScroll.child)
+ns.home:SetWidth(589); ns.home.Refresh()
+local journal=frames.ArkannsQOLHomeSession.parent
+assert(journal.points.TOPLEFT[2]>card.parent.points.TOPLEFT[2])
+local narrowHomeHeight=homeScroll.child:GetHeight()
+ns.home:SetWidth(590); ns.home.Refresh()
+assert(journal.points.TOPLEFT[2]==card.parent.points.TOPLEFT[2] and card.parent.points.TOPLEFT[1]>0)
+assert(homeScroll.child:GetHeight()<narrowHomeHeight)
 UI.SetOverride("talents", true)
 local themeButton, options = frames.ArkannsQOLCommonTheme, {}
 local borderButton = frames.ArkannsQOLCommonBorder
@@ -142,7 +202,6 @@ end}
 UI.Refresh()
 assert(themeButton.enabled)
 themeButton.scripts.OnClick(themeButton)
-local panel = frames.ArkannsQOLCommonAppearance
 Load("Core/Profiles.lua")
 local profiles = ns.Profiles
 assert(profiles.Save("Legacy theme"))
@@ -191,5 +250,14 @@ assert(panel.backdrop.edgeFile == "Interface\\Tooltips\\UI-Tooltip-Border" and t
 local borderPlan = assert(profiles.Preview("Borderless", {appearance = true}))
 assert(table.concat(borderPlan.changes, "\n"):find("Selon le thème > Sans bordure", 1, true))
 assert(profiles.Apply(borderPlan) and panel.backdrop.edgeFile == nil)
+local beforeReset = UI.ExportSettings()
+beforeReset.grid, beforeReset.snap = false, false
+UI.ImportSettings(beforeReset)
+frames.ArkannsQOLCommonDefaults.scripts.OnClick()
+assert(UI.GetStyle().border == "none", "Requesting a reset must leave appearance unchanged")
+popup.callback()
+local afterReset = UI.ExportSettings()
+assert(afterReset.border == "theme" and afterReset.scale == 1)
+assert(not afterReset.grid and not afterReset.snap and afterReset.pins.talents and afterReset.overrides.talents)
 assert(ns.home.Refresh)
-print("PASS: layout, previews, confirmation, and shared theme and border settings across reload and profiles")
+print("PASS: shared layout, responsive home and appearance, scoped reset, previews, and profiles")

@@ -53,12 +53,14 @@ function methods:CreateTexture() return Widget("Texture", nil, self) end
 function methods:GetFontString() self.font = self.font or self:CreateFontString(); return self.font end
 function methods:GetThumbTexture() return Widget("Texture", nil, self) end
 function methods:SetScrollChild(child) self.child = child end
+function methods:GetVerticalScroll() return self.offset or 0 end
+function methods:SetVerticalScroll(value) self.offset = value end
 for _, name in ipairs({"SetBackdrop", "SetBackdropColor", "SetBackdropBorderColor", "SetMovable", "RegisterForDrag",
     "SetAllPoints", "SetFont", "SetTextColor", "SetJustifyH", "SetFontString", "SetAutoFocus", "SetMaxLetters",
     "SetMinMaxValues", "SetValueStep", "SetObeyStepOnDrag", "SetOrientation", "SetThumbTexture", "SetValue",
     "RegisterEvent", "UnregisterEvent", "UnregisterAllEvents", "SetNormalTexture", "SetHighlightTexture",
     "RegisterForClicks", "SetTexCoord", "SetVertexColor", "SetColorTexture", "SetTexture", "SetWordWrap",
-    "ClearFocus", "SetVerticalScroll", "StartMoving", "StopMovingOrSizing"}) do methods[name] = noop end
+    "ClearFocus", "StartMoving", "StopMovingOrSizing"}) do methods[name] = noop end
 function methods:HasFocus() return false end
 env.CreateFrame = Widget
 env.UIParent = Widget("Frame"); env.UIParent:SetSize(1200, 800)
@@ -85,6 +87,15 @@ local ns = {L = function(text) return text end, RegisterModule = function(id, mo
 local ui = {Copy = Copy, StylePanel = noop, StyleFrame = noop, StyleButton = noop, Refresh = noop,
     GetStyle = function() return nil end, IsOverride = function() return false end, SetOverride = noop}
 ns.UI = ui
+function ui.ClampScroll(scroll, height)
+    scroll:SetVerticalScroll(math.min(scroll:GetVerticalScroll(), math.max(0, height - scroll:GetHeight())))
+end
+local confirmation, menu
+function ui.Confirm(_, accept) confirmation = accept end
+env.MenuUtil = {CreateContextMenu = function(_, setup)
+    menu = {}
+    setup(nil, {CreateButton = function(_, label, callback) menu[label] = callback end})
+end}
 function ui.Label(parent, text, x, y)
     local label = parent:CreateFontString(); label:SetText(text); label:SetPoint("TOPLEFT", x, y); return label
 end
@@ -121,7 +132,13 @@ settings.appearance.rounded = false
 settings.appearance.tooltip[1] = {.1, .2, .3}
 assert(modules.distance.ImportSettings(settings))
 assert(not ns.GetMouseoverDistanceSetting())
+local colorReset = frames.ArkannsQOLDistanceResetColors
+assert(not colorReset.shown, "Color customization starts collapsed")
+Click("ArkannsQOLDistanceAdvanced")
+assert(colorReset.shown)
 Click("ArkannsQOLDistanceResetColors")
+assert(confirmation and modules.distance.ExportSettings().appearance.tooltip[1][1] == .1)
+confirmation()
 local after = modules.distance.ExportSettings()
 assert(after.appearance.x == 35 and after.appearance.y == -22 and after.appearance.portrait,
     "Resetting colors must preserve the chosen target anchor")
@@ -140,6 +157,24 @@ assert(ns.GetMouseoverDistanceSetting() and modules.distance.ExportSettings().mo
 assert(modules.tooltips.ExportSettings().mouseoverDistance == nil, "Distance settings have one profile owner")
 Click("ForeverTooltipLibrePlace")
 assert(selected == "tooltips")
+local cursor = frames.ForeverTooltipLibreCursor
+local offsetToggle = frames.ArkannsQOLTooltipAdvanced
+local offsetBody = frames.ArkannsQOLTooltipOffsetX.parent
+local behavior = frames.ForeverTooltipLibrePlace.parent
+assert(not offsetToggle.shown and frames.ForeverTooltipLibrePlace.shown)
+cursor:SetChecked(true); Click("ForeverTooltipLibreCursor")
+assert(offsetToggle.shown and not frames.ForeverTooltipLibrePlace.shown and not offsetBody.shown)
+local collapsedHeight = behavior.height
+Click("ArkannsQOLTooltipAdvanced")
+assert(offsetBody.shown and behavior.height > collapsedHeight)
+behavior.parent:SetVerticalScroll(100)
+Click("ArkannsQOLTooltipAdvanced")
+assert(not offsetBody.shown and behavior.height == collapsedHeight and behavior.parent:GetVerticalScroll() == 0)
+Click("ArkannsQOLTooltipKind"); menu["Objets"]()
+assert(not cursor.shown and not frames.ForeverTooltipLibreEnabled.shown, "Inherited types hide redundant controls")
+assert(modules.tooltips.ExportSettings().cursor, "Choosing a type keeps the general cursor setting")
+Click("ArkannsQOLTooltipKind"); menu["Réglages généraux"]()
+cursor:SetChecked(false); Click("ForeverTooltipLibreCursor")
 assert(modules.tooltips.Preview(true) == true and not frames.ForeverTooltipLibreAnchor.mouse)
 assert(frames.ForeverTooltipLibreAnchor.strata == "MEDIUM", "Placement previews stay below movers")
 env.InCombatLockdown = function() return true end
@@ -170,16 +205,27 @@ assert(badge and badge.clamped and not badge.mouse and badge.scale == .8 and bad
 assert(badge.strata == "LOW" and badge.level == 5, "The badge must follow the target frame's presentation")
 local panel = frames.ArkannsQOLTargetDistanceSettings
 panel:SetWidth(330); panel.scripts.OnSizeChanged()
-assert(frames.ArkannsQOLDistanceResetColors.points[1][5] < -700, "Narrow color controls must wrap vertically")
+local narrowColorHeight = colorReset.parent.height
+panel:SetWidth(580); panel.scripts.OnSizeChanged()
+assert(colorReset.parent.height < narrowColorHeight, "Wide color controls use a table")
+colorReset.parent.parent:SetVerticalScroll(550)
+Click("ArkannsQOLDistanceAdvanced")
+assert(not colorReset.shown and colorReset.parent.parent:GetVerticalScroll() == 0)
 
 Load("Modules/RankGuard.lua")
 ns.InitializeRankGuard({})
 local rankPanel = frames.ArkannsQOLRankSettings
 rankPanel:SetWidth(330); rankPanel.scripts.OnShow()
-assert(not frames.ArkannsQOLRankStyle.shown and frames.ArkannsQOLRankAddException.shown)
+assert(not frames.ArkannsQOLRankStyle.shown and frames.ArkannsQOLRankAddException.shown and frames.ArkannsQOLRankPreview.shown)
 Click("ArkannsQOLRankAppearanceToggle")
 assert(frames.ArkannsQOLRankStyle.shown and frames.ArkannsQOLRankStyle.width <= 280)
-assert(frames.ArkannsQOLRankStyle.parent.height > 900, "A narrow rank page must scroll rather than clip")
+local narrowRankHeight = frames.ArkannsQOLRankStyle.parent.height
+rankPanel:SetWidth(600); rankPanel.scripts.OnSizeChanged()
+assert(frames.ArkannsQOLRankStyle.parent.height < narrowRankHeight, "Wide independent rank controls share rows")
+assert(frames.ArkannsQOLRankCombat.points[1][5] == frames.ArkannsQOLRankRest.points[1][5])
+local style = frames.ArkannsQOLRankStyle
+Click("ArkannsQOLRankStyle"); menu["Bordure"]()
+assert(not frames.ArkannsQOLRankCorner.shown and style.parent.height < narrowRankHeight)
 env.InCombatLockdown = function() return true end
 ok, reason = modules.ranks.Preview()
 assert(ok == false and type(reason) == "string")

@@ -366,8 +366,8 @@ local function CreateModernSettings(root)
     panel:Hide(); UI.StylePanel(panel)
     UI.Label(panel,L("Infobulles"),16,-16,18)
     local intro=UI.Label(panel,L("Position et échelle par type. Le contenu WoW reste intact."),16,-45)
-    intro:SetPoint("TOPRIGHT",-16,-45); intro:SetHeight(28)
     local tabs, bodies, pages = {}, {}, {}
+    local LayoutSettings
     local order = {"behavior", "appearance", "visibility"}
     local captions = {behavior = L("Fonctionnement"), appearance = L("Apparence"), visibility = L("Visibilité")}
     local function Select(selected)
@@ -382,12 +382,29 @@ local function CreateModernSettings(root)
     end
     local body=bodies.behavior
     local context="general"
+    local offsetX, offsetY
     local function Current() return context=="general" and db or db.contexts[context] end
-    local kindButton=UI.Button(body,"ArkannsQOLTooltipKind","",0,0,270,function()
-        local order={"general","units","items","spells"}
-        for i,key in ipairs(order) do if key==context then context=order[i%#order+1]; break end end
-        RefreshSettings()
-    end)
+    local kindOrder={"general","units","items","spells"}
+    local kinds={general=L("Réglages généraux"),units=L("Unités et interactions"),items=L("Objets"),spells=L("Sorts")}
+    local function SetContext(key)
+        offsetX:ClearFocus(); offsetY:ClearFocus()
+        context=key; RefreshSettings()
+    end
+    local function SelectType(self)
+        if not MenuUtil or not MenuUtil.CreateContextMenu then
+            for index,key in ipairs(kindOrder) do
+                if key==context then SetContext(kindOrder[index%#kindOrder+1]); return end
+            end
+            return
+        end
+        MenuUtil.CreateContextMenu(self,function(_,menu)
+            for _,kind in ipairs(kindOrder) do
+                local key=kind
+                menu:CreateButton(kinds[key],function() SetContext(key) end)
+            end
+        end)
+    end
+    local kindButton=UI.Button(body,"ArkannsQOLTooltipKind","",0,0,270,SelectType)
     local custom=UI.Check(body,"ArkannsQOLTooltipCustom",L("Réglages propres à ce type"),0,-38,function(value) Current().custom=value; HideTooltip(); RefreshSettings() end)
     local enabled=UI.Check(body,"ForeverTooltipLibreEnabled",L("Personnaliser les infobulles"),0,-78,function(value)
         Current().enabled=value; HideTooltip(); RefreshSettings()
@@ -395,32 +412,42 @@ local function CreateModernSettings(root)
     local cursor=UI.Check(body,"ForeverTooltipLibreCursor",L("Suivre le curseur"),0,-116,function(value)
         Current().cursor=value; anchor:Hide(); HideTooltip(); RefreshSettings()
     end)
-    local positionHelp=UI.Label(body,L("Position fixe : utilise le cadre Infobulles du mode Disposition."),4,-152)
+    local inherited=UI.Label(body,L("Ce type utilise les réglages généraux."),4,0)
+    local positionHelp=UI.Label(body,L("La position fixe est commune à tous les types."),4,-152)
     local place=UI.Button(body,"ForeverTooltipLibrePlace",L("Déplacer"),0,-196,170,function() UI.StartLayout("tooltips") end)
     local center=UI.Button(body,"ForeverTooltipLibreCenter",L("Recentrer"),182,-196,170,function() db.x,db.y=.5,.5; RestorePosition(); RefreshSettings() end)
     local advanced=false
     local advancedBody=CreateFrame("Frame",nil,body); advancedBody:SetPoint("TOPLEFT",0,-282); advancedBody:SetSize(500,95); advancedBody:Hide()
-    local advancedButton=UI.Button(body,"ArkannsQOLTooltipAdvanced",L("Personnalisation avancée"),0,-242,270,function()
-        advanced=not advanced; advancedBody:SetShown(advanced); RefreshSettings()
+    local advancedButton=UI.Button(body,"ArkannsQOLTooltipAdvanced",L("Décalage du curseur"),0,-242,270,function()
+        advanced=not advanced; RefreshSettings()
     end)
-    UI.Label(advancedBody,L("Marge X / Y du curseur"),0,0)
-    local offsetX=UI.Input(advancedBody,"ArkannsQOLTooltipOffsetX",4,-30,65)
-    local offsetY=UI.Input(advancedBody,"ArkannsQOLTooltipOffsetY",84,-30,65)
+    UI.Label(advancedBody,L("Décalage X / Y (0 à 100)"),0,0)
+    offsetX=UI.Input(advancedBody,"ArkannsQOLTooltipOffsetX",4,-30,65)
+    offsetY=UI.Input(advancedBody,"ArkannsQOLTooltipOffsetY",84,-30,65)
     local function ApplyOffsets()
         local x,y=tonumber((offsetX:GetText():gsub(",", "."))), tonumber((offsetY:GetText():gsub(",", ".")))
-        if x and y and x>=0 and x<=100 and y>=0 and y<=100 then Current().offsetX,Current().offsetY=x,y; HideTooltip(); RefreshSettings() end
+        if x and y and x>=0 and x<=100 and y>=0 and y<=100 then
+            Current().offsetX,Current().offsetY=x,y
+            offsetX:ClearFocus(); offsetY:ClearFocus()
+            HideTooltip(); RefreshSettings()
+        else
+            UI.Notify(L("Saisis deux valeurs entre 0 et 100."))
+        end
     end
     UI.Button(advancedBody,nil,L("Appliquer"),164,-30,106,ApplyOffsets)
     offsetX:SetScript("OnEnterPressed",ApplyOffsets); offsetY:SetScript("OnEnterPressed",ApplyOffsets)
     local typeDefaults=UI.Button(body,"ForeverTooltipLibreDefaults",L("Défaut de ce type"),0,-390,190,function()
-        local target=Current(); target.enabled,target.cursor,target.scale,target.offsetX,target.offsetY=true,false,100,16,16
-        if context~="general" then target.custom=false end
-        HideTooltip(); RefreshSettings()
+        local key, target=context,Current()
+        UI.Confirm(L("Rétablir les réglages par défaut pour « %s » ?"):format(kinds[key]),function()
+            if target~=(key=="general" and db or db.contexts[key]) then return end
+            target.enabled,target.cursor,target.scale,target.offsetX,target.offsetY=true,false,100,16,16
+            if key~="general" then target.custom=false end
+            HideTooltip(); RefreshSettings()
+        end)
     end)
     local a=bodies.appearance
     local own=UI.Check(a,"ArkannsQOLTooltipOwnStyle",L("Apparence propre à ce module"),0,0,function(value) UI.SetOverride("tooltips",value) end)
-    UI.Button(a,nil,L("Reprendre le thème commun"),0,-42,260,function() UI.SetOverride("tooltips",false) end)
-    local scaleHelp=UI.Label(a,L("L’échelle ci-dessous s’applique au type sélectionné dans Fonctionnement."),0,-78)
+    local scopeButton=UI.Button(a,nil,"",0,-42,270,SelectType)
     local sizeLabel=UI.Label(a,"",0,-126)
     local size=CreateFrame("Slider","ForeverTooltipLibreSize",a,"BackdropTemplate")
     size:SetPoint("TOPLEFT",4,-158); size:SetSize(330,18); size:SetOrientation("HORIZONTAL")
@@ -432,35 +459,42 @@ local function CreateModernSettings(root)
         if syncing then return end
         Current().scale=math.max(50,math.min(200,math.floor(value+.5))); HideTooltip(); RefreshSettings()
     end)
-    UI.Button(a,"ArkannsQOLTooltipPreview",L("Aperçu"),0,-210,160,function() UI.PreviewModule("tooltips") end)
-    local stopPreview=UI.Button(a,nil,L("Arrêter l’aperçu"),172,-210,180,ns.StopAllPreviews)
-    local appearanceDefaults=UI.Button(a,nil,L("Défaut d’apparence"),0,-256,220,function() Current().scale=100; UI.SetOverride("tooltips",false); RefreshSettings() end)
+    local preview=UI.Button(a,"ArkannsQOLTooltipPreview",L("Aperçu"),0,-210,160,function() UI.PreviewModule("tooltips") end)
+    local appearanceDefaults=UI.Button(a,nil,L("Défaut d’apparence"),0,-256,220,function()
+        local key, target=context,Current()
+        UI.Confirm(L("Rétablir l’échelle de « %s » et le thème commun des infobulles ?"):format(kinds[key]),function()
+            if target~=(key=="general" and db or db.contexts[key]) then return end
+            target.scale=100; UI.SetOverride("tooltips",false); RefreshSettings()
+        end)
+    end)
     local v=bodies.visibility
     local hideCombat=UI.Check(v,"ArkannsQOLTooltipCombat",L("Garder le placement WoW en combat"),0,0,function(value) db.hideCombat=value; HideTooltip() end)
     local combatHelp=UI.Label(v,L("Les infobulles restent visibles. Seul le placement personnalisé est suspendu."),0,-42)
-    UI.Button(v,"ArkannsQOLTooltipDistanceSettings",L("Configurer la distance au survol"),0,-92,270,function()
+    local distanceButton=UI.Button(v,"ArkannsQOLTooltipDistanceSettings",L("Configurer la distance au survol"),0,-92,270,function()
         if ns.targetDistanceCategory then Settings.OpenToCategory(ns.targetDistanceCategory:GetID()) end
     end)
-    UI.Button(v,nil,L("Défaut de visibilité"),0,-134,220,function() db.hideCombat=false; RefreshSettings() end)
+    local visibilityDefaults=UI.Button(v,nil,L("Défaut de visibilité"),0,-134,220,function() db.hideCombat=false; RefreshSettings() end)
     RefreshSettings=function()
         syncing=true
         local options=Current()
-        kindButton:SetText(({general=L("Réglages généraux"),units=L("Unités et interactions"),items=L("Objets"),spells=L("Sorts")})[context])
-        custom:SetShown(context~="general"); custom:SetChecked(options.custom)
+        kindButton:SetText(kinds[context]); scopeButton:SetText(kinds[context])
+        custom:SetChecked(options.custom)
         enabled.label:SetText(context=="general" and L("Personnaliser les infobulles") or L("Personnaliser ce type"))
-        enabled:SetChecked(options.enabled); cursor:SetChecked(options.cursor); size:SetValue(options.scale)
         local canEdit=context=="general" or options.custom
-        enabled:SetEnabled(canEdit); cursor:SetEnabled(canEdit); size:SetEnabled(canEdit)
-        sizeLabel:SetText(L("Échelle : %s %%"):format(options.scale))
-        offsetX:SetText(tostring(options.offsetX)); offsetY:SetText(tostring(options.offsetY))
-        offsetX:SetEnabled(canEdit); offsetY:SetEnabled(canEdit)
-        advancedButton:SetText(advanced and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
+        local effective=canEdit and options or db
+        enabled:SetChecked(options.enabled); cursor:SetChecked(options.cursor); size:SetValue(effective.scale)
+        size:SetEnabled(canEdit==true)
+        appearanceDefaults:SetEnabled(canEdit==true)
+        sizeLabel:SetText((canEdit and L("Échelle : %s %%") or L("Échelle héritée : %s %%")):format(effective.scale))
+        if not offsetX:HasFocus() then offsetX:SetText(tostring(options.offsetX)) end
+        if not offsetY:HasFocus() then offsetY:SetText(tostring(options.offsetY)) end
+        advancedButton:SetText(advanced and L("Masquer le décalage du curseur") or L("Décalage du curseur"))
         own:SetChecked(UI.IsOverride("tooltips")); hideCombat:SetChecked(db.hideCombat)
         ApplyMouseoverDistanceSetting()
         UI.StyleFrame(anchor,"tooltips")
         local style=UI.GetStyle("tooltips")
         local previousScale=anchor:GetScale()
-        anchor:SetScale(style and style.scale*options.scale/100 or options.scale/100)
+        anchor:SetScale(style and style.scale*effective.scale/100 or effective.scale/100)
         if previousScale~=anchor:GetScale() then RestorePosition() end
         if style then
             label:SetTextColor(unpack(style.accent)); help:SetTextColor(unpack(style.text)); label:SetFont(style.font,style.fontSize+1,""); help:SetFont(style.font,style.fontSize,"")
@@ -477,34 +511,67 @@ local function CreateModernSettings(root)
         label:SetWidth(anchor:GetWidth()-24); help:SetWidth(anchor:GetWidth()-24)
         if tooltipPreview then label:SetText(L("Loup des bois — Niveau 12")); help:SetText(L("Bête • Ennemi\nQuête : Loups abattus 2 / 5")) end
         syncing=false
+        LayoutSettings()
     end
     panel.OnRefresh=RefreshSettings
     panel.OnDefault=function() db.enabled,db.cursor,db.scale,db.x,db.y=true,false,100,.65,.25; db.contexts={}; NormalizeTooltipOptions(); HideTooltip(); RestorePosition(); RefreshSettings() end
-    local function LayoutSettings()
+    LayoutSettings=function()
         local width=math.max(320,panel:GetWidth())
         local bodyWidth=width-50
-        local extra=bodyWidth<352 and 34 or 0
         local columns=math.max(1,math.min(3,math.floor((width-32)/175)))
         local tabWidth=(width-32)/columns
+        intro:SetWidth(width-32)
+        local tabTop=45+intro:GetStringHeight()+12
         for index,name in ipairs(order) do
-            tabs[name]:ClearAllPoints(); tabs[name]:SetPoint("TOPLEFT",16+((index-1)%columns)*tabWidth,-78-math.floor((index-1)/columns)*34)
+            tabs[name]:ClearAllPoints(); tabs[name]:SetPoint("TOPLEFT",16+((index-1)%columns)*tabWidth,-tabTop-math.floor((index-1)/columns)*34)
             tabs[name]:SetWidth(tabWidth-10)
-            pages[name]:ClearAllPoints(); pages[name]:SetPoint("TOPLEFT",16,-90-math.ceil(3/columns)*34); pages[name]:SetPoint("BOTTOMRIGHT",-34,16)
-            bodies[name]:SetSize(bodyWidth,470+extra)
+            pages[name]:ClearAllPoints(); pages[name]:SetPoint("TOPLEFT",16,-tabTop-math.ceil(3/columns)*34); pages[name]:SetPoint("BOTTOMRIGHT",-34,16)
+            bodies[name]:SetWidth(bodyWidth)
         end
-        positionHelp:SetWidth(bodyWidth-4); positionHelp:SetHeight(40)
-        scaleHelp:SetWidth(bodyWidth); scaleHelp:SetHeight(42)
-        combatHelp:SetWidth(bodyWidth); combatHelp:SetHeight(42)
+        local function Place(control,x,y)
+            control:ClearAllPoints(); control:SetPoint("TOPLEFT",x,-y)
+        end
         for _,check in ipairs({enabled,custom,cursor,own,hideCombat}) do check.label:SetWidth(bodyWidth-36) end
+        local options=Current()
+        local canEdit=context=="general" or options.custom==true
+        local fixed=canEdit and options.enabled and not options.cursor
+        local followsCursor=canEdit and options.enabled and options.cursor
+        custom:SetShown(context~="general"); inherited:SetShown(not canEdit)
+        enabled:SetShown(canEdit); cursor:SetShown(canEdit and options.enabled)
+        positionHelp:SetShown(fixed); place:SetShown(fixed); center:SetShown(fixed)
+        advancedButton:SetShown(followsCursor); advancedBody:SetShown(followsCursor and advanced)
+        if not (followsCursor and advanced) then offsetX:ClearFocus(); offsetY:ClearFocus() end
+        local y=context=="general" and 36 or 72
+        if canEdit then
+            Place(enabled,0,y); y=y+math.max(32,enabled.label:GetStringHeight()+8)
+            if options.enabled then Place(cursor,0,y); y=y+32 end
+        else
+            inherited:SetWidth(bodyWidth-4); Place(inherited,4,y); y=y+inherited:GetStringHeight()+12
+        end
+        if fixed then
+            positionHelp:SetWidth(bodyWidth-4); Place(positionHelp,4,y); y=y+positionHelp:GetStringHeight()+10
+            Place(place,0,y)
+            if bodyWidth<352 then y=y+32; Place(center,0,y) else Place(center,182,y) end
+            y=y+36
+        elseif followsCursor then
+            Place(advancedButton,0,y); y=y+34
+            if advanced then Place(advancedBody,0,y); advancedBody:SetSize(bodyWidth,62); y=y+68 end
+        end
+        typeDefaults:SetShown(canEdit); Place(typeDefaults,0,y)
+        body:SetHeight(y+(canEdit and 42 or 12))
+
+        Place(scopeButton,0,40); Place(sizeLabel,0,80); Place(size,4,105)
         size:SetWidth(math.min(330,bodyWidth-8))
-        center:ClearAllPoints(); center:SetPoint("TOPLEFT",extra>0 and 0 or 182,-196-extra)
-        advancedButton:ClearAllPoints(); advancedButton:SetPoint("TOPLEFT",0,-242-extra)
-        advancedBody:ClearAllPoints(); advancedBody:SetPoint("TOPLEFT",0,-282-extra); advancedBody:SetWidth(bodyWidth)
-        typeDefaults:ClearAllPoints(); typeDefaults:SetPoint("TOPLEFT",0,-390-extra)
-        stopPreview:ClearAllPoints(); stopPreview:SetPoint("TOPLEFT",extra>0 and 0 or 172,-210-extra)
-        appearanceDefaults:ClearAllPoints(); appearanceDefaults:SetPoint("TOPLEFT",0,-256-extra)
+        Place(preview,0,140)
+        if bodyWidth>=392 then Place(appearanceDefaults,172,140); a:SetHeight(182)
+        else Place(appearanceDefaults,0,174); a:SetHeight(216) end
+        combatHelp:SetWidth(bodyWidth)
+        local visibilityFooter=42+combatHelp:GetStringHeight()+14
+        Place(distanceButton,0,visibilityFooter); Place(visibilityDefaults,0,visibilityFooter+36)
+        v:SetHeight(visibilityFooter+76)
+        for _,name in ipairs(order) do UI.ClampScroll(pages[name],bodies[name]:GetHeight()) end
     end
-    panel:SetScript("OnShow",function() ns.StopAllPreviews(); LayoutSettings(); RefreshSettings() end)
+    panel:SetScript("OnShow",function() ns.StopAllPreviews(); RefreshSettings() end)
     panel:HookScript("OnSizeChanged",LayoutSettings)
     panel:SetScript("OnHide",ns.StopAllPreviews)
     settingsCategory=Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Infobulles"))
@@ -548,7 +615,7 @@ local function CreateModernSettings(root)
             NormalizeTooltipOptions(); HideTooltip(); RestorePosition(); RefreshSettings(); return true
         end,
     })
-    Select("behavior"); LayoutSettings(); RefreshSettings()
+    Select("behavior"); RefreshSettings()
 end
 
 function ns.InitializeTooltips(root)

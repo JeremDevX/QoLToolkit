@@ -81,4 +81,58 @@ local before = copy(values.talents)
 assert(profiles.Delete("Source") and env.ForeverTooltipLibreDB.profiles.Source == nil)
 assert(values.talents.x == before.x and ns.UI.IsOverride("session"))
 assert(not profiles.Delete("Source"))
+
+local frames = {}
+local methods = {}
+function methods:SetScript(key, callback) self.scripts[key] = callback end
+methods.HookScript = methods.SetScript
+function methods:SetPoint(_, x, y) self.x, self.y = x, y end
+function methods:SetSize(width, height) self.width, self.height = width, height end
+function methods:SetWidth(width) self.width = width end
+function methods:SetHeight(height) self.height = height end
+function methods:GetWidth() return self.width end
+function methods:GetHeight() return self.height end
+function methods:SetText(text) self.text = text end
+function methods:GetText() return self.text end
+function methods:GetUnboundedStringWidth() return #self.text * 6 end
+function methods:GetStringHeight() return 14 * math.max(1, math.ceil(#self.text * 6 / self.width)) end
+function methods:SetEnabled(enabled) self.enabled = enabled end
+function methods:SetChecked(checked) self.checked = checked end
+function methods:GetChecked() return self.checked end
+function methods:Show() self.shown = true; if self.scripts.OnShow then self.scripts.OnShow() end end
+function methods:Hide() self.shown = false end
+function methods:IsShown() return self.shown end
+function methods:SetVerticalScroll(offset) self.offset = offset end
+function methods:GetVerticalScroll() return self.offset end
+function methods:SetScrollChild(child) self.child = child end
+local function Noop() end
+local function Frame(kind, name, parent)
+    local frame = setmetatable({parent = parent, scripts = {}, width = 1, height = 1, offset = 0, text = ""},
+        {__index = function(_, key) return methods[key] or Noop end})
+    if kind == "CheckButton" then frame.Text = Frame() end
+    if name then frames[name] = frame end
+    return frame
+end
+function methods:CreateFontString() return Frame() end
+env.CreateFrame, env.Settings = Frame, {RegisterCanvasLayoutSubcategory = Noop}
+ns.UI.StyleButton = Noop
+ns.InitializeProfiles({})
+local panel, scroll = frames.ArkannsQOLProfilesPanel, frames.ArkannsQOLProfilePreviewScroll
+local reviewButton, applyButton = frames.ArkannsQOLProfileReview, frames.ArkannsQOLProfileApply
+panel:SetSize(320, 280); scroll:SetSize(270, 248); panel:Show()
+assert(not reviewButton.enabled and reviewButton.parent == scroll.child and scroll.child.height > scroll.height)
+local longName = ("LongName"):rep(12)
+frames.ArkannsQOLProfileName:SetText(longName)
+frames.ArkannsQOLProfileSave.scripts.OnClick()
+assert(env.ForeverTooltipLibreDB.profiles[longName] and reviewButton.enabled and not applyButton.enabled)
+assert(reviewButton.y > applyButton.y and applyButton.x + applyButton.width <= scroll.child.width)
+values.talents.x = .91
+reviewButton.scripts.OnClick()
+assert(applyButton.enabled and values.talents.x == .91, "Review does not apply settings")
+panel:SetWidth(640); scroll:SetWidth(590); panel.scripts.OnSizeChanged()
+assert(reviewButton.y == applyButton.y and applyButton.enabled)
+scroll:SetVerticalScroll(10000)
+local first = frames.ArkannsQOLProfileModule1
+first:SetChecked(false); first.scripts.OnClick(first)
+assert(not applyButton.enabled and scroll.offset == math.max(0, scroll.child.height - scroll.height))
 print("PASS: partial profile appearance, legacy migration, distance ownership, readable review, undo, and deletion")

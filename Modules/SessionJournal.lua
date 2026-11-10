@@ -539,13 +539,16 @@ function ns.InitializeSessionJournal(parentCategory)
     scroll:SetScript("OnSizeChanged", function(_, width) operationBody:SetWidth(math.max(1, width)) end)
     local appearancePage, appearanceBody = Page("ArkannsQOLSessionAppearance", 490)
     local visibilityPage, visibilityBody = Page("ArkannsQOLSessionVisibility", 310)
-    local tabs = {}
+    local tabs, activePage = {}, scroll
     local function Tab(label, x, page, name)
         local button = CreateFrame("Button", name, panel, "UIPanelButtonTemplate")
         button:SetPoint("TOPLEFT", x, -10); button:SetSize(190, 26); button:SetText(label)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button) end
         tabs[#tabs + 1] = button
+        button:SetEnabled(page ~= activePage)
         button:SetScript("OnClick", function()
+            activePage = page
+            for _, tab in ipairs(tabs) do tab:SetEnabled(tab ~= button) end
             StopPreview()
             scroll:SetShown(page == scroll); appearancePage:SetShown(page == appearancePage); visibilityPage:SetShown(page == visibilityPage)
             if page == appearancePage then Preview() end
@@ -586,6 +589,7 @@ function ns.InitializeSessionJournal(parentCategory)
             if onChange then onChange() end
             Draw(); refreshSettings()
         end)
+        return box
     end
     local function Button(name, label, x, y, callback)
         local button = CreateFrame("Button", name, body, "UIPanelButtonTemplate")
@@ -602,9 +606,14 @@ function ns.InitializeSessionJournal(parentCategory)
         slider:SetBackdrop({bgFile = "Interface\\Buttons\\UI-SliderBar-Background", edgeFile = "Interface\\Buttons\\UI-SliderBar-Border", edgeSize = 8})
         slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal"); slider:GetThumbTexture():SetSize(32, 32)
         controls[#controls + 1] = function()
-            slider:SetValue(db[key]); text:SetText(string.format(L("%s : %s"), label, tostring(db[key])))
+            local style = SharedStyle()
+            local value = db[key]
+            if style and key == "fontSize" then value = style.fontSize end
+            if style and key == "opacity" then value = math.floor(style.opacity * 100 + .5) end
+            slider:SetValue(value); text:SetText(string.format(L("%s : %s"), label, tostring(value)))
             local enabled = key ~= "fontSize" and key ~= "opacity" or ns.UI.IsOverride("session")
             slider:SetEnabled(enabled); slider:SetAlpha(enabled and 1 or .5)
+            text:SetAlpha(enabled and 1 or .5)
         end
         slider:SetScript("OnValueChanged", function(_, value)
             if syncing then return end
@@ -613,12 +622,12 @@ function ns.InitializeSessionJournal(parentCategory)
         end)
     end
     Text(L("Fonctionnement"), -8, "GameFontNormalLarge")
-    local trackingStatus = Text("", -76)
-    local trackingButton = Button("ArkannsQOLSessionTracking", "", 16, -40, function()
+    local trackingStatus = Text("", -36)
+    local trackingButton = Button("ArkannsQOLSessionTracking", "", 16, -76, function()
         SetTracking(ready and session.pause == "manual")
     end)
     Check("pauseAFK", L("Mettre en pause pendant l’AFK"), -112, db, SyncAFK)
-    local selectionStatus = Text("", -156)
+    local selectionStatus = Text("", -154)
     for index = 1, #metrics do
         local rowIndex = index
         local box = CreateFrame("CheckButton", "ArkannsQOLSessionMetric" .. index, body, "UICheckButtonTemplate")
@@ -655,7 +664,7 @@ function ns.InitializeSessionJournal(parentCategory)
     end
     Check("hideZero", L("Masquer les valeurs nulles"), -460, db)
     Check("compact", L("Mode compact (3 statistiques)"), -492, db)
-    Check("expandOnHover", L("Développer au survol"), -524, db)
+    local expandOnHover = Check("expandOnHover", L("Développer au survol"), -524, db)
     local showAll = Button("ArkannsQOLSessionShowAll", L("Tout afficher"), 16, -566, function()
         for _, metric in ipairs(metrics) do db.visible[metric.key] = true end
         db.compact, db.hideZero, expanded = false, false, false
@@ -672,18 +681,19 @@ function ns.InitializeSessionJournal(parentCategory)
         end
         if db.hideZero then status = status .. L(" / Zéros masqués") end
         selectionStatus:SetText(status)
-        ArkannsQOLSession_expandOnHover:SetEnabled(db.compact)
         showAll:SetEnabled(count < #metrics or db.compact or db.hideZero)
     end
     local layoutButton = Button("ArkannsQOLSessionLayout", "", 16, -606, function()
         db.layout = db.layout == "horizontal" and "vertical" or "horizontal"; Draw(); refreshSettings()
     end)
-    Button(nil, L("Défauts de cette section"), 16, -646, function()
-        for key in pairs(db.order) do db.order[key] = nil end
-        db.hideZero, db.compact, db.expandOnHover, db.layout = false, false, true, "vertical"
-        db.pauseAFK = false
-        for _, metric in ipairs(metrics) do db.visible[metric.key] = metric.key ~= "levels" end
-        NormalizeOptions(); SyncAFK(); Draw(); refreshSettings()
+    local behaviorDefaults = Button(nil, L("Défauts de cette section"), 16, -646, function()
+        ns.UI.Confirm(L("Rétablir les réglages d’affichage des statistiques et de pause AFK ?"), function()
+            for key in pairs(db.order) do db.order[key] = nil end
+            db.hideZero, db.compact, db.expandOnHover, db.layout = false, false, true, "vertical"
+            db.pauseAFK = false
+            for _, metric in ipairs(metrics) do db.visible[metric.key] = metric.key ~= "levels" end
+            NormalizeOptions(); SyncAFK(); Draw(); refreshSettings()
+        end)
     end)
     local resetButton = Button("ArkannsQOLSessionReset", L("Réinitialiser les stats"), 16, -686, function()
         if not ready then return end
@@ -691,17 +701,35 @@ function ns.InitializeSessionJournal(parentCategory)
             if ready then BeginSession(nil, session.pause); Draw(); refreshSettings() end
         end)
     end)
-    Text(L("Survole XP gagnée ou Solde pour le taux horaire.\nLe démarrage reprend les compteurs. L’option AFK suspend le suivi jusqu’au retour.\nUne nouvelle connexion remet les compteurs à zéro et démarre le suivi.\n/reload conserve les compteurs et l’arrêt manuel. ≥ indique des données XP incomplètes."), -730)
+    local help = Text(L("Survole XP gagnée ou Solde pour le taux horaire.\nLe démarrage reprend les compteurs. L’option AFK suspend le suivi jusqu’au retour.\nUne nouvelle connexion remet les compteurs à zéro et démarre le suivi.\n/reload conserve les compteurs et l’arrêt manuel. ≥ indique des données XP incomplètes."), -730)
+    local function LayoutOperation()
+        local width = operationBody:GetWidth()
+        local wide = width >= 460
+        expandOnHover:SetShown(db.compact)
+        local y = db.compact and 562 or 530
+        showAll:ClearAllPoints(); showAll:SetPoint("TOPLEFT", 16, -y)
+        layoutButton:ClearAllPoints(); layoutButton:SetPoint("TOPLEFT", wide and 186 or 16, -y - (wide and 0 or 34))
+        y = y + (wide and 40 or 74)
+        behaviorDefaults:ClearAllPoints(); behaviorDefaults:SetPoint("TOPLEFT", 16, -y)
+        resetButton:ClearAllPoints(); resetButton:SetPoint("TOPLEFT", wide and 216 or 16, -y - (wide and 0 or 34))
+        y = y + (wide and 42 or 76)
+        help:ClearAllPoints(); help:SetPoint("TOPLEFT", 16, -y); help:SetWidth(math.max(1, width - 32))
+        local height = y + help:GetStringHeight() + 12
+        operationBody:SetHeight(height)
+        ns.UI.ClampScroll(scroll, height)
+    end
+    scroll:HookScript("OnSizeChanged", LayoutOperation)
     body = appearanceBody
     Text(L("Apparence"), -8, "GameFontNormalLarge")
     local override = Button(nil, "", 16, -42, function()
         if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("session", not ns.UI.IsOverride("session")) end
         Draw(); refreshSettings()
     end)
-    Text(L("Les réglages grisés utilisent le thème commun."), -78)
+    local appearanceNotice = Text("", -78)
     Slider("fontSize", L("Taille du texte"), -126, 10, 32)
     Slider("opacity", L("Opacité du fond (%)"), -190, 0, 100)
     local themeButton = Button("ArkannsQOLSessionTheme", "", 16, -254, function(self)
+        if not MenuUtil or not MenuUtil.CreateContextMenu then return end
         MenuUtil.CreateContextMenu(self, function(_, root)
             for _, key in ipairs({"dark", "warm", "light"}) do
                 local themeKey = key
@@ -714,7 +742,9 @@ function ns.InitializeSessionJournal(parentCategory)
     local advancedButton = Button(nil, L("Personnalisation avancée"), 16, -296, function(self)
         advanced:SetShown(not advanced:IsShown())
         self:SetText(advanced:IsShown() and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
-        appearanceBody:SetHeight(advanced:IsShown() and 550 or 340)
+        local height = advanced:IsShown() and 524 or 340
+        appearanceBody:SetHeight(height)
+        ns.UI.ClampScroll(appearancePage, height)
     end)
     advancedButton:SetWidth(260)
     body = advanced
@@ -722,9 +752,11 @@ function ns.InitializeSessionJournal(parentCategory)
     Check("border", L("Afficher la bordure"), -34, db)
     Slider("width", L("Largeur min."), -80, 240, 1000)
     Button(nil, L("Défauts de cette section"), 16, -148, function()
-        db.theme, db.width, db.fontSize, db.opacity, db.showTitle, db.border = "warm", 300, 13, 85, true, true
-        if ns.UI and ns.UI.SetOverride then ns.UI.SetOverride("session", false) end
-        Draw(); refreshSettings()
+        ns.UI.Confirm(L("Rétablir l’apparence par défaut du journal ?"), function()
+            db.theme, db.width, db.fontSize, db.opacity, db.showTitle, db.border = "warm", 300, 13, 85, true, true
+            ns.UI.SetOverride("session", false)
+            Draw(); refreshSettings()
+        end)
     end)
     appearanceBody:SetHeight(340)
     body = visibilityBody
@@ -733,8 +765,10 @@ function ns.InitializeSessionJournal(parentCategory)
     Check("hideCombat", L("Masquer en combat"), -80, db)
     local lockButton = Button("ArkannsQOLSessionPlace", L("Déplacer"), 16, -130, Place)
     Button(nil, L("Défauts de cette section"), 16, -174, function()
-        db.enabled, db.hideCombat, db.locked, db.x, db.y = true, false, true, 0.02, 0.75
-        RestorePosition(); Draw(); refreshSettings()
+        ns.UI.Confirm(L("Rétablir la visibilité et la position par défaut du journal ?"), function()
+            db.enabled, db.hideCombat, db.locked, db.x, db.y = true, false, true, 0.02, 0.75
+            RestorePosition(); Draw(); refreshSettings()
+        end)
     end)
     Text(L("Déplacer ouvre le mode Disposition.\nL'aperçu disparaît à la fermeture des réglages."), -226)
     refreshSettings = function()
@@ -748,10 +782,17 @@ function ns.InitializeSessionJournal(parentCategory)
         trackingButton:SetEnabled(ready)
         resetButton:SetEnabled(ready)
         themeButton:SetText(string.format(L("Thème : %s"), themes[db.theme].label))
-        themeButton:SetEnabled(ns.UI.IsOverride("session"))
+        themeButton:SetEnabled(ns.UI.IsOverride("session") and MenuUtil and MenuUtil.CreateContextMenu ~= nil)
         layoutButton:SetText(db.layout == "horizontal" and L("Disposition : ligne") or L("Disposition : liste"))
         override:SetText(ns.UI.IsOverride("session") and L("Apparence personnalisée") or L("Thème commun"))
+        local note = ns.UI.IsOverride("session") and "" or L("Les réglages grisés utilisent le thème commun.")
+        if appearancePage:IsShown() and InCombat() then note = note .. "\n" .. L("Aperçu disponible hors combat.") end
+        appearanceNotice:SetText(note)
         lockButton:SetText(L("Déplacer"))
+        if expandOnHover:IsShown() ~= db.compact or not operationBody.layoutReady then
+            LayoutOperation()
+            operationBody.layoutReady = true
+        end
         syncing = false
     end
     panel:SetScript("OnShow", function()

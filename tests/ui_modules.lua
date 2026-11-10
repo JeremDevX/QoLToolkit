@@ -17,7 +17,9 @@ function methods:SetWidth(w) self.width = w end
 function methods:SetHeight(h) self.height = h end
 function methods:GetWidth() return self.width end
 function methods:GetHeight() return self.height end
-function methods:GetVerticalScroll() return 0 end
+function methods:GetVerticalScroll() return rawget(self, "scroll") or 0 end
+function methods:SetVerticalScroll(value) self.scroll = value end
+function methods:SetScrollChild(child) self.child = child end
 function methods:GetScale() return self.scale end
 function methods:GetEffectiveScale() return self.scale end
 function methods:SetScale(value) self.scale = value end
@@ -74,7 +76,11 @@ ns.UI.IsOverride = function(id) return overrides[id] == true end
 ns.UI.SetOverride = function(id, value) overrides[id] = value; if modules[id] then modules[id].Refresh() end end
 ns.UI.GetStyle = function() return nil end
 ns.UI.StyleFrame, ns.UI.StylePanel, ns.UI.StyleButton = noop, noop, noop
+ns.UI.ClampScroll = function(scroll, height)
+    scroll:SetVerticalScroll(math.min(scroll:GetVerticalScroll(), math.max(0, height - scroll:GetHeight())))
+end
 ns.UI.StartLayout = function(id) lastLayout = id; return true end
+ns.UI.Notify = noop
 ns.UI.Confirm = function(_, accept) confirmation = accept; return true end
 ns.UI.PreviewEnded = function(id) ended = id end
 ns.RegisterModule = function(id, descriptor) modules[id] = descriptor end
@@ -85,6 +91,16 @@ Load("Core/WoWRuntime.lua")
 Load("Modules/AuraReminderModel.lua")
 Load("Modules/AuraReminders.lua")
 ns.InitializeReminders({})
+local effectsList = frames.ArkannsQOLEffectsList
+assert(not effectsList.shown, "Empty reminders leave room for the add controls")
+local manual = frames.ArkannsQOLManualInput
+manual:SetText("Test aura")
+manual.scripts.OnEnterPressed()
+assert(effectsList.shown and manual.points[1][3] > effectsList.points[1][3], "Manual add stays above the tracked list")
+frames.ArkannsQOLEffectRow1.delete.scripts.OnClick()
+assert(effectsList.shown, "A deletion prompt preserves the selected reminder")
+confirmation()
+assert(not effectsList.shown, "Confirmed removal of the last reminder frees the list space")
 local previewStarted = modules.reminders.Preview(true)
 local reminder = frames.ArkannsQOLReminder
 assert(reminder.mouse == false and reminder.mouseMotion == false and reminder.strata == "HIGH", "Layout reminders must leave input to their mover")
@@ -101,6 +117,19 @@ assert(frames.ArkannsQOLAppearancefontSize.enabled)
 local appearance = env.ArkannsQOLRemindersDB.appearance
 appearance.title, appearance.customTitle = "My reminder", true
 appearance.width, appearance.layout, appearance.columns = 555, "grid", 3
+local reminderPage = frames.ArkannsQOLAppearancePage
+frames.ArkannsQOLAppearanceAdvanced.scripts.OnClick(frames.ArkannsQOLAppearanceAdvanced)
+local wideAppearance = reminderPage.child:GetHeight()
+reminderPage.child:SetWidth(300)
+reminderPage.scripts.OnSizeChanged(reminderPage, 300)
+assert(reminderPage.child:GetHeight() > wideAppearance, "Narrow reminder appearance stacks independent groups")
+assert(frames.ArkannsQOLAppearancecolumns.shown, "Column count is visible for grid mode")
+appearance.layout = "vertical"; modules.reminders.Refresh()
+assert(not frames.ArkannsQOLAppearancecolumns.shown, "List mode hides grid column count")
+appearance.layout = "grid"
+reminderPage:SetVerticalScroll(500)
+frames.ArkannsQOLAppearanceAdvanced.scripts.OnClick(frames.ArkannsQOLAppearanceAdvanced)
+assert(reminderPage:GetVerticalScroll() < 500, "Collapsing reminder appearance clamps scroll")
 frames.ArkannsQOLAppearanceTheme.scripts.OnClick(frames.ArkannsQOLAppearanceTheme)
 assert(menuItems["Compact"]); menuItems["Compact"]()
 assert(appearance.title == "My reminder" and appearance.customTitle)
@@ -123,6 +152,23 @@ modules.session.StopPreview(); assert(ended == "session")
 modules.session.Preview(); assert(frames.ArkannsQOLSessionWindow.strata == "DIALOG")
 modules.session.StopPreview(); assert(frames.ArkannsQOLSessionWindow.strata == "MEDIUM")
 assert(frames.ArkannsQOLSession_fontSize.enabled == false)
+local previousStyle = ns.UI.GetStyle
+ns.UI.GetStyle = function(id)
+    if id == "session" and not overrides.session then
+        return {fontSize = 19, opacity = .72, padding = 12, gap = 6, scale = 1, bg = {0, 0, 0}, text = {1, 1, 1}, accent = {1, 1, 1}}
+    end
+end
+modules.session.Refresh()
+assert(frames.ArkannsQOLSession_fontSize.value == 19 and frames.ArkannsQOLSession_opacity.value == 72)
+assert(env.ArkannsQOLSessionDB.fontSize == 13 and env.ArkannsQOLSessionDB.opacity == 85, "Inherited values leave the local settings intact")
+ns.UI.GetStyle = previousStyle
+local compact = frames.ArkannsQOLSession_compact
+local expand = frames.ArkannsQOLSession_expandOnHover
+assert(not expand.shown)
+compact:SetChecked(true); compact.scripts.OnClick(compact)
+assert(expand.shown)
+compact:SetChecked(false); compact.scripts.OnClick(compact)
+assert(not expand.shown)
 overrides.session = true; modules.session.Refresh()
 assert(frames.ArkannsQOLSession_fontSize.enabled)
 frames.ArkannsQOLSessionPlace.scripts.OnClick()
@@ -142,13 +188,22 @@ assert(ns.TalentPlanModel.DeletePlan(bucket, third) and bucket.active == 1)
 assert(ns.TalentPlanModel.DeletePlan(bucket, first) and #bucket.plans == 0)
 Load("Modules/TalentPlanner.lua")
 ns.InitializeTalentPlanner({})
+local talentOptions = frames.ArkannsQOLTalentSettings
+local talentScroll = frames.ArkannsQOLTalentSettingsScroll
+talentOptions.scripts.OnShow()
 assert(not frames.ArkannsQOLTalentAdvanced.shown)
 local moveY = frames.ArkannsQOLTalentMove.points[1][3]
+local collapsedHeight = talentScroll.child:GetHeight()
 frames.ArkannsQOLTalentAdvancedToggle.scripts.OnClick()
-assert(frames.ArkannsQOLTalentAdvanced.shown and frames.ArkannsQOLTalentMove.points[1][3] < moveY)
-assert(-frames.ArkannsQOLTalentMove.points[1][3] + frames.ArkannsQOLTalentMove.height < 568, "Expanded appearance keeps placement controls inside the native canvas")
+assert(frames.ArkannsQOLTalentAdvanced.shown and frames.ArkannsQOLTalentMove.points[1][3] == moveY)
+local wideHeight = talentScroll.child:GetHeight()
+assert(wideHeight > collapsedHeight, "The expanded colors extend the scroll content")
+talentOptions:SetWidth(340); talentOptions.scripts.OnSizeChanged()
+assert(talentScroll.child:GetWidth() == 290 and talentScroll.child:GetHeight() > wideHeight)
+assert(frames.ArkannsQOLTalentColorfutureColor.points[1][3] < frames.ArkannsQOLTalentColornextColor.points[1][3], "Narrow talent colors stack")
+talentScroll:SetVerticalScroll(300)
 frames.ArkannsQOLTalentAdvancedToggle.scripts.OnClick()
-assert(not frames.ArkannsQOLTalentAdvanced.shown and frames.ArkannsQOLTalentMove.points[1][3] == moveY)
+assert(not frames.ArkannsQOLTalentAdvanced.shown and talentScroll:GetVerticalScroll() < 300)
 assert(modules.talents.Preview(true))
 local talentPreview = frames.ArkannsQOLTalentPreview
 assert(talentPreview.mouse == false and talentPreview.strata == "HIGH" and not talentPreview.close.shown)

@@ -362,6 +362,12 @@ do
     local createWidget = CreateFrame
     CreateFrame = function(kind, name, parent)
         local widget = createWidget(kind, name)
+        widget.parent = parent
+        widget.SetHeight = function(self, height) self.height = height end
+        widget.GetHeight = function(self) return rawget(self, "height") or 300 end
+        widget.SetSize = function(self, _, height) self:SetHeight(height) end
+        widget.SetShown = function(self, shown) self.shown = shown end
+        widget.IsShown = function(self) return self.shown end
         if parent == bag then shortcut = widget end
         return widget
     end
@@ -390,11 +396,22 @@ do
         return button
     end
     local bagNS = {L = distanceNS.L, WoW = distanceNS.WoW,
-        UI = {StylePanel = noop, Label = Control, Check = Check, Button = Button, Refresh = noop},
+        UI = {StylePanel = noop, Label = Control, Check = Check, Button = Button, Refresh = noop,
+            ClampScroll = function(scroll, height) scroll.offset = math.min(scroll.offset, math.max(0, height - scroll:GetHeight())) end},
         RegisterModule = function(_, module) bagModule = module end}
     ForeverTooltipLibreDB.bagSort = {qualityInnerGlow = 100}
     chunks["Modules/BagSort.lua"]("QoLToolkit", bagNS)
     bagNS.InitializeBagSort({GetID = function() return 1 end})
+    local advanced = frames.ArkannsQOLBagColor4.parent
+    local body, scroll = advanced.parent, advanced.parent.parent
+    local collapsedHeight = body:GetHeight()
+    assert(not advanced.shown)
+    scroll.offset = 0
+    frames.ArkannsQOLBagAdvanced:OnClick()
+    assert(advanced.shown and body:GetHeight() > collapsedHeight)
+    scroll.offset = 200
+    frames.ArkannsQOLBagAdvanced:OnClick()
+    assert(not advanced.shown and body:GetHeight() == collapsedHeight and scroll.offset == 0)
     SetItemButtonQuality(slot, 4)
     local outline, glow = slot.textures[1], slot.textures[2]
     assert(outline.points.TOPLEFT[1] == slot.IconBorder and outline.points.BOTTOMRIGHT[2] == "BOTTOMRIGHT")

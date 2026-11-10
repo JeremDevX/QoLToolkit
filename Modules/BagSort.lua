@@ -388,6 +388,7 @@ end
 
 local function Refresh()
     check:SetChecked(db.enabled)
+    check:SetEnabled(not Unavailable())
     qualityCheck:SetChecked(db.qualityBorders)
     transmogCheck:SetChecked(db.transmogIcons)
     status:SetText(Unavailable() or "")
@@ -526,7 +527,7 @@ local function BuildAppearance(body, compact)
     local prefix = compact and "ArkannsQOLBagQuick" or "ArkannsQOLBag"
     local syncing
     local filterLabel = compact and L("Masquer gris et blancs") or L("Masquer les contours gris et blancs")
-    local filter = UI.Check(body, prefix .. "UncommonOnly", filterLabel, 16, compact and -113 or -222, function(value)
+    local filter = UI.Check(body, prefix .. "UncommonOnly", filterLabel, 16, compact and -113 or 0, function(value)
         db.qualityUncommonOnly = value
         RefreshSamples()
         RefreshQualityBorders()
@@ -554,12 +555,12 @@ local function BuildAppearance(body, compact)
         end)
         return function() slider:SetValue(db[key]); Caption() end
     end
-    local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -149 or -262)
-    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and -195 or -318)
-    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -241 or -374)
-    UI.Label(body, L("Couleurs et aperçu"), 20, compact and -287 or -430, 15)
-    if not compact then UI.Label(body, L("Clic gauche · Couleur   Clic droit · Couleur WoW"), 20, -456) end
-    local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -311 or -484
+    local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -149 or -40)
+    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and -195 or -96)
+    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -241 or -152)
+    UI.Label(body, L("Couleurs et aperçu"), 20, compact and -287 or -202, 15)
+    if not compact then UI.Label(body, L("Clic gauche · Couleur\nClic droit · Couleur WoW"), 20, -228) end
+    local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -311 or -266
     local count = 0
     for quality = 0, 8 do
         local name = _G["ITEM_QUALITY" .. quality .. "_DESC"] or qualityLabels[quality + 1]
@@ -595,12 +596,14 @@ local function BuildAppearance(body, compact)
     local footerY = top - math.ceil(count / 6) * (size + 9) - 4
     if not compact then
         UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
-            for key, value in pairs(defaults) do
-                if key ~= "enabled" and key ~= "transmogIcons" then db[key] = value end
-            end
-            db.qualityColors = {}
-            Refresh()
-            RefreshQualityBorders()
+            UI.Confirm(L("Rétablir les bordures de rareté et leurs couleurs par défaut ?"), function()
+                for key, value in pairs(defaults) do
+                    if key ~= "enabled" and key ~= "transmogIcons" then db[key] = value end
+                end
+                db.qualityColors = {}
+                Refresh()
+                RefreshQualityBorders()
+            end)
         end)
     end
     return function()
@@ -766,7 +769,7 @@ function ns.InitializeBagSort(rootCategory)
     scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -4)
     scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -30, 10)
     local body = CreateFrame("Frame", nil, scroll)
-    body:SetSize(282, qualityListening and 614 or 253)
+    body:SetSize(282, 253)
     scroll:SetScrollChild(body)
     ns.UI.Label(body, L("Sacs"), 16, -16, 20)
     check = ns.UI.Check(body, "ArkannsQOLBagsEnabled", L("Trier à l’ouverture manuelle"), 16, -54, SetEnabled)
@@ -776,7 +779,20 @@ function ns.InitializeBagSort(rootCategory)
     ns.UI.Label(body, L("Bordures de rareté"), 20, -168, 15)
     qualityCheck = ns.UI.Check(body, "ArkannsQOLBagQualityBorders", L("Bordure selon la rareté"), 16, -191, SetQualityBorders)
     if qualityListening then
-        refreshAppearance = BuildAppearance(body)
+        local advanced = CreateFrame("Frame", nil, body)
+        advanced:SetPoint("TOPLEFT", 0, -264)
+        local footerY
+        refreshAppearance, footerY = BuildAppearance(advanced)
+        advanced:SetSize(282, -footerY + 36)
+        advanced:Hide()
+        ns.UI.Button(body, "ArkannsQOLBagAdvanced", L("Personnaliser les bordures"), 18, -228, 245, function(button)
+            local opened = not advanced:IsShown()
+            advanced:SetShown(opened)
+            button:SetText(opened and L("Masquer les réglages de bordure") or L("Personnaliser les bordures"))
+            body:SetHeight(opened and 264 + advanced:GetHeight() or 264)
+            ns.UI.ClampScroll(scroll, body:GetHeight())
+        end)
+        body:SetHeight(264)
     else
         qualityCheck:Disable()
         ns.UI.Label(body, L("Bordures indisponibles sur ce client."), 20, -224)

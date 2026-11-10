@@ -439,6 +439,11 @@ local function RegisterSettings(root)
         db.appearance.rounded = value
     end)
     local estimateHelp = UI.Label(body, L("≈ indique une estimation. ≥ indique une distance minimale."), 4, -95)
+    local advanced, Layout = false
+    local advancedButton = UI.Button(body, "ArkannsQOLDistanceAdvanced", L("Placement et couleurs"), 4, -125, 260, function()
+        advanced = not advanced
+        Layout()
+    end)
 
     local placementTitle = UI.Label(body, L("Placement du badge"), 4, -131, 15)
     local portrait = UI.Check(body, nil, L("Ancrer au portrait plutôt qu’au nom"), 0, -153, function(value)
@@ -451,7 +456,11 @@ local function RegisterSettings(root)
     local function ApplyOffsets()
         local x = tonumber((offsetX:GetText():gsub(",", ".")))
         local y = tonumber((offsetY:GetText():gsub(",", ".")))
-        if ValidOffset(x) and ValidOffset(y) then db.appearance.x, db.appearance.y = x, y end
+        if not ValidOffset(x) or not ValidOffset(y) then
+            UI.Notify(L("Saisis deux décalages entre −250 et 250."))
+            return
+        end
+        db.appearance.x, db.appearance.y = x, y
         offsetX:ClearFocus()
         offsetY:ClearFocus()
         AppearanceChanged(true)
@@ -519,9 +528,13 @@ local function RegisterSettings(root)
     end
     local borderButton = ColorButton(180, -298, 130, L("Bordure"), "border")
     local resetColors = UI.Button(body, "ArkannsQOLDistanceResetColors", L("Réinitialiser les couleurs"), 4, -503, 260, function()
-        local defaults = NormalizeAppearance()
-        for _, key in ipairs({"border", "tooltip", "text", "background"}) do db.appearance[key] = defaults[key] end
-        AppearanceChanged()
+        local appearance = db.appearance
+        UI.Confirm(L("Rétablir les couleurs par défaut du badge et des infobulles de distance ?"), function()
+            if appearance ~= db.appearance then return end
+            local defaults = NormalizeAppearance()
+            for _, key in ipairs({"border", "tooltip", "text", "background"}) do appearance[key] = defaults[key] end
+            AppearanceChanged()
+        end)
     end)
 
     local headings = {
@@ -549,7 +562,7 @@ local function RegisterSettings(root)
     local colorHelp = UI.Label(body, L("Clique sur un échantillon ou sur le texte d’une infobulle pour changer sa couleur. Les fourchettes qui chevauchent un seuil prennent la couleur intermédiaire."), 4, -460)
     colorHelp:SetWidth(496)
 
-    local function Layout()
+    Layout = function()
         local width = math.max(270, panel:GetWidth() - 54)
         local narrow = width < 508
         local extra = width < 344 and 34 or 0
@@ -566,20 +579,41 @@ local function RegisterSettings(root)
         end
         for _, check in ipairs({toggle, mouseover, rounded}) do CheckRow(check) end
         y = y + 5; Place(estimateHelp, 4, -y); estimateHelp:SetWidth(width - 8)
-        y = y + estimateHelp:GetStringHeight() + 20
+        y = y + estimateHelp:GetStringHeight() + 12
+        Place(advancedButton, 4, -y)
+        advancedButton:SetText(advanced and L("Masquer placement et couleurs") or L("Placement et couleurs"))
+        y = y + 40
+        for _, control in ipairs({placementTitle, portrait, offsetLabel, offsetX, offsetY, applyOffsets,
+            resetPosition, colorsTitle, frame, resetColors, colorHelp}) do control:SetShown(advanced) end
+        local frameMode = db.appearance.frame
+        borderButton:SetShown(advanced and frameMode == "framed")
+        for _, heading in ipairs(headings) do heading:SetShown(advanced and not narrow) end
+        headings[3]:SetShown(advanced and not narrow and frameMode ~= "text")
+        for _, controls in ipairs(rowControls) do
+            for _, control in pairs(controls) do control:SetShown(advanced) end
+            controls.background:SetShown(advanced and frameMode ~= "text")
+        end
+        if not advanced then
+            offsetX:ClearFocus(); offsetY:ClearFocus()
+            body:SetSize(width, y)
+            UI.ClampScroll(scroll, y)
+            return
+        end
         Place(placementTitle, 4, -y); y = y + 22; CheckRow(portrait)
         y = y + 8; Place(offsetLabel, 4, -y - 6); Place(offsetX, 110, -y); Place(offsetY, 174, -y)
         Place(applyOffsets, extra > 0 and 4 or 240, -y - extra)
         y = y + 36 + extra; Place(resetPosition, 4, -y)
         y = y + 45; Place(colorsTitle, 4, -y)
         y = y + 25; Place(frame, 4, -y)
-        local borderExtra = width < 320 and 34 or 0
+        local borderExtra = width < 320 and frameMode == "framed" and 34 or 0
         Place(borderButton, borderExtra > 0 and 4 or 180, -y - borderExtra)
-        y = y + 45 + borderExtra
+        y = y + 38 + borderExtra
+        Place(colorHelp, 4, -y); colorHelp:SetWidth(width - 8)
+        y = y + colorHelp:GetStringHeight() + 12
         for index, heading in ipairs(headings) do
-            heading:SetShown(not narrow); Place(heading, ({110, 219, 277, 352})[index], -y)
+            Place(heading, ({110, 219, 277, 352})[index], -y)
         end
-        local top = -y - 23
+        local top = -y - (narrow and 0 or 23)
         for index, controls in ipairs(rowControls) do
             local y = top - (index - 1) * (narrow and 110 or 35)
             Place(controls.caption, 4, y - 6)
@@ -594,10 +628,9 @@ local function RegisterSettings(root)
             Place(controls.tooltip, narrow and 4 or 351, y - (narrow and 68 or 0))
         end
         local bottom = -top + (narrow and 330 or 105)
-        Place(colorHelp, 4, -bottom); colorHelp:SetWidth(width - 8)
-        local helpHeight = math.max(40, colorHelp:GetStringHeight())
-        Place(resetColors, 4, -bottom - helpHeight - 12)
-        body:SetSize(width, bottom + helpHeight + 60)
+        Place(resetColors, 4, -bottom)
+        body:SetSize(width, bottom + 42)
+        UI.ClampScroll(scroll, body:GetHeight())
     end
 
     refreshSettings = function()
@@ -610,8 +643,9 @@ local function RegisterSettings(root)
         offsetY:SetText(tostring(appearance.y))
         frame:SetText(frameModes[appearance.frame])
         for _, refresh in ipairs(previews) do refresh(appearance) end
+        Layout()
     end
-    panel:SetScript("OnShow", function() refreshSettings(); Layout() end)
+    panel:SetScript("OnShow", refreshSettings)
     panel:HookScript("OnSizeChanged", Layout)
     return Settings.RegisterCanvasLayoutSubcategory(root, panel, title)
 end

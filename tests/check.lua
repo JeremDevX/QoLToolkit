@@ -289,6 +289,7 @@ CreateFrame = function(kind, name)
     widget.SetAllPoints = function(self, relative) self.relative = relative end
     widget.AddMaskTexture = function(self, mask) self.mask = mask end
     widget.SetTexCoord = function(self, ...) self.coords = {...} end
+    widget.SetVertexColor = function(self, ...) self.color = {...} end
     widget.SetGradient = function(self, _, ...) self.gradient = {...} end
     widget.SetBlendMode = function(self, mode) self.blend = mode end
     widget.SetAlpha = function(self, alpha) self.alpha = alpha end
@@ -386,7 +387,10 @@ do
     ContainerFrameUtil_EnumerateContainerFrames = function() return ipairs({bag}) end
     hooksecurefunc = function(name, fn) assert(name == "SetItemButtonQuality"); hook = fn end
     SetItemButtonQuality = function(...) hook(...) end
-    C_Container = {GetContainerItemInfo = function() return {quality = 4} end}
+    local questInfo
+    C_Container = {GetContainerItemInfo = function() return {quality = 4} end,
+        GetContainerItemQuestInfo = function() return questInfo end}
+    ITEM_QUALITY6_DESC, ITEM_QUALITY7_DESC, ITEM_QUALITY8_DESC = "Artifact", "Heirloom", "WoW Token"
     C_Item = {GetItemQualityColor = function() return .64, .21, .93 end}
     CreateColor = function(...) return {...} end
     local bagsCategory = {GetID = function() return 2 end}
@@ -435,6 +439,40 @@ do
     SetItemButtonQuality(slot, "secret")
     assert(not outline.shown and slot.IconBorder.alpha == .8)
 
+    assert(not frames.ArkannsQOLBagColor6 and not frames.ArkannsQOLBagColor7 and not frames.ArkannsQOLBagColor8)
+    assert(frames.ArkannsQOLBagColorquest, "Quest items need a separate color sample")
+    assert(bagModule.ImportSettings({enabled = false, qualityUncommonOnly = true,
+        qualityColors = {quest = "FFCC00", [1] = "FFFFFF", [6] = "123456"}}))
+    questInfo = {isQuestItem = true}
+    SetItemButtonQuality(slot, 1)
+    assert(outline.shown and outline.color[1] == 1 and outline.color[2] == .8 and outline.color[3] == 0,
+        "Quest color must override common quality and survive the gray/white filter")
+    questInfo = {isQuestItem = false, questID = 123}
+    SetItemButtonQuality(slot, 1)
+    assert(outline.shown, "Quest starters use the quest category too")
+    questInfo = {isQuestItem = false}
+    SetItemButtonQuality(slot, 1)
+    assert(not outline.shown, "Ordinary whites still obey the filter")
+    questInfo = {isQuestItem = "secret", questID = "secret"}
+    SetItemButtonQuality(slot, 1)
+    assert(not outline.shown, "Secret quest fields must not classify an item")
+    local questAPI = C_Container.GetContainerItemQuestInfo
+    C_Container.GetContainerItemQuestInfo = nil
+    SetItemButtonQuality(slot, 1)
+    assert(not outline.shown, "Missing quest API falls back to item quality")
+    C_Container.GetContainerItemQuestInfo = function() error("unavailable") end
+    SetItemButtonQuality(slot, 1)
+    assert(not outline.shown, "Refused quest reads fall back to item quality")
+    C_Container.GetContainerItemQuestInfo = questAPI
+    local exported = bagModule.ExportSettings()
+    assert(exported.qualityColors.quest == "FFCC00" and exported.qualityColors[6] == "123456")
+    assert(bagModule.ImportSettings(exported), "Quest colors must survive a profile round trip")
+    assert(bagModule.ImportSettings({enabled = false, qualityUncommonOnly = false, qualityColors = {}}))
+    questInfo = {isQuestItem = true}
+    SetItemButtonQuality(slot, 1)
+    assert(outline.color[2] == .82, "Reset restores the default yellow quest color")
+    questInfo = nil
+
     local tooltip = GameTooltip
     GameTooltip = nil
     shortcut:OnClick("LeftButton")
@@ -442,6 +480,7 @@ do
     assert(quick.shown and quick.points.TOPRIGHT[1] == bag)
     assert(frames.ArkannsQOLBagQuickUncommonOnly and frames.ArkannsQOLBagQuickColor4,
         "The backpack shortcut must expose the rarity filter and colors")
+    assert(frames.ArkannsQOLBagQuickColorquest and not frames.ArkannsQOLBagQuickColor6)
     for key, value in pairs({qualityOpacity = 75, qualityThickness = 3, qualityInnerGlow = 40}) do
         local slider = assert(frames["ArkannsQOLBagQuick_" .. key], "Missing backpack slider " .. key)
         slider:OnValueChanged(value)

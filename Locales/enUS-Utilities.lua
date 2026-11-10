@@ -1,6 +1,7 @@
 local _, ns = ...
 
 for source, translation in pairs({
+    ["Objets de quête"] = "Quest items",
     ["Sélection : %d"] = "Selected: %d",
     ["Thème : %s"] = "Theme: %s",
     ["Durée"] = "Duration",

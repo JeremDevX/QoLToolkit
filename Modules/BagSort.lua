@@ -39,7 +39,7 @@ local function ValidSetting(key, value, default)
 end
 
 local function ValidColor(quality, hex)
-    return type(quality) == "number" and quality >= 0 and quality <= 8 and quality % 1 == 0
+    return (quality == "quest" or type(quality) == "number" and quality >= 0 and quality <= 8 and quality % 1 == 0)
         and type(hex) == "string" and hex:match("^%x%x%x%x%x%x$")
 end
 
@@ -87,6 +87,7 @@ end
 local function QualityColor(quality)
     local hex = db.qualityColors[quality]
     if hex then return tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255 end
+    if quality == "quest" then return 1, .82, 0 end
     local ok, r, g, b = pcall(getQualityColor, quality)
     if ok and not Secret(r) and not Secret(g) and not Secret(b)
         and type(r) == "number" and type(g) == "number" and type(b) == "number" then return r, g, b end
@@ -215,11 +216,24 @@ local function PaintInnerGlow(button, regions, icon, r, g, b)
     regions.glowMask = mask
 end
 
+local function BagBorderCategory(button, quality)
+    if Secret(quality) or type(quality) ~= "number" then return nil end
+    local bagID = WoW.ReadValue(button.GetBagID, button)
+    local slot = WoW.ReadValue(button.GetID, button)
+    if IsPersonalBagID(bagID) and WoW.IsFiniteNumber(slot) and slot > 0 then
+        local info = WoW.ReadValue(C_Container.GetContainerItemQuestInfo, bagID, slot)
+        if type(info) == "table" and (not Secret(info.isQuestItem) and info.isQuestItem == true
+            or WoW.IsFiniteNumber(info.questID) and info.questID > 0) then return "quest" end
+    end
+    return quality
+end
+
 local function PaintQualityBorder(button, quality)
     if button.IsForbidden and button:IsForbidden() then return end
     local regions = qualityBorders[button]
     local minimum = db.qualityUncommonOnly and 2 or 0
-    if not db.qualityBorders or Secret(quality) or type(quality) ~= "number" or not (quality >= minimum and quality <= 8) then
+    if not db.qualityBorders or Secret(quality) or (quality ~= "quest"
+        and (type(quality) ~= "number" or not (quality >= minimum and quality <= 5))) then
         return HideBorder(regions)
     end
     local r, g, b = QualityColor(quality)
@@ -335,7 +349,7 @@ local function OnItemQuality(button, quality)
     local frame = button.containerFrame or button:GetParent()
     if IsPersonalBag(frame) and (frame == ContainerFrameCombinedBags
         or ContainerFrameUtil_GetShownFrameForID(frame:GetBagID()) == frame) then
-        if showQuality then PaintQualityBorder(button, quality) end
+        if showQuality then PaintQualityBorder(button, BagBorderCategory(button, quality)) end
         if showTransmog then PaintTransmogIcon(button) end
     else
         HideBorder(qualityBorders[button])
@@ -353,7 +367,7 @@ local function RefreshQualityBorders()
         if IsPersonalBag(frame) and frame:IsVisible() and frame.EnumerateValidItems then
             for _, button in frame:EnumerateValidItems() do
                 local info = C_Container.GetContainerItemInfo(button:GetBagID(), button:GetID())
-                PaintQualityBorder(button, not Secret(info) and info and info.quality)
+                PaintQualityBorder(button, BagBorderCategory(button, not Secret(info) and info and info.quality))
             end
         end
     end
@@ -564,13 +578,14 @@ local function BuildAppearance(body, compact)
     if not compact then UI.Label(body, L("Clic gauche · Couleur\nClic droit · Couleur WoW"), 20, -228) end
     local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -311 or -266
     local count = 0
-    for quality = 0, 8 do
-        local name = _G["ITEM_QUALITY" .. quality .. "_DESC"] or qualityLabels[quality + 1]
+    for _, quality in ipairs({0, 1, 2, 3, 4, 5, "quest"}) do
+        local name = quality == "quest" and L("Objets de quête")
+            or _G["ITEM_QUALITY" .. quality .. "_DESC"] or qualityLabels[quality + 1]
         if name then
             local sample = CreateFrame("Button", prefix .. "Color" .. quality, body)
             sample:SetSize(size, size)
             sample:SetPoint("TOPLEFT", 22 + (count % 6) * spacing, top - math.floor(count / 6) * (size + 9))
-            sample:SetNormalTexture(sampleIcons[quality + 1] or sampleIcons[2])
+            sample:SetNormalTexture(sampleIcons[type(quality) == "number" and quality + 1 or 2])
             sample:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
             sample:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             sample:SetScript("OnClick", function(_, button)

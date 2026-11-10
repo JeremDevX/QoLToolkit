@@ -92,7 +92,7 @@ end
 local function GetMeters(unit)
     local status, squaredYards, checked = ReadAPI(UnitDistanceSquared, unit)
     if status ~= "ok" then return status end
-    if checked == false then return "unchecked" end
+    if checked == false or (checked == nil and squaredYards == nil) then return "unchecked" end
     if checked ~= true or not Finite(squaredYards) then return "invalid" end
     return "ok", math.floor(math.sqrt(squaredYards) * 0.9144 + 0.5)
 end

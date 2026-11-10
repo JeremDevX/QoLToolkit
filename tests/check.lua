@@ -258,6 +258,13 @@ measured = "secret"
 assert(getDistance() == nil, "Private measurements stay unavailable")
 measured, checked = 0, false
 assert(getDistance() == "Distance · ≈ 25–40 m", "Round both bounds outward")
+measured, checked = nil, nil
+assert(getDistance() == "Distance · ≈ 25–40 m", "A missing direct measurement must not suppress public range estimates")
+measured, checked = 400, true
+assert(getDistance() == "Distance · 18 m", "A direct measurement takes priority again when available")
+measured, checked = "secret", true
+assert(getDistance() == nil, "Restricted measurements must not trigger the missing-measurement fallback")
+measured, checked = 0, false
 hostile = false
 assert(getDistance() == "Distance · ≈ 0–45 m", "Use helpful spell ranges for allies and ignore implicit pet/self targets")
 

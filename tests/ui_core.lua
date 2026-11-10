@@ -3,7 +3,8 @@ local env = setmetatable({}, {__index = _G})
 env._G = env
 local frames, methods = {}, {}
 local function noop() end
-for _, key in ipairs({"SetBackdrop", "SetBackdropColor", "SetBackdropBorderColor", "SetTextColor", "SetFont",
+function methods:SetBackdrop(value) self.backdrop = value end
+for _, key in ipairs({"SetBackdropColor", "SetBackdropBorderColor", "SetTextColor", "SetFont",
     "SetJustifyH", "SetOrientation", "SetMinMaxValues", "SetValueStep", "SetObeyStepOnDrag", "SetMaxLetters",
     "SetAutoFocus", "RegisterForDrag", "SetClampedToScreen", "SetMovable", "SetVertexColor", "SetTexCoord",
     "SetColorTexture", "SetTexture", "SetAlpha", "RegisterEvent", "ClearFocus", "StartMoving", "StopMovingOrSizing"}) do
@@ -63,7 +64,7 @@ function methods:SetScrollChild(frame) self.child=frame end
 env.CreateFrame=Frame
 env.UIParent=Frame(); env.UIParent:SetSize(1000,800)
 env.UISpecialFrames={}
-env.ForeverTooltipLibreDB={}
+env.ForeverTooltipLibreDB={ui={bg={.2, .1, .05}, scale=1.2}}
 local combat, message, popup = false
 env.InCombatLockdown=function() return combat end
 env.print=function(value) message=value end
@@ -77,6 +78,7 @@ end
 Load("Core/WoWRuntime.lua"); Load("Core/QOLInterface.lua")
 local UI=ns.UI
 UI.Initialize()
+assert(UI.GetStyle().theme == "warm" and UI.GetStyle().bg[1] == .2, "Old settings retain their custom palette")
 local settings, writes, imports = {},0,0
 local module={label="Talents",frame=Frame()}
 module.GetPosition=function() return settings.x or .7,settings.y or .5 end
@@ -128,5 +130,36 @@ frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
 assert(frames.ArkannsQOLCommon_borderSize:IsShown())
 assert(frames.ArkannsQOLCommon_borderSize:GetWidth()<=350,"Appearance controls fit a narrow panel")
 local appearance=UI.ExportSettings(); appearance.pins.talents=true; UI.ImportSettings(appearance)
+UI.SetOverride("talents", true)
+local themeButton, options = frames.ArkannsQOLCommonTheme, {}
+assert(themeButton:GetText() == "Thème : Chaleureux" and not themeButton.enabled)
+env.MenuUtil = {CreateContextMenu = function(owner, build)
+    build(owner, {CreateButton = function(_, label, select) options[label] = select end})
+end}
+UI.Refresh()
+assert(themeButton.enabled)
+themeButton.scripts.OnClick(themeButton)
+local panel = frames.ArkannsQOLCommonAppearance
+Load("Core/Profiles.lua")
+local profiles = ns.Profiles
+assert(profiles.Save("Legacy theme"))
+local legacy = env.ForeverTooltipLibreDB.profiles["Legacy theme"]
+legacy.modules.appearance.theme, legacy.moduleVersions.appearance = nil, nil
+options["Blizzard classique"]()
+assert(panel.backdrop.edgeFile == "Interface\\DialogFrame\\UI-DialogBox-Border")
+options["Mode sombre moderne"]()
+assert(panel.backdrop.edgeFile == "Interface\\Buttons\\WHITE8X8" and panel.backdrop.edgeSize == 1)
+assert(themeButton:GetText() == "Thème : Mode sombre moderne")
+assert(UI.ExportSettings().scale == 1.2 and UI.ExportSettings().pins.talents and UI.IsOverride("talents"))
+UI.Initialize(); UI.Refresh()
+assert(UI.GetStyle().theme == "modern" and UI.GetStyle("talents") == nil, "Theme and overrides survive reload")
+assert(profiles.Save("Modern theme"))
+assert(profiles.Apply(assert(profiles.Preview("Legacy theme", {appearance = true}))))
+assert(UI.GetStyle().theme == "warm" and UI.GetStyle().bg[1] == .2 and UI.IsOverride("talents"))
+assert(profiles.Undo() and UI.GetStyle().theme == "modern")
+options["Chaleureux"]()
+assert(panel.backdrop.edgeFile == "Interface\\Tooltips\\UI-Tooltip-Border" and UI.GetStyle().bg[1] == .12)
+assert(profiles.Apply(assert(profiles.Preview("Modern theme", {appearance = true}))))
+assert(panel.backdrop.edgeSize == 1 and UI.GetStyle().theme == "modern")
 assert(ns.home.Refresh)
-print("PASS: layout preservation, apply/cancel, preview refusal, layers, and confirmation")
+print("PASS: layout, previews, confirmation, and shared theme selection, reload, and profiles")

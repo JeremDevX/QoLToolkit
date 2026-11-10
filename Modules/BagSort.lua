@@ -1,5 +1,6 @@
 local addonName, ns = ...
 local L = ns.L
+local WoW = ns.WoW
 local db, panel, check, qualityCheck, transmogCheck, status, category, homeCategory, refreshAppearance
 local quick, quickBag, refreshQuick, ToggleQuickSettings
 local listening, bankOpen, failed, scheduled
@@ -11,19 +12,18 @@ local transmogIcons = {}
 local shortcutMargins = {}
 local defaults = {
     enabled = false, qualityBorders = true, qualityOpacity = 100, qualityThickness = 1,
-    qualityGlow = 25, qualityInnerGlow = 0, qualityUncommonOnly = false, transmogIcons = true,
+    qualityInnerGlow = 0, qualityUncommonOnly = false, transmogIcons = true,
 }
 local borderTexture = "Interface\\Common\\WhiteIconFrame"
+local glowTexture = "Interface\\Buttons\\WHITE8X8"
 local maxThickness = 4
-local glowAtlas = "bags-glow-white"
+local glowDepth = 6
 local transmogAtlas = "lootroll-icon-transmog"
 local transmogRefreshEvents = {
     "ITEM_DATA_LOAD_RESULT", "ITEM_LOCK_CHANGED", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
     "TRANSMOG_COLLECTION_UPDATED", "TRANSMOG_COLLECTION_ITEM_UPDATE", "TRANSMOG_COLLECTION_SOURCE_ADDED",
     "TRANSMOG_COLLECTION_SOURCE_REMOVED", "TRANSMOG_COSMETIC_COLLECTION_SOURCE_ADDED", "TRANSMOG_SOURCE_COLLECTABILITY_UPDATE",
 }
--- Native combined and separate grids leave 5 units between slots.
-local outerGlowPadding = 2
 local shortcutWidth, shortcutRight = 42, -32
 local titleRight = shortcutRight - shortcutWidth - 4
 
@@ -52,6 +52,7 @@ local function NormalizeSettings(value)
     for key, default in pairs(defaults) do
         if not ValidSetting(key, value[key], default) then value[key] = default end
     end
+    value.qualityGlow = nil
     value.qualityColors = CopyColors(type(value.qualityColors) == "table" and value.qualityColors or {})
     return value
 end
@@ -97,76 +98,99 @@ end
 
 local function HideBorder(regions)
     if not regions then return end
-    regions.border:Hide()
-    if regions.edges then for _, edge in ipairs(regions.edges) do edge:Hide() end end
-    if regions.glow then regions.glow:Hide() end
-    if regions.innerGlow then regions.innerGlow:Hide() end
+    for _, outline in ipairs(regions.outlines) do outline:Hide() end
+    if regions.glow then for _, strip in ipairs(regions.glow) do strip:Hide() end end
     RestoreNativeBorder(regions)
 end
 
-local function PaintBorder(button, regions, r, g, b, alpha)
-    local thickness = db.qualityThickness
-    if thickness == defaults.qualityThickness then
-        if regions.edges then for _, edge in ipairs(regions.edges) do edge:Hide() end end
-        regions.border:SetVertexColor(r, g, b, alpha)
-        regions.border:Show()
-        return
-    end
-
-    regions.border:Hide()
-    if not regions.edges then
-        regions.edges = {}
-        for index = 1, 4 do
-            local edge = button:CreateTexture(nil, "ARTWORK", nil, -3)
-            edge:SetTexture("Interface\\Buttons\\WHITE8X8")
-            regions.edges[index] = edge
+local function PaintBorder(button, regions, native, icon, r, g, b)
+    local anchor = native or icon
+    local atlas = native and WoW.ReadValue(native.GetAtlas, native)
+    if type(atlas) ~= "string" or atlas == "" then atlas = nil end
+    local file = not atlas and native and WoW.ReadValue(native.GetTexture, native)
+    if not WoW.IsFiniteNumber(file) or file <= 0 then file = borderTexture end
+    -- Extend the same rounded outline inward at each thickness step.
+    for index = 1, math.max(db.qualityThickness, #regions.outlines) do
+        local outline = regions.outlines[index]
+        local created = not outline
+        if created then
+            outline = button:CreateTexture(nil, index == 1 and "OVERLAY" or "ARTWORK", nil, index == 1 and 0 or -1)
+            regions.outlines[index] = outline
         end
-        local top, bottom = unpack(regions.edges)
-        top:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
-        top:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
-        bottom:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
-        bottom:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, 0)
+        if created or regions.borderAtlas ~= atlas or regions.borderFile ~= file then
+            if atlas and outline.SetAtlas then
+                outline:SetAtlas(atlas)
+            else
+                outline:SetTexture(file)
+                if outline.SetTexCoord then outline:SetTexCoord(0, 1, 0, 1) end
+            end
+        end
+        if created or regions.borderAnchor ~= anchor then
+            local inset = (index - 1) * .75
+            outline:SetPoint("TOPLEFT", anchor, "TOPLEFT", inset, -inset)
+            outline:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", -inset, inset)
+        end
+        if index <= db.qualityThickness then
+            outline:SetVertexColor(r, g, b, db.qualityOpacity / 100)
+            outline:Show()
+        else
+            outline:Hide()
+        end
     end
-    if regions.thickness ~= thickness then
-        -- Keep all four edges inside the slot without overlapping at the corners.
-        local top, bottom, left, right = unpack(regions.edges)
-        top:SetHeight(thickness)
-        bottom:SetHeight(thickness)
-        left:SetWidth(thickness)
-        right:SetWidth(thickness)
-        left:SetPoint("TOPLEFT", button, "TOPLEFT", 0, -thickness)
-        left:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, thickness)
-        right:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, -thickness)
-        right:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, thickness)
-        regions.thickness = thickness
-    end
-    for _, edge in ipairs(regions.edges) do
-        edge:SetVertexColor(r, g, b, alpha)
-        edge:Show()
-    end
+    regions.borderAtlas, regions.borderFile, regions.borderAnchor = atlas, file, anchor
 end
 
-local function PaintGlow(button, regions, key, padding, intensity, r, g, b)
-    local glow = regions[key]
-    if intensity == 0 then
-        if glow then glow:Hide() end
+local function PaintInnerGlow(button, regions, icon, r, g, b)
+    if db.qualityInnerGlow == 0 or not CreateColor then
+        if regions.glow then for _, strip in ipairs(regions.glow) do strip:Hide() end end
         return
     end
-    if not glow then
-        -- Draw over the icon (BORDER), under the stack count (ARTWORK, 0).
-        glow = button:CreateTexture(nil, "ARTWORK", nil, key == "innerGlow" and -2 or -1)
-        if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(glowAtlas) and glow.SetAtlas then
-            glow:SetAtlas(glowAtlas)
-        else
-            glow:SetTexture(borderTexture)
+    if regions.glow == false then return end
+    if not regions.glow then
+        local strips = {}
+        for index = 1, 4 do
+            local strip = button:CreateTexture(nil, "ARTWORK", nil, -2)
+            if not strip.SetGradient then regions.glow = false; return end
+            strip:SetTexture(glowTexture)
+            strip:SetBlendMode("ADD")
+            strips[index] = strip
         end
-        glow:SetPoint("TOPLEFT", button, "TOPLEFT", -padding, padding)
-        glow:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", padding, -padding)
-        glow:SetBlendMode("ADD")
-        regions[key] = glow
+        strips[1]:SetHeight(glowDepth)
+        strips[2]:SetHeight(glowDepth)
+        strips[3]:SetWidth(glowDepth)
+        strips[4]:SetWidth(glowDepth)
+        regions.glow = strips
     end
-    glow:SetVertexColor(r, g, b, intensity / 100)
-    glow:Show()
+    local top, bottom, left, right = unpack(regions.glow)
+    if regions.glowAnchor ~= icon then
+        top:SetPoint("TOPLEFT", icon, "TOPLEFT")
+        top:SetPoint("TOPRIGHT", icon, "TOPRIGHT")
+        bottom:SetPoint("BOTTOMLEFT", icon, "BOTTOMLEFT")
+        bottom:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT")
+        left:SetPoint("TOPLEFT", icon, "TOPLEFT")
+        left:SetPoint("BOTTOMLEFT", icon, "BOTTOMLEFT")
+        right:SetPoint("TOPRIGHT", icon, "TOPRIGHT")
+        right:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT")
+        regions.glowAnchor = icon
+    end
+    if regions.glowR ~= r or regions.glowG ~= g or regions.glowB ~= b then
+        local edge, fade = CreateColor(r, g, b, 1), CreateColor(r, g, b, 0)
+        top:SetGradient("VERTICAL", fade, edge)
+        bottom:SetGradient("VERTICAL", edge, fade)
+        left:SetGradient("HORIZONTAL", edge, fade)
+        right:SetGradient("HORIZONTAL", fade, edge)
+        regions.glowR, regions.glowG, regions.glowB = r, g, b
+    end
+    local mask = WoW.ReadValue(icon.GetMaskTexture, icon, 1)
+    for _, strip in ipairs(regions.glow) do
+        if mask ~= regions.glowMask and strip.AddMaskTexture and strip.RemoveMaskTexture then
+            if regions.glowMask then strip:RemoveMaskTexture(regions.glowMask) end
+            if mask then strip:AddMaskTexture(mask) end
+        end
+        strip:SetAlpha(db.qualityInnerGlow / 100)
+        strip:Show()
+    end
+    regions.glowMask = mask
 end
 
 local function PaintQualityBorder(button, quality)
@@ -179,13 +203,14 @@ local function PaintQualityBorder(button, quality)
     local r, g, b = QualityColor(quality)
     if not r then return HideBorder(regions) end
     if not regions then
-        local border = button:CreateTexture(nil, "OVERLAY", nil, 0)
-        border:SetTexture(borderTexture)
-        border:SetAllPoints(button)
-        regions = {border = border}
+        regions = {outlines = {}}
         qualityBorders[button] = regions
     end
     local native = button.IconBorder
+    if Secret(native) then native = nil end
+    local icon = button.icon
+    if Secret(icon) or not icon then icon = button.Icon end
+    if Secret(icon) or not icon then icon = button end
     if regions.nativeBorder ~= native then RestoreNativeBorder(regions) end
     if native and native.GetAlpha and native.SetAlpha then
         local alpha = native:GetAlpha()
@@ -194,9 +219,8 @@ local function PaintQualityBorder(button, quality)
             native:SetAlpha(0)
         end
     end
-    PaintBorder(button, regions, r, g, b, db.qualityOpacity / 100)
-    PaintGlow(button, regions, "glow", outerGlowPadding, db.qualityGlow, r, g, b)
-    PaintGlow(button, regions, "innerGlow", -3, db.qualityInnerGlow, r, g, b)
+    PaintBorder(button, regions, native, icon, r, g, b)
+    PaintInnerGlow(button, regions, icon, r, g, b)
 end
 
 local function HasUncollectedAppearance(item)
@@ -510,12 +534,11 @@ local function BuildAppearance(body, compact)
         return function() slider:SetValue(db[key]); Caption() end
     end
     local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -149 or -262)
-    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and -189 or -318)
-    local outerGlow = Slider("qualityGlow", L("Halo extérieur"), compact and -229 or -374)
-    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -269 or -430)
-    UI.Label(body, L("Couleurs et aperçu"), 20, compact and -311 or -486, 15)
-    if not compact then UI.Label(body, L("Clic gauche · Couleur   Clic droit · Couleur WoW"), 20, -512) end
-    local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -335 or -540
+    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and -195 or -318)
+    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -241 or -374)
+    UI.Label(body, L("Couleurs et aperçu"), 20, compact and -287 or -430, 15)
+    if not compact then UI.Label(body, L("Clic gauche · Couleur   Clic droit · Couleur WoW"), 20, -456) end
+    local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -311 or -484
     local count = 0
     for quality = 0, 8 do
         local name = _G["ITEM_QUALITY" .. quality .. "_DESC"] or qualityLabels[quality + 1]
@@ -564,7 +587,6 @@ local function BuildAppearance(body, compact)
         filter:SetChecked(db.qualityUncommonOnly)
         opacity()
         thickness()
-        outerGlow()
         innerGlow()
         syncing = false
         RefreshSamples()
@@ -723,7 +745,7 @@ function ns.InitializeBagSort(rootCategory)
     scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -4)
     scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -30, 10)
     local body = CreateFrame("Frame", nil, scroll)
-    body:SetSize(282, qualityListening and 670 or 253)
+    body:SetSize(282, qualityListening and 614 or 253)
     scroll:SetScrollChild(body)
     ns.UI.Label(body, L("Sacs"), 16, -16, 20)
     check = ns.UI.Check(body, "ArkannsQOLBagsEnabled", L("Trier à l’ouverture manuelle"), 16, -54, SetEnabled)
@@ -797,7 +819,7 @@ function ns.InitializeBagSort(rootCategory)
                 if config.qualityBorders == nil then config.qualityBorders = current.qualityBorders end
             end,
             function(config, current)
-                for _, key in ipairs({"qualityOpacity", "qualityGlow", "qualityUncommonOnly", "qualityColors"}) do
+                for _, key in ipairs({"qualityOpacity", "qualityUncommonOnly", "qualityColors"}) do
                     if config[key] == nil then config[key] = current[key] end
                 end
             end,
@@ -809,6 +831,9 @@ function ns.InitializeBagSort(rootCategory)
             end,
             function(config, current)
                 if config.qualityThickness == nil then config.qualityThickness = current.qualityThickness end
+            end,
+            function(config)
+                config.qualityGlow = nil
             end,
         },
         ImportSettings = function(config)

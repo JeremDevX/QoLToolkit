@@ -213,7 +213,7 @@ et les couleurs du badge et de la ligne dans l’infobulle.
 SACS
 Le bouton QoL dans l’en-tête ouvre les réglages rapides au clic gauche.
 « Plus de réglages » ouvre la page complète. Le clic droit ouvre l’accueil.
-Personnalise la couleur par rareté, l’opacité, l’épaisseur et les halos intérieur et extérieur.
+Personnalise la couleur par rareté, l’opacité, l’épaisseur et le halo intérieur.
 Une icône en haut à droite signale une apparence de transmogrification à collectionner.
 Tu peux désactiver « Transmos manquantes » dans les réglages rapides.
 Le tri facultatif se lance à l’ouverture manuelle des sacs, hors combat et hors banque.

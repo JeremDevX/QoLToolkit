@@ -59,7 +59,6 @@ for source, translation in pairs({
     ["Masquer les contours gris et blancs"] = "Hide gray and white borders",
     ["Opacité du contour"] = "Border opacity",
     ["Épaisseur du contour"] = "Border thickness",
-    ["Halo extérieur"] = "Outer glow",
     ["Halo intérieur"] = "Inner glow",
     ["Couleurs et aperçu"] = "Colors and preview",
     ["Clic gauche · Couleur   Clic droit · Couleur WoW"] = "Left-click: Color   Right-click: WoW color",

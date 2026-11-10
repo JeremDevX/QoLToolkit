@@ -202,9 +202,13 @@ La détection repose sur C_SpellBook.IsSpellBookItemLowRank et la vérification 
 Source : https://github.com/Gethe/wow-ui-source/blob/9dc84f0d3bbae1768ac3405b3716000bd93eda06/Interface/AddOns/Blizzard_APIDocumentationGenerated/SpellBookDocumentation.lua
 
 DISTANCE DE LA CIBLE
-La distance ou la fourchette s’affiche au-dessus du nom de la cible.
-Le cadre est vert jusqu’à 10 m, jaune jusqu’à 30 m et rouge au-delà.
-« 28+ » indique une distance d’au moins 28 m.
+WoW fournit une distance mesurée pour les membres du groupe quand elle est disponible.
+Pour les ennemis, l’addon estime la distance avec les sorts offensifs et les objets autorisés.
+Pour les alliés hors groupe, il utilise les portées des sorts bénéfiques.
+« ≈ 25–40 m » indique une estimation. « ≥ 35 m » indique une borne basse.
+Par défaut, les bornes sont arrondies vers l’extérieur par pas de 5 m.
+Dans /qt, ouvre Distance de la cible pour changer l’ancrage, le décalage, le cadre
+et les couleurs du badge et de la ligne dans l’infobulle.
 
 SACS
 Le bouton QoL dans l’en-tête ouvre les réglages rapides au clic gauche.

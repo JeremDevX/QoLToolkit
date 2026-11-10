@@ -9,7 +9,7 @@ local tooltipPreview = false
 local tooltipSkin, savedSliceAlpha
 local tooltipFonts = {}
 local nativeTooltipAnchor, restoringNative, tooltipControlled
-local distanceAdded, distanceLine, distanceText, distanceElapsed
+local distanceAdded, distanceLine, distanceText, distanceColor, distanceElapsed
 local RefreshSettings = function() end
 local events = CreateFrame("Frame", "ArkannsQOLTooltipEvents")
 local anchor = CreateFrame("Frame", "ForeverTooltipLibreAnchor", UIParent, "BackdropTemplate")
@@ -209,7 +209,7 @@ end
 
 local function ForgetDistanceLine()
     StopDistanceUpdates()
-    distanceAdded, distanceLine, distanceText = nil, nil, nil
+    distanceAdded, distanceLine, distanceText, distanceColor = nil, nil, nil, nil
 end
 
 local function UpdateMouseoverDistance(data, processing)
@@ -224,26 +224,26 @@ local function UpdateMouseoverDistance(data, processing)
     local guid = (processing or shown) and MouseoverDistanceEnabled() and ns.GetMouseoverDistance
         and tooltip.GetLeftLine and tooltip.AddLine and tooltip.NumLines
         and WoW.ReadValue(UnitTooltipGUID, data or WoW.ReadValue(tooltip.GetTooltipData, tooltip))
-    local distance, color
+    local text, color
     if guid and WoW.ReadValue(UnitGUID, "mouseover") == guid then
-        distance, color = ns.GetMouseoverDistance()
+        text, color = ns.GetMouseoverDistance()
     end
-    local text = distance and L("Distance : %s m"):format(distance)
     local changed
     if distanceLine then
         text = text or ""
         if text ~= distanceText then
             if WoW.Read(distanceLine.SetText, distanceLine, text) ~= "ok" then return StopDistanceUpdates() end
-            if color then WoW.Read(distanceLine.SetTextColor, distanceLine, unpack(color)) end
             distanceText, changed = text, true
         end
+        if color and (changed or color ~= distanceColor) then WoW.Read(distanceLine.SetTextColor, distanceLine, unpack(color)) end
+        distanceColor = color
     elseif text then
         local count = WoW.ReadValue(tooltip.NumLines, tooltip)
         if not WoW.IsFiniteNumber(count) then return StopDistanceUpdates() end
         distanceAdded = true
         if WoW.Read(tooltip.AddLine, tooltip, text, unpack(color)) ~= "ok" then return StopDistanceUpdates() end
         distanceLine = WoW.ReadValue(tooltip.GetLeftLine, tooltip, count + 1)
-        distanceText = text
+        distanceText, distanceColor = text, color
         changed = true
     end
     -- A post-call is followed by the native Show. Live row changes need the same layout pass.

@@ -7,12 +7,24 @@ local title = L("Distance de la cible")
 local directInterval, estimateInterval, hiddenInterval = .05, .10, .20
 local maxProbeRange = 100 -- Ignore global or unlimited-range spells.
 local refreshInterval = directInterval
-local db, toggle, badge, label, anchor, rejectedAnchor, spellRanges
+local db, refreshSettings, badge, label, anchor, rejectedAnchor, spellRanges
 local closeRange, mediumRange = 10, 30
-local closeColor = {background = {.10, .38, .19, .97}, text = {.48, .92, .55}}
-local mediumColor = {background = {.52, .34, .07, .97}, text = {1, .82, .28}}
-local farColor = {background = {.47, .10, .10, .97}, text = {1, .45, .45}}
-local activeColor
+local colors = {
+    tooltip = {{.48, .92, .55}, {1, .82, .28}, {1, .45, .45}},
+    text = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}},
+    background = {{.10, .38, .19}, {.52, .34, .07}, {.47, .10, .10}},
+}
+local borderColor = {.82, .67, .37}
+local backdrops = {
+    framed = {
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12,
+        insets = {left = 3, right = 3, top = 3, bottom = 3},
+    },
+    background = {bgFile = "Interface\\Buttons\\WHITE8X8"},
+    text = false,
+}
+local activeTier
 local itemBands, checkingItemUnit
 local blockedItemChecks = {}
 local mouseoverEnabled, monitoring
@@ -29,6 +41,38 @@ local itemCandidates = {8149, 15826, 17117, 9606, 10699, 4559, 10645, 1191,
 
 local function Finite(value)
     return IsFiniteNumber(value) and value >= 0
+end
+
+local function ValidOffset(value)
+    return IsFiniteNumber(value) and value >= -250 and value <= 250
+end
+
+local function CopyColor(value, fallback)
+    if type(value) == "table" then
+        local r, g, b = value[1], value[2], value[3]
+        if Finite(r) and r <= 1 and Finite(g) and g <= 1 and Finite(b) and b <= 1 then
+            return {r, g, b}
+        end
+    end
+    return {unpack(fallback)}
+end
+
+local function NormalizeAppearance(value)
+    value = type(value) == "table" and value or {}
+    local result = {
+        rounded = value.rounded ~= false,
+        portrait = value.portrait == true,
+        x = ValidOffset(value.x) and value.x or 0,
+        y = ValidOffset(value.y) and value.y or 0,
+        frame = backdrops[value.frame] ~= nil and value.frame or "framed",
+        border = CopyColor(value.border, borderColor),
+    }
+    for key, defaults in pairs(colors) do
+        local palette = type(value[key]) == "table" and value[key] or {}
+        result[key] = {}
+        for tier, color in ipairs(defaults) do result[key][tier] = CopyColor(palette[tier], color) end
+    end
+    return result
 end
 
 local function HideDistance()
@@ -177,34 +221,46 @@ local function GetRangeBand(unit)
             if lower >= upper or (lower == beforeLower and upper == beforeUpper) then break end
         end
     end
-    if lower >= upper then return end
-    local minimum = math.floor(lower * 0.9144)
-    if upper < math.huge then
-        local maximum = math.ceil(upper * 0.9144)
-        return string.format("%d–%d", minimum, maximum), minimum, maximum
+    if lower < upper and (lower > 0 or upper < math.huge) then
+        return lower * 0.9144, upper * 0.9144, enemy
     end
-    if lower > 0 then return string.format("%d+", minimum), minimum, math.huge end
 end
 
 local function GetDistance(unit)
     local status, meters = GetMeters(unit)
-    if status == "ok" then return tostring(meters), meters, meters, directInterval end
+    if status == "ok" then return ("%d m"):format(meters), meters, meters, directInterval, "measured" end
     if status == "absent" or status == "unchecked" then
-        local text, lower, upper = GetRangeBand(unit)
-        return text, lower, upper, estimateInterval
+        local lower, upper, enemy = GetRangeBand(unit)
+        if not lower then return end
+        local step = db.appearance.rounded and 5 or 1
+        local minimum = math.floor(lower / step) * step
+        local text
+        if upper < math.huge then
+            text = ("≈ %d–%d m"):format(minimum, math.ceil(upper / step) * step)
+        else
+            -- Keep a useful lower bound if rounding to 5 m would erase it.
+            text = ("≥ %d m"):format(minimum > 0 and minimum or math.floor(lower))
+        end
+        return text, lower, upper, estimateInterval, enemy and "enemy" or "friendly"
     end
 end
 
-local function GetDistanceColor(lower, upper)
-    if upper <= closeRange then return closeColor end
-    if lower >= mediumRange and upper > mediumRange then return farColor end
-    -- Yellow also covers estimates that cross a color threshold.
-    return mediumColor
+local function GetDistanceTier(lower, upper)
+    if upper <= closeRange then return 1 end
+    if lower >= mediumRange and upper > mediumRange then return 3 end
+    return 2
 end
 
+local tooltipFormats = {
+    measured = L("Distance mesurée · %s"),
+    enemy = L("Ennemi · %s"),
+    friendly = L("Allié · %s"),
+}
+
 function ns.GetMouseoverDistance()
-    local text, lower, upper = GetDistance("mouseover")
-    if text then return text, GetDistanceColor(lower, upper).text end
+    if not db then return end
+    local text, lower, upper, _, source = GetDistance("mouseover")
+    if text then return tooltipFormats[source]:format(text), db.appearance.tooltip[GetDistanceTier(lower, upper)] end
 end
 
 local function UpdateDistance()
@@ -214,7 +270,9 @@ local function UpdateDistance()
         or Read(frame.IsVisible, frame) ~= true then return HideDistance() end
     local content = frame.TargetFrameContent and frame.TargetFrameContent.TargetFrameContentMain
     local name = frame.name or (content and content.Name) or TargetFrameName
-    local relativeTo = name or frame.portrait or (frame.TargetFrameContainer and frame.TargetFrameContainer.Portrait) or TargetFramePortrait
+    local portrait = frame.portrait or (frame.TargetFrameContainer and frame.TargetFrameContainer.Portrait) or TargetFramePortrait
+    local appearance = db.appearance
+    local relativeTo = (appearance.portrait and portrait) or name or portrait
     if not IsPublic(relativeTo) or not relativeTo or relativeTo == rejectedAnchor or Read(relativeTo.IsVisible, relativeTo) ~= true
         or (relativeTo.IsAnchoringSecret and Read(relativeTo.IsAnchoringSecret, relativeTo) ~= false) then return HideDistance() end
     local text, lower, upper, interval = GetDistance("target")
@@ -225,28 +283,27 @@ local function UpdateDistance()
         badge = CreateFrame("Frame", nil, driver, "BackdropTemplate")
         badge:Hide()
         badge:SetSize(48, 23)
-        badge:SetBackdrop({
-            bgFile = "Interface\\Buttons\\WHITE8X8",
-            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12,
-            insets = {left = 3, right = 3, top = 3, bottom = 3},
-        })
-        badge:SetBackdropBorderColor(.82, .67, .37, 1)
         label = badge:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         label:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
         label:SetPoint("CENTER", 0, 0)
     end
     if anchor ~= relativeTo then
         badge:ClearAllPoints()
-        if not pcall(badge.SetPoint, badge, "BOTTOM", relativeTo, "TOP", 0, name and 8 or 15) then
+        local y = (IsPublic(name) and relativeTo == name and 8 or 15) + appearance.y
+        if not pcall(badge.SetPoint, badge, "BOTTOM", relativeTo, "TOP", appearance.x, y) then
             rejectedAnchor, anchor = relativeTo, nil
             return HideDistance()
         end
         anchor = relativeTo
     end
-    local color = GetDistanceColor(lower, upper)
-    if color ~= activeColor then
-        badge:SetBackdropColor(unpack(color.background))
-        activeColor = color
+    local tier = GetDistanceTier(lower, upper)
+    if tier ~= activeTier then
+        badge:SetBackdrop(backdrops[appearance.frame] or nil)
+        local background = appearance.background[tier]
+        badge:SetBackdropColor(background[1], background[2], background[3], .97)
+        badge:SetBackdropBorderColor(unpack(appearance.border))
+        label:SetTextColor(unpack(appearance.text[tier]))
+        activeTier = tier
     end
     if text ~= label:GetText() then
         label:SetText(text)
@@ -285,7 +342,7 @@ end
 
 local function SetEnabled(value)
     db.enabled = value == true
-    if toggle then toggle:SetChecked(db.enabled) end
+    if refreshSettings then refreshSettings() end
     RefreshMonitoring()
     RefreshTarget()
 end
@@ -319,27 +376,124 @@ driver:SetScript("OnEvent", function(_, event, arg)
     end
 end)
 
+local function AppearanceChanged(reanchor)
+    activeTier = nil
+    if reanchor then anchor = nil end
+    if refreshSettings then refreshSettings() end
+end
+
 local function RegisterSettings(root)
     if not root or not Settings or not Settings.RegisterCanvasLayoutSubcategory then return end
+    local UI = ns.UI
     local panel = CreateFrame("Frame", "ArkannsQOLTargetDistanceSettings", UIParent, "BackdropTemplate")
     panel:Hide()
-    local heading = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    heading:SetPoint("TOPLEFT", 20, -20)
-    heading:SetText(title)
+    UI.StylePanel(panel)
+    UI.Label(panel, title, 20, -20, 18)
 
-    toggle = CreateFrame("CheckButton", "ArkannsQOLTargetDistanceEnabled", panel, "UICheckButtonTemplate")
-    toggle:SetPoint("TOPLEFT", 20, -56)
-    toggle:SetScript("OnClick", function(self) SetEnabled(self:GetChecked()) end)
-    local caption = toggle:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    caption:SetPoint("LEFT", toggle, "RIGHT", 4, 0)
-    caption:SetText(L("Afficher la distance en mètres"))
+    local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 20, -54)
+    scroll:SetPoint("BOTTOMRIGHT", -34, 16)
+    local body = CreateFrame("Frame", nil, scroll)
+    body:SetSize(508, 482)
+    scroll:SetScrollChild(body)
 
-    local detail = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    detail:SetPoint("TOPLEFT", 24, -108)
-    detail:SetPoint("RIGHT", panel, "RIGHT", -24, 0)
-    detail:SetJustifyH("LEFT")
-    detail:SetText(L("Au-dessus du nom de la cible. Vert jusqu’à 10 m, jaune jusqu’à 30 m, rouge au-delà. Jaune aussi si la fourchette chevauche un seuil. 28+ indique une borne basse seule."))
-    if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel) end
+    local toggle = UI.Check(body, "ArkannsQOLTargetDistanceEnabled", L("Afficher le badge de la cible"), 0, 0, SetEnabled)
+    local rounded = UI.Check(body, nil, L("Arrondir les estimations par pas de 5 m"), 0, -30, function(value)
+        db.appearance.rounded = value
+    end)
+    local detail = UI.Label(body, L("Groupe · WoW peut fournir une distance mesurée.\nEnnemi · Estimation via les sorts offensifs et, si autorisés, les objets.\nAllié hors groupe · Estimation via les sorts bénéfiques.\nLes fourchettes dépendent des portées disponibles. ≈ indique une estimation. ≥ indique une borne basse."), 4, -66)
+    detail:SetWidth(496)
+
+    UI.Label(body, L("Placement du badge"), 4, -180)
+    local portrait = UI.Check(body, nil, L("Ancrer au portrait plutôt qu’au nom"), 0, -200, function(value)
+        db.appearance.portrait = value
+        AppearanceChanged(true)
+    end)
+    UI.Label(body, L("Décalage X / Y"), 4, -242)
+    local offsetX = UI.Input(body, "ArkannsQOLTargetDistanceOffsetX", 110, -236, 54)
+    local offsetY = UI.Input(body, "ArkannsQOLTargetDistanceOffsetY", 174, -236, 54)
+    local function ApplyOffsets()
+        local x = tonumber((offsetX:GetText():gsub(",", ".")))
+        local y = tonumber((offsetY:GetText():gsub(",", ".")))
+        if ValidOffset(x) and ValidOffset(y) then db.appearance.x, db.appearance.y = x, y end
+        offsetX:ClearFocus()
+        offsetY:ClearFocus()
+        AppearanceChanged(true)
+    end
+    UI.Button(body, nil, L("Appliquer"), 240, -236, 100, ApplyOffsets)
+    offsetX:SetScript("OnEnterPressed", ApplyOffsets)
+    offsetY:SetScript("OnEnterPressed", ApplyOffsets)
+
+    local frameModes = {framed = L("Fond et bordure"), background = L("Fond seul"), text = L("Texte seul")}
+    local frame = UI.Button(body, nil, "", 4, -279, 165, function(self)
+        if not MenuUtil then return end
+        MenuUtil.CreateContextMenu(self, function(_, menu)
+            for _, mode in ipairs({"framed", "background", "text"}) do
+                menu:CreateButton(frameModes[mode], function()
+                    db.appearance.frame = mode
+                    AppearanceChanged()
+                end)
+            end
+        end)
+    end)
+
+    local swatches = {}
+    local function ColorButton(x, y, width, caption, key, tier)
+        local function GetColor(appearance)
+            return tier and appearance[key][tier] or appearance[key]
+        end
+        local button = UI.Button(body, nil, caption, x, y, width, function()
+            if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
+            local appearance = db.appearance
+            local old = GetColor(appearance)
+            local function SetColor(color)
+                if appearance ~= db.appearance then return end
+                if tier then appearance[key][tier] = color else appearance[key] = color end
+                AppearanceChanged()
+            end
+            ColorPickerFrame:SetupColorPickerAndShow({r = old[1], g = old[2], b = old[3], hasOpacity = false,
+                swatchFunc = function() SetColor({ColorPickerFrame:GetColorRGB()}) end,
+                cancelFunc = function() SetColor(old) end,
+            })
+        end)
+        local swatch = button:CreateTexture(nil, "OVERLAY")
+        swatch:SetSize(18, 12)
+        if caption == "" then swatch:SetPoint("CENTER") else swatch:SetPoint("RIGHT", -8, 0) end
+        swatches[#swatches + 1] = function() swatch:SetColorTexture(unpack(GetColor(db.appearance))) end
+    end
+    ColorButton(180, -279, 145, L("Bordure"), "border")
+    UI.Button(body, nil, L("Réinitialiser"), 336, -279, 130, function()
+        db.appearance = NormalizeAppearance()
+        AppearanceChanged(true)
+    end)
+
+    local columns = {
+        {"tooltip", L("Texte infobulle")},
+        {"text", L("Texte badge")},
+        {"background", L("Fond du badge")},
+    }
+    for index, column in ipairs(columns) do
+        local x = 152 + (index - 1) * 112
+        UI.Label(body, column[2], x, -324)
+        for tier = 1, 3 do ColorButton(x, -345 - (tier - 1) * 30, 102, "", column[1], tier) end
+    end
+    for tier, caption in ipairs({L("Proche · ≤ 10 m"), L("Intermédiaire"), L("Loin · > 30 m")}) do
+        UI.Label(body, caption, 4, -351 - (tier - 1) * 30)
+    end
+    local colorHelp = UI.Label(body, L("La couleur intermédiaire couvre aussi les fourchettes qui chevauchent un seuil. Pour déplacer ou habiller l’infobulle, ouvre ses réglages."), 4, -438)
+    colorHelp:SetWidth(496)
+
+    refreshSettings = function()
+        local appearance = db.appearance
+        toggle:SetChecked(db.enabled)
+        rounded:SetChecked(appearance.rounded)
+        portrait:SetChecked(appearance.portrait)
+        offsetX:SetText(tostring(appearance.x))
+        offsetY:SetText(tostring(appearance.y))
+        frame:SetText(frameModes[appearance.frame])
+        for _, refresh in ipairs(swatches) do refresh() end
+    end
+    panel:SetScript("OnShow", refreshSettings)
     return Settings.RegisterCanvasLayoutSubcategory(root, panel, title)
 end
 
@@ -348,6 +502,7 @@ function ns.InitializeTargetDistance(root)
     if type(ForeverTooltipLibreDB.targetDistance) ~= "table" then ForeverTooltipLibreDB.targetDistance = {} end
     db = ForeverTooltipLibreDB.targetDistance
     if type(db.enabled) ~= "boolean" then db.enabled = true end
+    db.appearance = NormalizeAppearance(db.appearance)
     local category = RegisterSettings(root)
     SetEnabled(db.enabled)
     ns.RegisterModule("distance", {
@@ -355,10 +510,15 @@ function ns.InitializeTargetDistance(root)
         category = function() return category end,
         DiagnosticFrame = function() return badge end,
         IsEnabled = function() return db.enabled end, SetEnabled = SetEnabled,
-        Summary = function() return L("Au-dessus du nom · mètres") end,
-        ExportSettings = function() return {enabled = db.enabled} end,
+        Summary = function() return L("Mesure ou estimation · mètres") end,
+        ExportSettings = function() return {enabled = db.enabled, appearance = NormalizeAppearance(db.appearance)} end,
+        profileMigrations = {function(config, current) config.appearance = current.appearance end},
         ImportSettings = function(config)
             if type(config) ~= "table" or type(config.enabled) ~= "boolean" then return false end
+            if config.appearance ~= nil then
+                db.appearance = NormalizeAppearance(config.appearance)
+                activeTier, anchor = nil, nil
+            end
             SetEnabled(config.enabled)
             return true
         end,

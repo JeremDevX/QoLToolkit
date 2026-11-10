@@ -211,3 +211,52 @@ assert(journal.ObserveXP(legacySession, 5, 100, 14))
 local tracked = journal.Totals(legacySession, 0)
 assert(tracked.xp == 165 and tracked.levels == 2, "Do not count XP or levels gained while tracking was paused")
 print("PASS: session XP and level baselines across a pause")
+
+local distanceNS = {L = function(text) return text end}
+local distanceModule
+function distanceNS.RegisterModule(_, module) distanceModule = module end
+ForeverTooltipLibreDB.targetDistance = {enabled = false}
+local measured, checked, hostile = 400, true, true
+UnitDistanceSquared = function() return measured, checked end
+UnitCanAttack = function() return hostile end
+UnitCanAssist = function() return not hostile end
+Enum = {SpellBookSpellBank = {Player = 0}, SpellBookItemType = {Spell = 1}}
+C_SpellBook = {
+    GetNumSpellBookSkillLines = function() return 1 end,
+    GetSpellBookSkillLineInfo = function() return {itemIndexOffset = 0, numSpellBookItems = 3} end,
+    GetSpellBookItemInfo = function(slot) return {itemType = 1, spellID = slot} end,
+    IsSpellBookItemInRange = function(slot) return slot ~= 1 end,
+}
+C_Spell = {
+    GetSpellInfo = function(id) return {minRange = 0, maxRange = ({30, 40, 45})[id]} end,
+    SpellHasRange = function() return true end,
+    IsSpellHarmful = function(id) return id <= 2 end,
+    IsSpellHelpful = function(id) return id == 3 end,
+}
+chunks["Core/WoWRuntime.lua"]("QoLToolkit", distanceNS)
+chunks["Modules/TargetDistance.lua"]("QoLToolkit", distanceNS)
+distanceNS.InitializeTargetDistance()
+local getDistance = distanceNS.GetMouseoverDistance
+assert(not distanceModule.IsEnabled() and getDistance() == "Distance mesurée · 18 m")
+measured = "secret"
+assert(getDistance() == nil, "Private measurements stay unavailable")
+measured, checked = 0, false
+assert(getDistance() == "Ennemi · ≈ 25–40 m", "Round both bounds outward")
+hostile = false
+assert(getDistance() == "Allié · ≈ 0–45 m", "Use helpful spell ranges for allies")
+
+local config = distanceModule.ExportSettings()
+config.appearance.rounded = false
+config.appearance.tooltip[2] = {.2, .3, .4}
+assert(getDistance() == "Allié · ≈ 0–45 m", "Profile exports must be independent")
+assert(distanceModule.ImportSettings(config))
+hostile = true
+local text, color = getDistance()
+assert(text == "Ennemi · ≈ 27–37 m" and color[1] == .2 and color[2] == .3 and color[3] == .4)
+C_SpellBook.IsSpellBookItemInRange = function() return false end
+config.appearance.rounded = true
+assert(distanceModule.ImportSettings(config) and getDistance() == "Ennemi · ≥ 35 m")
+local oldProfile = {enabled = false}
+distanceModule.profileMigrations[1](oldProfile, distanceModule.ExportSettings())
+assert(oldProfile.appearance.tooltip[2][1] == .2)
+print("PASS: target distance sources, conservative rounding, and legacy appearance settings")

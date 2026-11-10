@@ -9,7 +9,9 @@ local tooltipPreview = false
 local tooltipSkin, savedSliceAlpha
 local tooltipFonts = {}
 local nativeTooltipAnchor, restoringNative, tooltipControlled
+local distanceAdded, distanceLine, distanceText, distanceElapsed
 local RefreshSettings = function() end
+local events = CreateFrame("Frame", "ArkannsQOLTooltipEvents")
 local anchor = CreateFrame("Frame", "ForeverTooltipLibreAnchor", UIParent, "BackdropTemplate")
 anchor:SetSize(290, 90)
 anchor:SetFrameStrata("DIALOG")
@@ -55,7 +57,7 @@ local function SavePosition()
     RestorePosition()
 end
 
--- Move the original tooltip; never read or rebuild NPC/quest data.
+-- Move the original tooltip without rebuilding its contents.
 local function RestoreTooltipLook()
     if GameTooltip:IsForbidden() then return end
     if tooltipSkin then tooltipSkin:Hide() end
@@ -185,6 +187,98 @@ local function PositionTooltip(tooltip, data)
     tooltip:SetClampedToScreen(true)
 end
 
+local function MouseoverDistanceEnabled()
+    local units = db.contexts.units
+    return db.enabled and db.mouseoverDistance and (not units.custom or units.enabled)
+end
+
+local function UnitTooltipGUID(data)
+    if not WoW.IsPublic(data) or type(data) ~= "table" then return end
+    local kind, guid = data.type, data.guid
+    if WoW.IsPublic(kind) and kind == Enum.TooltipDataType.Unit and WoW.IsPublic(guid) and type(guid) == "string" then
+        return guid
+    end
+end
+
+local function IsHoveredUnit(data)
+    local guid = WoW.ReadValue(UnitTooltipGUID, data)
+    return guid and WoW.ReadValue(UnitGUID, "mouseover") == guid
+end
+
+local function StopDistanceUpdates()
+    if not distanceElapsed then return end
+    distanceElapsed = nil
+    events:SetScript("OnUpdate", nil)
+    events:UnregisterEvent("UPDATE_MOUSEOVER_UNIT")
+end
+
+local function ForgetDistanceLine()
+    StopDistanceUpdates()
+    distanceAdded, distanceLine, distanceText = nil, nil, nil
+end
+
+local function UpdateMouseoverDistance(data, processing)
+    local tooltip = GameTooltip
+    if tooltip:IsForbidden() or (distanceAdded and not distanceLine) then return StopDistanceUpdates() end
+    if distanceLine then
+        local status, previous = WoW.Read(distanceLine.GetText, distanceLine)
+        if status ~= "ok" or (previous or "") ~= distanceText then return StopDistanceUpdates() end
+    end
+    local shown = WoW.ReadValue(tooltip.IsShown, tooltip)
+    local active = (processing or shown) and MouseoverDistanceEnabled() and ns.GetMouseoverDistance
+        and tooltip.GetLeftLine and tooltip.AddLine and tooltip.NumLines
+        and IsHoveredUnit(data or WoW.ReadValue(tooltip.GetTooltipData, tooltip))
+    local distance = active and ns.GetMouseoverDistance()
+    local text = distance and L("Distance : %s m"):format(distance)
+    local changed
+    if distanceLine then
+        text = text or ""
+        if text ~= distanceText then
+            if WoW.Read(distanceLine.SetText, distanceLine, text) ~= "ok" then return StopDistanceUpdates() end
+            distanceText, changed = text, true
+        end
+    elseif text then
+        local count = WoW.ReadValue(tooltip.NumLines, tooltip)
+        if not WoW.IsFiniteNumber(count) then return StopDistanceUpdates() end
+        distanceAdded = true
+        if WoW.Read(tooltip.AddLine, tooltip, text, 0.65, 0.85, 1) ~= "ok" then return StopDistanceUpdates() end
+        distanceLine = WoW.ReadValue(tooltip.GetLeftLine, tooltip, count + 1)
+        distanceText = text
+        changed = true
+    end
+    -- A post-call is followed by the native Show. Live row changes need the same layout pass.
+    if changed and not processing and shown then WoW.Read(tooltip.Show, tooltip) end
+    if distanceAdded and not distanceLine then return StopDistanceUpdates() end
+    if not active then StopDistanceUpdates() end
+    return active
+end
+
+local function StartDistanceUpdates()
+    if distanceElapsed then return end
+    distanceElapsed = 0
+    events:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
+    events:SetScript("OnUpdate", function(_, delta)
+        distanceElapsed = distanceElapsed + delta
+        if distanceElapsed < .2 then return end
+        distanceElapsed = 0
+        UpdateMouseoverDistance()
+    end)
+end
+
+local function ApplyMouseoverDistanceSetting()
+    if ns.SetMouseoverDistanceEnabled then ns.SetMouseoverDistanceEnabled(MouseoverDistanceEnabled()) end
+    if UpdateMouseoverDistance() then StartDistanceUpdates() end
+end
+
+local function AfterTooltipData(tooltip, data)
+    if tooltip == GameTooltip and not distanceElapsed and not tooltip:IsForbidden()
+        and MouseoverDistanceEnabled() and WoW.IsPublic(data) and type(data) == "table"
+        and data == WoW.ReadValue(tooltip.GetTooltipData, tooltip) and UpdateMouseoverDistance(data, true) then
+        StartDistanceUpdates()
+    end
+    PositionTooltip(tooltip, data)
+end
+
 local function NormalizeTooltipOptions()
     if type(db.contexts) ~= "table" then db.contexts = {} end
     for _, key in ipairs({"units", "items", "spells"}) do
@@ -200,6 +294,7 @@ local function NormalizeTooltipOptions()
         end
     end
     if type(db.hideCombat) ~= "boolean" then db.hideCombat = false end
+    if type(db.mouseoverDistance) ~= "boolean" then db.mouseoverDistance = true end
 end
 
 local function HideTooltip()
@@ -375,7 +470,10 @@ local function CreateModernSettings(root)
     local v=bodies.visibility
     local hideCombat=UI.Check(v,"ArkannsQOLTooltipCombat",L("Garder le placement WoW en combat"),0,0,function(value) db.hideCombat=value; HideTooltip() end)
     local combatHelp=UI.Label(v,L("Les infobulles restent visibles. Seul le placement personnalisé est suspendu."),0,-42)
-    UI.Button(v,nil,L("Défaut de visibilité"),0,-88,220,function() db.hideCombat=false; RefreshSettings() end)
+    local mouseoverDistance=UI.Check(v,"ArkannsQOLTooltipMouseoverDistance",L("Afficher la distance au survol"),0,-92,function(value)
+        db.mouseoverDistance=value; ApplyMouseoverDistanceSetting()
+    end)
+    UI.Button(v,nil,L("Défaut de visibilité"),0,-134,220,function() db.hideCombat=false; db.mouseoverDistance=true; RefreshSettings() end)
     RefreshSettings=function()
         syncing=true
         local options=Current()
@@ -388,7 +486,8 @@ local function CreateModernSettings(root)
         offsetX:SetText(tostring(options.offsetX)); offsetY:SetText(tostring(options.offsetY))
         offsetX:SetEnabled(canEdit); offsetY:SetEnabled(canEdit)
         advancedButton:SetText(advanced and L("Avancé −") or L("Avancé +"))
-        own:SetChecked(UI.IsOverride("tooltips")); hideCombat:SetChecked(db.hideCombat)
+        own:SetChecked(UI.IsOverride("tooltips")); hideCombat:SetChecked(db.hideCombat); mouseoverDistance:SetChecked(db.mouseoverDistance)
+        ApplyMouseoverDistanceSetting()
         UI.StyleFrame(anchor,"tooltips")
         local style=UI.GetStyle("tooltips")
         local previousScale=anchor:GetScale()
@@ -411,7 +510,7 @@ local function CreateModernSettings(root)
         syncing=false
     end
     panel.OnRefresh=RefreshSettings
-    panel.OnDefault=function() db.enabled,db.cursor,db.scale,db.x,db.y=true,false,100,.65,.25; db.contexts={}; NormalizeTooltipOptions(); HideTooltip(); RestorePosition(); RefreshSettings() end
+    panel.OnDefault=function() db.enabled,db.cursor,db.scale,db.x,db.y=true,false,100,.65,.25; db.contexts={}; db.mouseoverDistance=true; NormalizeTooltipOptions(); HideTooltip(); RestorePosition(); RefreshSettings() end
     local function LayoutSettings()
         local width=math.max(320,panel:GetWidth())
         local bodyWidth=width-50
@@ -454,12 +553,17 @@ local function CreateModernSettings(root)
             RestorePosition()
         end,
         ExportSettings=function()
-            local result={}; for _,key in ipairs({"enabled","cursor","scale","x","y","contexts","offsetX","offsetY","hideCombat"}) do result[key]=UI.Copy(db[key]) end; return result
+            local result={mouseoverDistance=db.mouseoverDistance}; for _,key in ipairs({"enabled","cursor","scale","x","y","contexts","offsetX","offsetY","hideCombat"}) do result[key]=UI.Copy(db[key]) end; return result
         end,
+        profileMigrations={function(config,current)
+            if config.mouseoverDistance == nil then config.mouseoverDistance=current.mouseoverDistance end
+        end},
         ImportSettings=function(value)
             if type(value)~="table" or type(value.enabled)~="boolean" or type(value.cursor)~="boolean" or type(value.scale)~="number" or value.scale~=value.scale or value.scale<50 or value.scale>200 then return false,L("Infobulles invalides.") end
             for _,key in ipairs({"x","y"}) do if type(value[key])~="number" or value[key]~=value[key] or value[key]<0 or value[key]>1 then return false,L("Position invalide.") end end
+            if value.mouseoverDistance ~= nil and type(value.mouseoverDistance) ~= "boolean" then return false,L("Infobulles invalides.") end
             for _,key in ipairs({"enabled","cursor","scale","x","y","contexts","offsetX","offsetY","hideCombat"}) do db[key]=UI.Copy(value[key]) end
+            if value.mouseoverDistance ~= nil then db.mouseoverDistance=value.mouseoverDistance end
             NormalizeTooltipOptions(); HideTooltip(); RestorePosition(); RefreshSettings(); return true
         end,
     })
@@ -506,6 +610,7 @@ local function CreateSettings(root)
     Text(L("Réglages communs aux personnages."), -44)
     local enabled = Checkbox("ForeverTooltipLibreEnabled", L("Activer"), -72)
     local cursor = Checkbox("ForeverTooltipLibreCursor", L("Suivre le curseur"), -108)
+    local mouseoverDistance = Checkbox("ArkannsQOLTooltipMouseoverDistance", L("Afficher la distance au survol"), -408)
     Text(L("Désactivé : position fixe pour les PNJ et objets."), -144)
     local sizeLabel = Text("", -178, "GameFontNormal")
 
@@ -533,6 +638,8 @@ local function CreateSettings(root)
         syncing = true
         enabled:SetChecked(db.enabled)
         cursor:SetChecked(db.cursor)
+        mouseoverDistance:SetChecked(db.mouseoverDistance)
+        ApplyMouseoverDistanceSetting()
         cursor:SetEnabled(db.enabled)
         size:SetEnabled(db.enabled)
         size:SetAlpha(db.enabled and 1 or 0.5)
@@ -548,6 +655,9 @@ local function CreateSettings(root)
     cursor:SetScript("OnClick", function(self)
         SlashCmdList.FOREVERTOOLTIPLIBRE(self:GetChecked() and "curseur on" or "curseur off")
     end)
+    mouseoverDistance:SetScript("OnClick", function(self)
+        db.mouseoverDistance=self:GetChecked(); ApplyMouseoverDistanceSetting()
+    end)
     size:SetScript("OnValueChanged", function(_, value)
         if syncing or not db.enabled then return end
         db.scale = math.max(50, math.min(200, math.floor(value + 0.5)))
@@ -557,11 +667,12 @@ local function CreateSettings(root)
     local function Defaults()
         anchor:Hide()
         db.enabled, db.cursor, db.scale, db.x, db.y = true, false, 100, 0.65, 0.25
+        db.mouseoverDistance = true
         HideTooltip()
         RestorePosition()
         RefreshSettings()
     end
-    Button("ForeverTooltipLibreDefaults", L("Valeurs par défaut"), 16, -408, 180, Defaults)
+    Button("ForeverTooltipLibreDefaults", L("Valeurs par défaut"), 16, -446, 180, Defaults)
     panel:SetScript("OnShow", RefreshSettings)
     panel.OnRefresh = RefreshSettings
     panel.OnDefault = Defaults
@@ -590,14 +701,14 @@ function ns.InitializeTooltips(root)
         PositionTooltip(tooltip)
     end)
     GameTooltip:HookScript("OnShow", PositionTooltip)
-    GameTooltip:HookScript("OnHide", ReleaseTooltip)
+    GameTooltip:HookScript("OnHide", function() ForgetDistanceLine(); ReleaseTooltip() end)
+    GameTooltip:HookScript("OnTooltipCleared", ForgetDistanceLine)
     -- Also handles consecutive mouseovers and refreshed quest lines.
     if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
-        TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, PositionTooltip)
+        TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, AfterTooltipData)
     end
 end
 
-local events = CreateFrame("Frame", "ArkannsQOLTooltipEvents")
 for _, event in ipairs({"DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_LOGOUT", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}) do
     events:RegisterEvent(event)
 end
@@ -605,6 +716,9 @@ events:SetScript("OnEvent", function(_, event)
     if not db then return end
     if event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
         if db.hideCombat and GameTooltip:IsShown() then PositionTooltip(GameTooltip) end
+        UpdateMouseoverDistance()
+    elseif event == "UPDATE_MOUSEOVER_UNIT" then
+        UpdateMouseoverDistance()
     elseif event == "PLAYER_LOGOUT" then
         if dragging then SavePosition() end
     else

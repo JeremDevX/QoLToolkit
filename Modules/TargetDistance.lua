@@ -11,7 +11,9 @@ local db, toggle, badge, label, anchor, rejectedAnchor, spellRanges
 local closeRange, mediumRange = 10, 30
 local closeColor, mediumColor, farColor = {.10, .38, .19, .97}, {.52, .34, .07, .97}, {.47, .10, .10, .97}
 local activeColor
-local itemBands, itemChecksBlocked, checkingItem
+local itemBands, checkingItemUnit
+local blockedItemChecks = {}
+local mouseoverEnabled, monitoring
 local requestedItems = {}
 local elapsed = 0
 local driver = CreateFrame("Frame", "ArkannsQOLTargetDistanceEvents", UIParent)
@@ -31,8 +33,8 @@ local function HideDistance()
     if badge then badge:Hide() end
 end
 
-local function GetMeters()
-    local status, squaredYards, checked = ReadAPI(UnitDistanceSquared, "target")
+local function GetMeters(unit)
+    local status, squaredYards, checked = ReadAPI(UnitDistanceSquared, unit)
     if status ~= "ok" then return status end
     if checked == false then return "unchecked" end
     if checked ~= true or not Finite(squaredYards) then return "invalid" end
@@ -104,28 +106,28 @@ local function ReadItemBands(canRequest)
     return bands
 end
 
-local function ReadSpellBand(band)
+local function ReadSpellBand(band, unit)
     for _, probe in ipairs(band.probes) do
-        local status, inRange = ReadAPI(C_SpellBook.IsSpellBookItemInRange, probe.slot, Enum.SpellBookSpellBank.Player, "target")
+        local status, inRange = ReadAPI(C_SpellBook.IsSpellBookItemInRange, probe.slot, Enum.SpellBookSpellBank.Player, unit)
         if status == "absent" or (status == "ok" and inRange == nil) then
-            status, inRange = ReadAPI(C_Spell.IsSpellInRange, probe.id, "target")
+            status, inRange = ReadAPI(C_Spell.IsSpellInRange, probe.id, unit)
         end
         if status == "error" or status == "secret" then return end
         if type(inRange) == "boolean" then return inRange end
     end
 end
 
-local function GetRangeBand()
-    local status, enemy = ReadAPI(UnitCanAttack, "player", "target")
+local function GetRangeBand(unit)
+    local status, enemy = ReadAPI(UnitCanAttack, "player", unit)
     if status ~= "absent" and (status ~= "ok" or type(enemy) ~= "boolean") then return end
-    if not enemy and Read(UnitCanAssist, "player", "target") ~= true then return end
+    if not enemy and Read(UnitCanAssist, "player", unit) ~= true then return end
 
     local lower, upper, failed = 0, math.huge, nil
     local checkedRanges = {}
     if C_Spell and C_SpellBook then
         spellRanges = spellRanges or ReadSpellRanges()
         for _, band in pairs(enemy and spellRanges.enemy or spellRanges.friendly) do
-            local inRange = ReadSpellBand(band)
+            local inRange = ReadSpellBand(band, unit)
             if inRange == true then
                 lower, upper = math.max(lower, band.min), math.min(upper, band.max)
             elseif inRange == false then
@@ -136,27 +138,27 @@ local function GetRangeBand()
         end
     end
 
-    -- In combat, only test items against hostile outdoor NPCs.
-    if enemy and C_Item and C_Item.IsItemInRange and not itemChecksBlocked then
+    -- Keep the combat exception for the target badge. Mouseovers use spell checks only in combat.
+    if enemy and C_Item and C_Item.IsItemInRange and not blockedItemChecks[unit] then
         local locked = Read(InCombatLockdown)
-        if locked == false or (locked == true and Read(IsInInstance) == false and Read(UnitIsPlayer, "target") == false) then
+        if locked == false or (locked == true and unit == "target" and Read(IsInInstance) == false and Read(UnitIsPlayer, unit) == false) then
             itemBands = itemBands or ReadItemBands(not locked)
             local itemLower, itemUpper = 0, math.huge
             for _, band in pairs(itemBands) do
                 if not checkedRanges[band.max] then
                     for _, id in ipairs(band.probes) do
-                        checkingItem = true
-                        local status, inRange = ReadAPI(C_Item.IsItemInRange, id, "target")
-                        checkingItem = false
-                        if status == "error" or itemChecksBlocked then itemChecksBlocked = true; break end
+                        checkingItemUnit = unit
+                        local status, inRange = ReadAPI(C_Item.IsItemInRange, id, unit)
+                        checkingItemUnit = nil
+                        if status == "error" or blockedItemChecks[unit] then blockedItemChecks[unit] = true; break end
                         if status == "secret" then break end
                         if inRange == true then itemUpper = math.min(itemUpper, band.max); break end
                         if inRange == false then itemLower = math.max(itemLower, band.max); break end
                     end
                 end
-                if itemChecksBlocked then break end
+                if blockedItemChecks[unit] then break end
             end
-            if not itemChecksBlocked then
+            if not blockedItemChecks[unit] then
                 lower, upper = math.max(lower, itemLower), math.min(upper, itemUpper)
             end
         end
@@ -182,6 +184,20 @@ local function GetRangeBand()
     if lower > 0 then return string.format("%d+", minimum), minimum, math.huge end
 end
 
+local function GetDistance(unit)
+    local status, meters = GetMeters(unit)
+    if status == "ok" then return tostring(meters), meters, meters, directInterval end
+    if status == "absent" or status == "unchecked" then
+        local text, lower, upper = GetRangeBand(unit)
+        return text, lower, upper, estimateInterval
+    end
+end
+
+function ns.GetMouseoverDistance()
+    local text = GetDistance("mouseover")
+    return text
+end
+
 local function UpdateDistance()
     local frame = TargetFrame
     refreshInterval = hiddenInterval
@@ -192,15 +208,8 @@ local function UpdateDistance()
     local relativeTo = name or frame.portrait or (frame.TargetFrameContainer and frame.TargetFrameContainer.Portrait) or TargetFramePortrait
     if not IsPublic(relativeTo) or not relativeTo or relativeTo == rejectedAnchor or Read(relativeTo.IsVisible, relativeTo) ~= true
         or (relativeTo.IsAnchoringSecret and Read(relativeTo.IsAnchoringSecret, relativeTo) ~= false) then return HideDistance() end
-    local status, meters = GetMeters()
-    local text, lower, upper
-    if status == "ok" then
-        refreshInterval = directInterval
-        text, lower, upper = tostring(meters), meters, meters
-    elseif status == "absent" or status == "unchecked" then
-        refreshInterval = estimateInterval
-        text, lower, upper = GetRangeBand()
-    end
+    local text, lower, upper, interval = GetDistance("target")
+    refreshInterval = interval or hiddenInterval
     if not text then return HideDistance() end
 
     if not badge then
@@ -254,15 +263,27 @@ end
 local events = {"PLAYER_ENTERING_WORLD", "PLAYER_TARGET_CHANGED", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
     "SPELLS_CHANGED", "PLAYER_SPECIALIZATION_CHANGED", "UPDATE_SHAPESHIFT_FORM", "TRAIT_CONFIG_UPDATED",
     "ITEM_DATA_LOAD_RESULT", "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN"}
-local function SetEnabled(value)
-    db.enabled = value == true
-    if toggle then toggle:SetChecked(db.enabled) end
-    if db.enabled then
+local function RefreshMonitoring()
+    local active = db.enabled or mouseoverEnabled or false
+    if monitoring == active then return end
+    monitoring = active
+    if active then
         spellRanges, itemBands = nil, nil
         for _, event in ipairs(events) do pcall(driver.RegisterEvent, driver, event) end
     else
         driver:UnregisterAllEvents()
     end
+end
+
+function ns.SetMouseoverDistanceEnabled(value)
+    mouseoverEnabled = value == true
+    if db then RefreshMonitoring() end
+end
+
+local function SetEnabled(value)
+    db.enabled = value == true
+    if toggle then toggle:SetChecked(db.enabled) end
+    RefreshMonitoring()
     RefreshTarget()
 end
 
@@ -273,23 +294,22 @@ driver:SetScript("OnUpdate", function(_, delta)
     elapsed = elapsed % refreshInterval
     UpdateDistance()
 end)
-driver:SetScript("OnEvent", function(_, event, arg, action)
-    if not db or not db.enabled then return end
+driver:SetScript("OnEvent", function(_, event, arg)
+    if not monitoring then return end
     if event == "PLAYER_TARGET_CHANGED" then
-        RefreshTarget()
+        if db.enabled then RefreshTarget() end
     elseif event == "PLAYER_ENTERING_WORLD" then
         spellRanges, itemBands, rejectedAnchor = nil, nil, nil
-        RefreshTarget()
+        if db.enabled then RefreshTarget() end
     elseif event == "ITEM_DATA_LOAD_RESULT" then
         if IsPublic(arg) and requestedItems[arg] then itemBands = nil end
     elseif event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
-        if IsPublic(arg) and arg == addonName and (checkingItem
-            or (IsPublic(action) and type(action) == "string" and action:find("IsItemInRange", 1, true))) then
-            itemChecksBlocked = true
+        if checkingItemUnit and IsPublic(arg) and arg == addonName then
+            blockedItemChecks[checkingItemUnit] = true
         end
     elseif event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_REGEN_DISABLED" then
         if event == "PLAYER_REGEN_ENABLED" then rejectedAnchor, itemBands = nil, nil end
-        RefreshTarget()
+        if db.enabled then RefreshTarget() end
     else
         -- Spell changes can arrive in bursts. Rebuild at the next distance tick.
         spellRanges = nil

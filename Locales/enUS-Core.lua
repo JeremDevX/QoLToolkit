@@ -173,6 +173,8 @@ for source, translation in pairs({
     ["Aucune capture en cours."] = "No capture is running.",
     ["Trace effacée."] = "Trace cleared.",
     ["/qtlog start : enregistrer • mark : marquer • stop : arrêter • show : copier • clear : effacer"] = "/qtlog start to record • mark to bookmark • stop to end • show to copy • clear to erase",
+    ["Afficher la distance au survol"] = "Show Mouseover Distance",
+    ["Distance : %s m"] = "Distance: %s m",
 }) do
     ns.English[source] = translation
 end

@@ -1,5 +1,6 @@
 local addonName, ns = ...
 local L = ns.L
+local WoW = ns.WoW
 
 local function BuildFallbackHome(home)
     local function HomeText(text, y, font)
@@ -53,6 +54,37 @@ local function BuildFallbackHome(home)
     end)
 end
 
+local function RegisterMinimapButton(openHome)
+    if not Minimap then return end
+
+    local button = CreateFrame("Button", "ArkannsQOLMinimapButton", MinimapBackdrop or Minimap)
+    button:SetSize(28, 28)
+    button:SetPoint("CENTER", Minimap, "TOPLEFT", 8, -38)
+    button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+
+    local icon = button:CreateTexture(nil, "ARTWORK")
+    icon:SetAllPoints()
+    local texture = C_AddOns and WoW.ReadValue(C_AddOns.GetAddOnMetadata, addonName, "IconTexture")
+    if not texture or texture == "" or not icon:SetTexture(texture) then
+        icon:SetTexture("Interface\\Icons\\INV_Misc_Wrench_01")
+    end
+
+    button:SetScript("OnClick", openHome)
+    button:SetScript("OnEnter", function(self)
+        if not GameTooltip or GameTooltip:IsForbidden() then return end
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        GameTooltip:SetText("QoL Toolkit")
+        GameTooltip:Show()
+    end)
+    local function HideTooltip(self)
+        if GameTooltip and not GameTooltip:IsForbidden() and WoW.ReadValue(GameTooltip.GetOwner, GameTooltip) == self then
+            GameTooltip:Hide()
+        end
+    end
+    button:SetScript("OnLeave", HideTooltip)
+    button:SetScript("OnHide", HideTooltip)
+end
+
 local function RegisterHome()
     local home = CreateFrame("Frame", "ArkannsQOLHome", UIParent, ns.UI and "BackdropTemplate" or nil)
     home:Hide()
@@ -62,10 +94,12 @@ local function RegisterHome()
     Settings.RegisterAddOnCategory(root)
     SLASH_ARKANNSQOL1 = "/qt"
     SLASH_ARKANNSQOL2 = "/aqol"
-    SlashCmdList.ARKANNSQOL = function()
+    local function OpenHome()
         if ns.StopAllPreviews then ns.StopAllPreviews() end
         Settings.OpenToCategory(root:GetID())
     end
+    SlashCmdList.ARKANNSQOL = OpenHome
+    RegisterMinimapButton(OpenHome)
     return root
 end
 

@@ -1,7 +1,9 @@
 local manifest = assert(io.open("QoLToolkit.toc", "r"))
 local chunks, catalogs = {}, {}
 local firstRuntimeFile, lastFile
+local addonIcon
 for line in manifest:lines() do
+    addonIcon = line:match("^## IconTexture:%s+Interface\\AddOns\\QoLToolkit\\(.+)$") or addonIcon
     local path = line:match("^%s*([^#].-%.lua)%s*$")
     if path then
         path = path:gsub("\\", "/")
@@ -19,6 +21,9 @@ end
 manifest:close()
 assert(catalogs[1] == "Locales/Locale.lua", "Load the locale selector before translations")
 assert(lastFile == "Core/Bootstrap.lua", "Load bootstrap after the modules")
+assert(addonIcon, "Declare the packaged addon icon in the manifest")
+local iconFile = assert(io.open((addonIcon:gsub("\\", "/")), "rb"))
+iconFile:close()
 
 local function CheckLocale(locale, expected)
     GetLocale = locale and function() return locale end or nil

@@ -221,17 +221,19 @@ UnitDistanceSquared = function() return measured, checked end
 UnitCanAttack = function() return hostile end
 UnitCanAssist = function() return not hostile end
 Enum = {SpellBookSpellBank = {Player = 0}, SpellBookItemType = {Spell = 1}}
+local spellIDs = {1, 2, 3, 2641, 6991, 136, 13163}
+local spellRanges = {[1] = 30, [2] = 40, [3] = 45, [2641] = 10, [6991] = 10, [136] = 20, [13163] = 100}
 C_SpellBook = {
     GetNumSpellBookSkillLines = function() return 1 end,
-    GetSpellBookSkillLineInfo = function() return {itemIndexOffset = 0, numSpellBookItems = 3} end,
-    GetSpellBookItemInfo = function(slot) return {itemType = 1, spellID = slot} end,
+    GetSpellBookSkillLineInfo = function() return {itemIndexOffset = 0, numSpellBookItems = #spellIDs} end,
+    GetSpellBookItemInfo = function(slot) return {itemType = 1, spellID = spellIDs[slot]} end,
     IsSpellBookItemInRange = function(slot) return slot ~= 1 end,
 }
 C_Spell = {
-    GetSpellInfo = function(id) return {minRange = 0, maxRange = ({30, 40, 45})[id]} end,
+    GetSpellInfo = function(id) return {minRange = 0, maxRange = spellRanges[id]} end,
     SpellHasRange = function() return true end,
     IsSpellHarmful = function(id) return id <= 2 end,
-    IsSpellHelpful = function(id) return id == 3 end,
+    IsSpellHelpful = function(id) return id >= 3 end,
 }
 chunks["Core/WoWRuntime.lua"]("QoLToolkit", distanceNS)
 chunks["Modules/TargetDistance.lua"]("QoLToolkit", distanceNS)
@@ -243,7 +245,7 @@ assert(getDistance() == nil, "Private measurements stay unavailable")
 measured, checked = 0, false
 assert(getDistance() == "Distance · ≈ 25–40 m", "Round both bounds outward")
 hostile = false
-assert(getDistance() == "Distance · ≈ 0–45 m", "Use helpful spell ranges for allies")
+assert(getDistance() == "Distance · ≈ 0–45 m", "Use helpful spell ranges for allies and ignore implicit pet/self targets")
 
 local config = distanceModule.ExportSettings()
 config.appearance.rounded = false
@@ -259,6 +261,14 @@ assert(distanceModule.ImportSettings(config) and getDistance() == "Distance · �
 local oldProfile = {enabled = false}
 distanceModule.profileMigrations[1](oldProfile, distanceModule.ExportSettings())
 assert(oldProfile.appearance.tooltip[2][1] == .2)
+hostile = false
+C_SpellBook.IsSpellBookItemInRange = function(slot) if slot > 3 then return true end end
+assert(getDistance() == nil, "No estimate when only spells with implicit targets answer")
+UnitIsUnit = function(unit, other) return unit == "mouseover" and other == "pet" end
+assert(getDistance() == "Distance · ≈ 0–10 m", "Use pet spells when hovering the player's pet")
+UnitIsUnit = function() return "secret" end
+assert(getDistance() == nil, "An unreadable unit comparison does not identify the player's pet")
+UnitIsUnit = nil
 print("PASS: target distance sources, conservative rounding, and legacy appearance settings")
 
 local frames = {}

@@ -23,7 +23,14 @@ end
 manifest:close()
 assert(catalogs[1] == "Locales/Locale.lua", "Load the locale selector before translations")
 assert(lastFile == "Core/Bootstrap.lua", "Load bootstrap after the modules")
-assert(addonIcon == "Interface\\Icons\\INV_Misc_Wrench_01", "Use the native WoW icon")
+assert(addonIcon == "Interface\\AddOns\\QoLToolkit\\Media\\QoLToolkit.tga", "Use the bundled addon icon")
+local iconFile = assert(io.open("Media/QoLToolkit.tga", "rb"))
+local iconHeader = iconFile:read(18)
+iconFile:close()
+assert(#iconHeader == 18 and iconHeader:byte(3) == 2 and iconHeader:byte(17) == 32,
+    "Use an uncompressed 32-bit TGA")
+assert(iconHeader:byte(13) == 128 and iconHeader:byte(14) == 0
+    and iconHeader:byte(15) == 128 and iconHeader:byte(16) == 0, "Keep the icon square at 128 pixels")
 
 local function CheckLocale(locale, expected)
     GetLocale = locale and function() return locale end or nil
@@ -294,6 +301,7 @@ print("PASS: target distance sources, conservative rounding, and legacy appearan
 
 local frames = {}
 local createStub = CreateFrame
+local missingTexture
 CreateFrame = function(kind, name)
     local widget = createStub(kind, name)
     setmetatable(widget, {__index = function(_, key)
@@ -305,7 +313,7 @@ CreateFrame = function(kind, name)
     widget.SetPoint = function(self, point, ...) self.points[point] = {...} end
     widget.SetTexture = function(self, asset)
         self.asset = asset
-        return true
+        return asset ~= missingTexture
     end
     widget.SetAllPoints = function(self, relative) self.relative = relative end
     widget.AddMaskTexture = function(self, mask) self.mask = mask end
@@ -343,6 +351,10 @@ do
         HookScript = function(self, event, fn) self[event] = fn end,
     }
     GetCursorPosition = function() return 250, 250 end
+    local metadata = C_AddOns.GetAddOnMetadata
+    C_AddOns.GetAddOnMetadata = function(name, key)
+        if name == "QoLToolkit" and key == "IconTexture" then return addonIcon end
+    end
     local bootstrapNS = {L = distanceNS.L, WoW = distanceNS.WoW, UI = {Initialize = noop},
         SettingsState = {Initialize = function() return true end}}
     local function LoadButton()
@@ -352,7 +364,7 @@ do
     end
     local button = LoadButton()
     local background, icon, border = unpack(button.textures)
-    assert(icon.asset == addonIcon, "Use the same native icon as the addon list")
+    assert(icon.asset == addonIcon and not rawget(icon, "coords"), "Use the full bundled artwork")
     assert(icon.relative == background and icon.mask == background.mask and icon.mask.relative == background,
         "Fill the round area and clip the artwork with its mask")
     assert(border.layer == "OVERLAY")
@@ -375,8 +387,14 @@ do
     diameter = 160
     Minimap:OnSizeChanged()
     assert(button.points.CENTER[4] == 84)
+    missingTexture = addonIcon
+    assert(LoadButton().textures[2].asset == "Interface\\Icons\\INV_Misc_Wrench_01", "Missing artwork uses the native icon")
+    missingTexture = nil
+    C_AddOns.GetAddOnMetadata = nil
+    assert(LoadButton().textures[2].asset == "Interface\\Icons\\INV_Misc_Wrench_01", "Missing metadata uses the native icon")
+    C_AddOns.GetAddOnMetadata = metadata
 end
-print("PASS: minimap icon, mask, click, scaled drag, reload, and map resize")
+print("PASS: minimap artwork, mask, fallback, click, scaled drag, reload, and map resize")
 
 do
     local hook, bagModule, shortcut, opened

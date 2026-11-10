@@ -200,11 +200,6 @@ local function UnitTooltipGUID(data)
     end
 end
 
-local function IsHoveredUnit(data)
-    local guid = WoW.ReadValue(UnitTooltipGUID, data)
-    return guid and WoW.ReadValue(UnitGUID, "mouseover") == guid
-end
-
 local function StopDistanceUpdates()
     if not distanceElapsed then return end
     distanceElapsed = nil
@@ -225,10 +220,11 @@ local function UpdateMouseoverDistance(data, processing)
         if status ~= "ok" or (previous or "") ~= distanceText then return StopDistanceUpdates() end
     end
     local shown = WoW.ReadValue(tooltip.IsShown, tooltip)
-    local active = (processing or shown) and MouseoverDistanceEnabled() and ns.GetMouseoverDistance
+    -- Keep watching the unit tooltip when selection temporarily interrupts mouseover.
+    local guid = (processing or shown) and MouseoverDistanceEnabled() and ns.GetMouseoverDistance
         and tooltip.GetLeftLine and tooltip.AddLine and tooltip.NumLines
-        and IsHoveredUnit(data or WoW.ReadValue(tooltip.GetTooltipData, tooltip))
-    local distance = active and ns.GetMouseoverDistance()
+        and WoW.ReadValue(UnitTooltipGUID, data or WoW.ReadValue(tooltip.GetTooltipData, tooltip))
+    local distance = guid and WoW.ReadValue(UnitGUID, "mouseover") == guid and ns.GetMouseoverDistance()
     local text = distance and L("Distance : %s m"):format(distance)
     local changed
     if distanceLine then
@@ -248,9 +244,8 @@ local function UpdateMouseoverDistance(data, processing)
     end
     -- A post-call is followed by the native Show. Live row changes need the same layout pass.
     if changed and not processing and shown then WoW.Read(tooltip.Show, tooltip) end
-    if distanceAdded and not distanceLine then return StopDistanceUpdates() end
-    if not active then StopDistanceUpdates() end
-    return active
+    if (distanceAdded and not distanceLine) or not guid then return StopDistanceUpdates() end
+    return true
 end
 
 local function StartDistanceUpdates()
@@ -703,6 +698,7 @@ function ns.InitializeTooltips(root)
     GameTooltip:HookScript("OnShow", PositionTooltip)
     GameTooltip:HookScript("OnHide", function() ForgetDistanceLine(); ReleaseTooltip() end)
     GameTooltip:HookScript("OnTooltipCleared", ForgetDistanceLine)
+    if GameTooltip.ClearLines then hooksecurefunc(GameTooltip, "ClearLines", ForgetDistanceLine) end
     -- Also handles consecutive mouseovers and refreshed quest lines.
     if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
         TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, AfterTooltipData)

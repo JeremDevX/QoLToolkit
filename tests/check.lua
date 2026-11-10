@@ -358,7 +358,8 @@ print("PASS: minimap icon, mask, click, scaled drag, reload, and map resize")
 
 do
     local hook, bagModule, shortcut, opened
-    local bag = {GetBagID = function() return 0 end, GetFrameLevel = function() return 1 end}
+    local bag = {GetBagID = function() return 0 end, GetFrameLevel = function() return 1 end,
+        IsVisible = function() return true end}
     ContainerFrameCombinedBags = bag
     local createWidget = CreateFrame
     CreateFrame = function(kind, name, parent)
@@ -374,16 +375,18 @@ do
     end
     local slot = CreateFrame("ItemButton")
     slot.containerFrame, slot.IconBorder, slot.icon = bag, CreateFrame("Texture"), CreateFrame("Texture")
+    slot.GetBagID, slot.GetID = bag.GetBagID, function() return 1 end
+    bag.EnumerateValidItems = function() return ipairs({slot}) end
     slot.IconBorder.alpha = .8
     slot.IconBorder.GetTexture = function() return "Interface\\Common\\WhiteIconFrame" end
     local mask = CreateFrame("MaskTexture")
     slot.icon.GetMaskTexture = function() return mask end
     NUM_TOTAL_BAG_FRAMES = 5
     ContainerFrameUtil_GetShownFrameForID = function() return bag end
-    ContainerFrameUtil_EnumerateContainerFrames = function() return ipairs({}) end
+    ContainerFrameUtil_EnumerateContainerFrames = function() return ipairs({bag}) end
     hooksecurefunc = function(name, fn) assert(name == "SetItemButtonQuality"); hook = fn end
     SetItemButtonQuality = function(...) hook(...) end
-    C_Container = {GetContainerItemInfo = noop}
+    C_Container = {GetContainerItemInfo = function() return {quality = 4} end}
     C_Item = {GetItemQualityColor = function() return .64, .21, .93 end}
     CreateColor = function(...) return {...} end
     local bagsCategory = {GetID = function() return 2 end}
@@ -421,7 +424,10 @@ do
     assert(outline.points.BOTTOMRIGHT[2] == "CENTER" and outline.coords[2] < .5,
         "Thick border must magnify the native edge with no inset ring")
     assert(slot.textures[6].points.TOPLEFT[2] == "TOP" and slot.textures[8].points.TOPLEFT[2] == "CENTER")
-    assert(glow.layer == "ARTWORK" and glow.blend == "BLEND" and glow.alpha == 1 and glow.gradient[2][4] >= .9)
+    assert(glow.layer == "ARTWORK" and glow.blend == "BLEND" and glow.gradient[2][4] >= .9)
+    frames.ArkannsQOLBag_qualityInnerGlow:OnValueChanged(15)
+    assert(glow.shown and glow.gradient[1][4] == 0 and math.abs(glow.gradient[2][4] - .1425) < .0001,
+        "The main slider must update the gradient opacity on open bag slots")
     assert(bagModule.ImportSettings({enabled = false, qualityThickness = 1, qualityInnerGlow = 0}))
     SetItemButtonQuality(slot, 4)
     assert(not slot.textures[6].shown and not glow.shown and outline.points.BOTTOMRIGHT[2] == "BOTTOMRIGHT")
@@ -441,6 +447,8 @@ do
         slider:OnValueChanged(value)
         assert(bagModule.ExportSettings()[key] == value, "Backpack controls must update the shared bag settings")
     end
+    assert(glow.shown and math.abs(glow.gradient[2][4] - .38) < .0001,
+        "The backpack slider must restore the glow at the chosen intensity")
     frames.ArkannsQOLBagQuickMore:OnClick()
     assert(not quick.shown and opened == 2)
     shortcut:OnClick("RightButton")

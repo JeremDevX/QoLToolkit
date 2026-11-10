@@ -159,7 +159,8 @@ local function PaintBorder(button, regions, native, icon, r, g, b)
 end
 
 local function PaintInnerGlow(button, regions, icon, r, g, b)
-    if db.qualityInnerGlow == 0 or not CreateColor then
+    local intensity = db.qualityInnerGlow
+    if intensity == 0 or not CreateColor then
         if regions.glow then for _, strip in ipairs(regions.glow) do strip:Hide() end end
         return
     end
@@ -191,15 +192,17 @@ local function PaintInnerGlow(button, regions, icon, r, g, b)
         right:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT")
         regions.glowAnchor = icon
     end
-    if regions.glowR ~= r or regions.glowG ~= g or regions.glowB ~= b then
+    if regions.glowIntensity ~= intensity or regions.glowR ~= r or regions.glowG ~= g or regions.glowB ~= b then
         -- Blend over bright and dark icons alike. Lift dark rarity colors for contrast.
         local red, green, blue = .2 + .8 * r, .2 + .8 * g, .2 + .8 * b
-        local edge, fade = CreateColor(red, green, blue, .95), CreateColor(red, green, blue, 0)
+        local edge = CreateColor(red, green, blue, .95 * intensity / 100)
+        local fade = CreateColor(red, green, blue, 0)
         top:SetGradient("VERTICAL", fade, edge)
         bottom:SetGradient("VERTICAL", edge, fade)
         left:SetGradient("HORIZONTAL", edge, fade)
         right:SetGradient("HORIZONTAL", fade, edge)
         regions.glowR, regions.glowG, regions.glowB = r, g, b
+        regions.glowIntensity = intensity
     end
     local mask = WoW.ReadValue(icon.GetMaskTexture, icon, 1)
     for _, strip in ipairs(regions.glow) do
@@ -207,7 +210,6 @@ local function PaintInnerGlow(button, regions, icon, r, g, b)
             if regions.glowMask then strip:RemoveMaskTexture(regions.glowMask) end
             if mask then strip:AddMaskTexture(mask) end
         end
-        strip:SetAlpha(db.qualityInnerGlow / 100)
         strip:Show()
     end
     regions.glowMask = mask

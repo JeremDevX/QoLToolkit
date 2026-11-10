@@ -1,18 +1,26 @@
 local addonName, ns = ...
 local L = ns.L
-local db, panel, check, qualityCheck, status, category, homeCategory, refreshAppearance
+local db, panel, check, qualityCheck, transmogCheck, status, category, homeCategory, refreshAppearance
 local quick, quickBag, refreshQuick, ToggleQuickSettings
 local listening, bankOpen, failed, scheduled
 local qualityListening, getQualityColor, appearanceQueued
+local transmogEvents, transmogQueued
 local pending = {}
 local qualityBorders, samples, shortcuts = {}, {}, {}
+local transmogIcons = {}
 local shortcutMargins = {}
 local defaults = {
     enabled = false, qualityBorders = true, qualityOpacity = 100,
-    qualityGlow = 25, qualityInnerGlow = 0, qualityUncommonOnly = false,
+    qualityGlow = 25, qualityInnerGlow = 0, qualityUncommonOnly = false, transmogIcons = true,
 }
 local borderTexture = "Interface\\Common\\WhiteIconFrame"
 local glowAtlas = "bags-glow-white"
+local transmogAtlas = "lootroll-icon-transmog"
+local transmogRefreshEvents = {
+    "ITEM_DATA_LOAD_RESULT", "ITEM_LOCK_CHANGED", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
+    "TRANSMOG_COLLECTION_UPDATED", "TRANSMOG_COLLECTION_ITEM_UPDATE", "TRANSMOG_COLLECTION_SOURCE_ADDED",
+    "TRANSMOG_COLLECTION_SOURCE_REMOVED", "TRANSMOG_COSMETIC_COLLECTION_SOURCE_ADDED", "TRANSMOG_SOURCE_COLLECTABILITY_UPDATE",
+}
 -- Native combined and separate grids leave 5 units between slots.
 local outerGlowPadding = 2
 local shortcutWidth, shortcutRight = 42, -32
@@ -58,11 +66,14 @@ local function Secret(value)
     return issecretvalue and issecretvalue(value)
 end
 
+local function IsPersonalBagID(bagID)
+    return not Secret(bagID) and type(bagID) == "number" and bagID >= 0 and bagID <= NUM_TOTAL_BAG_FRAMES
+end
+
 local function IsPersonalBag(frame)
     if frame and frame == ContainerFrameCombinedBags then return true end
     if not frame or not frame.GetBagID or not NUM_TOTAL_BAG_FRAMES then return false end
-    local bagID = frame:GetBagID()
-    return not Secret(bagID) and type(bagID) == "number" and bagID >= 0 and bagID <= NUM_TOTAL_BAG_FRAMES
+    return IsPersonalBagID(frame:GetBagID())
 end
 
 local function QualityColor(quality)
@@ -143,14 +154,100 @@ local function PaintQualityBorder(button, quality)
     PaintGlow(button, regions, "innerGlow", -3, db.qualityInnerGlow, r, g, b)
 end
 
+local function HasUncollectedAppearance(item)
+    if Secret(item) or type(item) ~= "table" or Secret(item.isLocked) or item.isLocked ~= false then return false end
+    local link = item.hyperlink
+    if Secret(link) or type(link) ~= "string" or link == "" then return false end
+
+    local collection = C_TransmogCollection
+    if not collection then return false end
+    local ok, appearanceID, sourceID = pcall(collection.GetItemInfo, link)
+    if not ok or Secret(appearanceID) or type(appearanceID) ~= "number" or appearanceID <= 0
+        or Secret(sourceID) or type(sourceID) ~= "number" or sourceID <= 0 then return false end
+
+    local ready, hasItemData, canCollect = pcall(collection.PlayerCanCollectSource, sourceID)
+    if not ready or Secret(hasItemData) or hasItemData ~= true or Secret(canCollect) or canCollect ~= true then return false end
+
+    -- An appearance can already be collected from a different item source.
+    local found, info = pcall(collection.GetAppearanceInfoBySource, sourceID)
+    return found and not Secret(info) and type(info) == "table"
+        and not Secret(info.appearanceID) and info.appearanceID == appearanceID
+        and not Secret(info.appearanceIsCollected) and info.appearanceIsCollected == false
+        and not Secret(info.sourceIsCollected) and info.sourceIsCollected == false
+end
+
+local function PaintTransmogIcon(button)
+    local icon = transmogIcons[button]
+    if button.IsForbidden and button:IsForbidden() then return end
+    if button.GetBagID and button.GetID and button.CreateTexture then
+        local bagID, slot = button:GetBagID(), button:GetID()
+        if IsPersonalBagID(bagID) and not Secret(slot) and type(slot) == "number" and slot > 0 then
+            local ok, item = pcall(C_Container.GetContainerItemInfo, bagID, slot)
+            if ok and HasUncollectedAppearance(item) then
+                if not icon then
+                    icon = button:CreateTexture(nil, "OVERLAY", nil, 3)
+                    if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(transmogAtlas) and icon.SetAtlas then
+                        icon:SetAtlas(transmogAtlas)
+                    else
+                        icon:SetTexture("Interface\\Icons\\INV_Shirt_01")
+                    end
+                    icon:SetSize(14, 14)
+                    icon:SetPoint("TOPRIGHT", button, "TOPRIGHT", -2, -2)
+                    transmogIcons[button] = icon
+                    if button.HookScript then button:HookScript("OnHide", function() icon:Hide() end) end
+                end
+                icon:Show()
+                return
+            end
+        end
+    end
+    if icon then icon:Hide() end
+end
+
+local function RefreshTransmogIcons()
+    for _, icon in pairs(transmogIcons) do icon:Hide() end
+    if not transmogEvents or not db.transmogIcons then return end
+    for _, frame in ContainerFrameUtil_EnumerateContainerFrames() do
+        if (not frame.IsForbidden or not frame:IsForbidden()) and IsPersonalBag(frame) and frame.EnumerateValidItems then
+            local visible = frame:IsVisible()
+            if not Secret(visible) and visible then
+                for _, button in frame:EnumerateValidItems() do PaintTransmogIcon(button) end
+            end
+        end
+    end
+end
+
+local function QueueTransmogRefresh()
+    if not transmogEvents or not db.transmogIcons or transmogQueued
+        or not ContainerFrameUtil_GetShownFrameForID() then return end
+    transmogQueued = true
+    C_Timer.After(.05, function()
+        transmogQueued = false
+        RefreshTransmogIcons()
+    end)
+end
+
+local function RefreshTransmogSetting()
+    if transmogEvents then
+        for _, event in ipairs(transmogRefreshEvents) do
+            if db.transmogIcons then transmogEvents:RegisterEvent(event) else transmogEvents:UnregisterEvent(event) end
+        end
+    end
+    RefreshTransmogIcons()
+end
+
 local function OnItemQuality(button, quality)
-    if not db.qualityBorders or not button or not button.GetParent or not button.CreateTexture then return end
+    local showQuality = qualityListening and db.qualityBorders
+    local showTransmog = transmogEvents and db.transmogIcons
+    if not (showQuality or showTransmog) or Secret(button) or not button or not button.GetParent or not button.CreateTexture then return end
     local frame = button.containerFrame or button:GetParent()
     if IsPersonalBag(frame) and (frame == ContainerFrameCombinedBags
         or ContainerFrameUtil_GetShownFrameForID(frame:GetBagID()) == frame) then
-        PaintQualityBorder(button, quality)
+        if showQuality then PaintQualityBorder(button, quality) end
+        if showTransmog then PaintTransmogIcon(button) end
     else
         HideBorder(qualityBorders[button])
+        if transmogIcons[button] then transmogIcons[button]:Hide() end
     end
 end
 
@@ -202,6 +299,7 @@ end
 local function Refresh()
     check:SetChecked(db.enabled)
     qualityCheck:SetChecked(db.qualityBorders)
+    transmogCheck:SetChecked(db.transmogIcons)
     status:SetText(Unavailable() or "")
     if refreshAppearance then refreshAppearance() end
     if refreshQuick and quick:IsShown() then refreshQuick() end
@@ -211,6 +309,12 @@ local function SetQualityBorders(value)
     db.qualityBorders = value
     Refresh()
     RefreshQualityBorders()
+end
+
+local function SetTransmogIcons(value)
+    db.transmogIcons = value == true
+    Refresh()
+    RefreshTransmogSetting()
 end
 
 local function CloseQuickSettings(frame)
@@ -328,7 +432,7 @@ local function BuildAppearance(body, compact)
     local prefix = compact and "ArkannsQOLBagQuick" or "ArkannsQOLBag"
     local syncing
     local filterLabel = compact and L("Masquer gris et blancs") or L("Masquer les contours gris et blancs")
-    local filter = UI.Check(body, prefix .. "UncommonOnly", filterLabel, 16, compact and -88 or -194, function(value)
+    local filter = UI.Check(body, prefix .. "UncommonOnly", filterLabel, 16, compact and -113 or -222, function(value)
         db.qualityUncommonOnly = value
         RefreshSamples()
         RefreshQualityBorders()
@@ -354,12 +458,12 @@ local function BuildAppearance(body, compact)
         end)
         return function() slider:SetValue(db[key]); Caption() end
     end
-    local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -124 or -234)
-    local outerGlow = Slider("qualityGlow", L("Halo extérieur"), compact and -170 or -290)
-    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -216 or -346)
-    UI.Label(body, L("Couleurs et aperçu"), 20, compact and -262 or -402, 15)
-    if not compact then UI.Label(body, L("Clic gauche · Couleur   Clic droit · Couleur WoW"), 20, -428) end
-    local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -286 or -456
+    local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -149 or -262)
+    local outerGlow = Slider("qualityGlow", L("Halo extérieur"), compact and -195 or -318)
+    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -241 or -374)
+    UI.Label(body, L("Couleurs et aperçu"), 20, compact and -287 or -430, 15)
+    if not compact then UI.Label(body, L("Clic gauche · Couleur   Clic droit · Couleur WoW"), 20, -456) end
+    local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -311 or -484
     local count = 0
     for quality = 0, 8 do
         local name = _G["ITEM_QUALITY" .. quality .. "_DESC"] or qualityLabels[quality + 1]
@@ -395,7 +499,9 @@ local function BuildAppearance(body, compact)
     local footerY = top - math.ceil(count / 6) * (size + 9) - 4
     if not compact then
         UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
-            for key, value in pairs(defaults) do if key ~= "enabled" then db[key] = value end end
+            for key, value in pairs(defaults) do
+                if key ~= "enabled" and key ~= "transmogIcons" then db[key] = value end
+            end
             db.qualityColors = {}
             Refresh()
             RefreshQualityBorders()
@@ -418,6 +524,13 @@ local function SetEnabled(value)
     ns.UI.Refresh()
 end
 
+local function CreateTransmogCheck(body, name, x, y)
+    local label = transmogEvents and L("Icône des apparences manquantes") or L("Icône de transmo indisponible")
+    local control = ns.UI.Check(body, name, label, x, y, SetTransmogIcons)
+    if not transmogEvents then control:Disable() end
+    return control
+end
+
 local function CreateQuickSettings()
     local UI = ns.UI
     local name = "ArkannsQOLBagQuickSettings"
@@ -437,13 +550,14 @@ local function CreateQuickSettings()
     close:SetScript("OnClick", function() CloseQuickSettings() end)
     local sort = UI.Check(quick, "ArkannsQOLBagQuickSort", L("Tri à l’ouverture"), 14, -37, SetEnabled)
     local borders = UI.Check(quick, "ArkannsQOLBagQuickBorders", L("Contours de rareté"), 14, -62, SetQualityBorders)
+    local transmog = CreateTransmogCheck(quick, "ArkannsQOLBagQuickTransmog", 14, -87)
     local appearance, footerY
     if qualityListening then
         appearance, footerY = BuildAppearance(quick, true)
     else
         borders:Disable()
-        UI.Label(quick, L("Bordures indisponibles sur ce client."), 18, -96)
-        footerY = -122
+        UI.Label(quick, L("Bordures indisponibles sur ce client."), 18, -121)
+        footerY = -147
     end
     UI.Button(quick, "ArkannsQOLBagQuickMore", L("Plus de réglages"), 18, footerY, 140, function() OpenSettings(category) end)
     quick:SetSize(260, -footerY + 41)
@@ -451,6 +565,7 @@ local function CreateQuickSettings()
         sort:SetChecked(db.enabled)
         sort:SetEnabled(not Unavailable())
         borders:SetChecked(db.qualityBorders)
+        transmog:SetChecked(db.transmogIcons)
         if appearance then appearance() end
     end
     if UISpecialFrames then table.insert(UISpecialFrames, name) end
@@ -497,7 +612,9 @@ end
 
 local function OnBagOpened(_, frame)
     AttachShortcut(frame)
-    if not CanSort() or not IsPersonalBag(frame) then return end
+    if not IsPersonalBag(frame) then return end
+    QueueTransmogRefresh()
+    if not CanSort() then return end
     pending[frame] = false
     if not scheduled then
         scheduled = true
@@ -529,11 +646,21 @@ function ns.InitializeBagSort(rootCategory)
     ForeverTooltipLibreDB.bagSort = db
 
     getQualityColor = (C_Item and C_Item.GetItemQualityColor) or GetItemQualityColor
-    if getQualityColor and C_Container and C_Container.GetContainerItemInfo
+    if C_Container and C_Container.GetContainerItemInfo
         and hooksecurefunc and SetItemButtonQuality and NUM_TOTAL_BAG_FRAMES
         and ContainerFrameUtil_EnumerateContainerFrames and ContainerFrameUtil_GetShownFrameForID then
-        hooksecurefunc("SetItemButtonQuality", OnItemQuality)
-        qualityListening = true
+        qualityListening = type(getQualityColor) == "function"
+        local collection = C_TransmogCollection
+        if collection and type(collection.GetItemInfo) == "function"
+            and type(collection.PlayerCanCollectSource) == "function"
+            and type(collection.GetAppearanceInfoBySource) == "function" and C_Timer and C_Timer.After then
+            transmogEvents = CreateFrame("Frame")
+            transmogEvents:SetScript("OnEvent", function(_, event, itemID, success)
+                if event == "ITEM_DATA_LOAD_RESULT" and (Secret(success) or success ~= true) then return end
+                QueueTransmogRefresh()
+            end)
+        end
+        if qualityListening or transmogEvents then hooksecurefunc("SetItemButtonQuality", OnItemQuality) end
     end
 
     panel = CreateFrame("Frame", "ArkannsQOLBagsPanel", UIParent, "BackdropTemplate")
@@ -543,19 +670,20 @@ function ns.InitializeBagSort(rootCategory)
     scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -4)
     scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -30, 10)
     local body = CreateFrame("Frame", nil, scroll)
-    body:SetSize(282, qualityListening and 586 or 225)
+    body:SetSize(282, qualityListening and 614 or 253)
     scroll:SetScrollChild(body)
     ns.UI.Label(body, L("Sacs"), 16, -16, 20)
     check = ns.UI.Check(body, "ArkannsQOLBagsEnabled", L("Trier à l’ouverture manuelle"), 16, -54, SetEnabled)
     ns.UI.Label(body, L("Hors combat et hors banque."), 20, -89)
     status = ns.UI.Label(body, "", 20, -112)
-    ns.UI.Label(body, L("Bordures de rareté"), 20, -140, 15)
-    qualityCheck = ns.UI.Check(body, "ArkannsQOLBagQualityBorders", L("Bordure selon la rareté"), 16, -163, SetQualityBorders)
+    transmogCheck = CreateTransmogCheck(body, "ArkannsQOLBagTransmog", 16, -140)
+    ns.UI.Label(body, L("Bordures de rareté"), 20, -168, 15)
+    qualityCheck = ns.UI.Check(body, "ArkannsQOLBagQualityBorders", L("Bordure selon la rareté"), 16, -191, SetQualityBorders)
     if qualityListening then
         refreshAppearance = BuildAppearance(body)
     else
         qualityCheck:Disable()
-        ns.UI.Label(body, L("Bordures indisponibles sur ce client."), 20, -196)
+        ns.UI.Label(body, L("Bordures indisponibles sur ce client."), 20, -224)
     end
     panel:SetScript("OnShow", function() CloseQuickSettings(); Refresh() end)
     category = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Sacs"))
@@ -623,6 +751,9 @@ function ns.InitializeBagSort(rootCategory)
             function(config, current)
                 if config.qualityInnerGlow == nil then config.qualityInnerGlow = current.qualityInnerGlow end
             end,
+            function(config, current)
+                if config.transmogIcons == nil then config.transmogIcons = current.transmogIcons end
+            end,
         },
         ImportSettings = function(config)
             if type(config) ~= "table" or type(config.enabled) ~= "boolean" then return false end
@@ -640,10 +771,12 @@ function ns.InitializeBagSort(rootCategory)
                 if key ~= "enabled" and config[key] ~= nil then db[key] = config[key] end
             end
             RefreshQualityBorders()
+            RefreshTransmogSetting()
             SetEnabled(config.enabled)
             return true
         end,
     })
     Refresh()
     RefreshQualityBorders()
+    RefreshTransmogSetting()
 end

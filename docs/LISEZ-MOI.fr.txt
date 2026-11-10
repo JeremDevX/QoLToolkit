@@ -106,11 +106,15 @@ en combat ou à la mort. Un effet réellement manquant reste affiché sans « Te
 JOURNAL DE SESSION
 /qtsession ouvre ses options. Réglages par personnage.
 Visible en combat et à la mort. Masquer la fenêtre ne suspend pas les compteurs.
+- Démarrer ou arrêter le suivi dans Fonctionnement, ou avec /qtsession start et /qtsession stop.
+- Démarrer reprend les totaux. Réinitialiser les stats remet les compteurs à zéro.
+- « Mettre en pause pendant l’AFK » suspend le suivi en AFK et le reprend au retour.
+  Un arrêt manuel reste en place.
 
 Stats : durée, XP, prochain niveau, or reçu, or dépensé, solde, morts et niveaux gagnés.
 Icônes natives de WoW, à la taille du texte.
 Montants affichés avec les pièces d'or, d'argent et de cuivre.
-- Durée : temps connecté, AFK inclus. Chargement de /reload exclu.
+- Durée : temps de suivi. Les pauses et le chargement de /reload sont exclus.
 - Survol d'XP gagnée : XP/h. Survol d'Or reçu : or net/h (reçu − dépensé).
   Journal verrouillé, taux disponibles après 1 min. Les clics passent à travers.
 - Prochain niveau : estimation toujours affichée, basée sur l'XP moyenne de la session.
@@ -118,7 +122,7 @@ Montants affichés avec les pièces d'or, d'argent et de cuivre.
   ≥ : XP minimum. — : estimation indisponible si les données sont incomplètes.
 - Or : achats, ventes, échanges et courrier inclus, pas seulement le loot.
 - Solde : or reçu moins or dépensé.
-- Nouvelle connexion : remise à zéro. /reload et changements de zone : stats conservées.
+- Nouvelle connexion : les compteurs repartent à zéro. /reload conserve les compteurs et l’arrêt manuel.
 - Réinitialiser les stats : remise à zéro sans modifier l'apparence.
 
 Choisis les stats, le thème, la largeur, le texte, l'opacité, le titre,
@@ -134,6 +138,9 @@ Position fixe : PNJ et objets du monde. Désactive le suivi du curseur pour la r
 Déplacer : glisser le cadre. Clic droit : verrouiller. Ancrage en bas à gauche.
 Survole à nouveau après un réglage.
 Le contenu natif, dont les infos de quête déjà présentes, est conservé.
+La distance dans l’infobulle concerne l’unité survolée. Elle s’affiche sous forme
+de mesure ou de fourchette lorsque le client fournit assez d’informations.
+Tu peux désactiver « Afficher la distance au survol » dans Visibilité.
 Si un autre addon déplace les tooltips, désactive son option de placement.
 
 BUILDS DE TALENTS
@@ -203,6 +210,8 @@ SACS
 Le bouton QoL dans l’en-tête ouvre les réglages rapides au clic gauche.
 « Plus de réglages » ouvre la page complète. Le clic droit ouvre l’accueil.
 Personnalise la couleur par rareté, l’opacité et les halos intérieur et extérieur.
+Une icône en haut à droite signale une apparence de transmogrification à collectionner.
+Tu peux désactiver « Icône des apparences manquantes » dans les réglages rapides.
 Le tri facultatif se lance à l’ouverture manuelle des sacs, hors combat et hors banque.
 
 RACCOURCIS

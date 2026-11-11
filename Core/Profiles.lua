@@ -513,4 +513,12 @@ function ns.InitializeProfiles(rootCategory)
     panel:SetScript("OnHide", function() name:ClearFocus(); CancelOverwrite(); Invalidate() end)
     Invalidate(); undo:SetEnabled(false)
     ns.profilesCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Profils"))
+    if UI.RegisterSettings then UI.RegisterSettings("profiles", {
+        category = function() return ns.profilesCategory end,
+        OpenSettings = function(source)
+            local targets = {["Enregistrer les réglages actuels"] = name, ["Restaurer un profil"] = choose,
+                ["Annuler l’application"] = undo}
+            if source then UI.RevealControl(scroll, targets[source]) end
+        end,
+    }) end
 end

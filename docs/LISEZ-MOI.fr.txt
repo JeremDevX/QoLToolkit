@@ -4,9 +4,12 @@ WoW Forever 1.60.1 • Interface 16001
 L’addon utilise la langue du client. Français pour le client français, anglais par défaut.
 
 ACCUEIL
-/qt : huit cartes avec activation, résumé, Configurer et Aperçu selon le module.
+La recherche ouvre la section concernée, développe ses options si nécessaire
+et fait défiler jusqu’au contrôle. Un réglage dépendant conduit à son prérequis.
+Effacer ou Échap réaffiche les cartes ; Entrée ouvre le premier résultat.
+/qt : rubriques Personnage, Interface, Personnalisation et Outils, accessibles directement.
 L’étoile épingle un module. Les favoris des réglages avancés apparaissent aussi ici.
-Les favoris apparaissent avant les cartes. Apparence, Disposition, Profils et Diagnostics
+Les cartes favorites passent en tête sans doublon. Apparence, Disposition, Profils et Diagnostics
 sont accessibles depuis l'accueil. Le bouton de minicarte peut être déplacé ou masqué.
 
 THÈME CHALEUREUX
@@ -17,14 +20,18 @@ Pour les couleurs, utilise le sélecteur visuel ou saisis un code RRGGBB puis Ap
 Chaque module hérite du thème commun. « Apparence propre à ce module » reprend
 ses réglages locaux ; « Reprendre le thème commun » rétablit l'héritage.
 Les réglages hérités sont grisés. Tes réglages locaux et les modules désactivés sont conservés.
+« Régler le thème commun » ouvre l’apparence générale ; « Retour au module » revient aux réglages d’origine.
 Les couleurs d'alerte restent distinctes du texte normal.
 
 DISPOSITION
+Une déconnexion ou /reload annule les positions non validées. L'annulation conserve
+les autres réglages modifiés pendant l'aperçu, par exemple via /qttooltip off.
 Ouvre Disposition hors combat : les fenêtres de démonstration apparaissent.
 Glisse les cadres ; les exemples suivent le déplacement. Grille et accrochage facultatifs.
 Clique sur un cadre pour régler précisément son centre avec X % et Y %.
 Recentrer agit sur le cadre sélectionné. Valider conserve les nouvelles positions.
 Annuler, Échap ou clic droit restaure les positions précédentes.
+Valider ou annuler revient à la section de réglages d’origine, hors combat.
 Les boutons Déplacer ouvrent cet éditeur sur le module concerné. Valider sans déplacer
 un module conserve son ancrage d'origine, notamment l'ancrage automatique des talents.
 Entrer en combat annule la disposition. Les coordonnées sont relatives à l'écran.
@@ -32,7 +39,11 @@ Le panneau de talents utilise un exemple : le mode Disposition n'ouvre pas l'arb
 Les badges de rang restent attachés aux boutons de sorts ; leur position se règle par coin.
 
 OPTIONS DES MODULES
-Les paramètres sont regroupés en Fonctionnement, Apparence et Visibilité.
+Journal : « Suivi et statistiques », « Affichage » et « Historique et progression ».
+Rappels : « Effets suivis » et « Affichage ».
+Affichage réunit visibilité, mode compact, survol, apparence, aperçu et déplacement.
+Infobulles et distance partagent une rubrique : « Infobulles », « Distance », « Options avancées ».
+Les affichages de distance sur la cible et au survol restent indépendants des infobulles personnalisées.
 Les réglages avancés conservent leurs onglets par catégorie et leur liste défilante.
 - Journal : statistiques sélectionnables et réordonnables, ligne horizontale avec retour
   à la ligne, valeurs nulles masquées, vue compacte développée au survol.
@@ -48,8 +59,20 @@ Les réglages avancés conservent leurs onglets par catégorie et leur liste dé
 - Réglages avancés : favoris, filtre Modifiés, valeurs actuelles/défaut et sélection
   de plusieurs options à réinitialiser après lecture du récapitulatif.
 
+HISTORIQUE DU JOURNAL
+L’historique conserve les 100 dernières sessions du personnage. Filtres : tout, 7 jours, 30 jours.
+Bilans : temps suivi, XP, niveaux, morts, solde et taux horaires calculés sur le temps suivi total.
+Les courbes comparent les taux horaires entre sessions ou les gains cumulés d’une session sélectionnée.
+Les pauses sont exclues. Les sessions de moins d’une minute n’ont pas de taux horaire.
+« Enregistrer et recommencer » archive la session. Réinitialiser les stats l’enregistre aussi avant remise à zéro.
+Une nouvelle connexion archive la session précédente ; /reload reprend la même session sans doublon.
+La session en cours reste séparée des bilans enregistrés. Les profils ne copient jamais l’historique.
+Un relevé par minute pendant le suivi, même fenêtre masquée ; 120 points maximum par session.
+Les anciennes sessions n’ont pas de dates ni de courbes reconstituées. ≥ indique une XP incomplète.
+La suppression d’une session ou de tout l’historique demande confirmation.
+
 APERÇUS
-L'onglet Apparence des modules concernés affiche un exemple pendant les réglages.
+L'onglet Affichage du journal et des rappels affiche un exemple pendant les réglages.
 Arrêter les aperçus les ferme. Changer de rubrique ou fermer les paramètres les arrête.
 Les exemples ne créent aucun gain d'XP/or, aucun effet surveillé ni aucun point de talent.
 Les boutons Défaut réinitialisent leur section ; ils ne réinitialisent pas tout l'addon.
@@ -150,6 +173,11 @@ Tu peux désactiver « Afficher la distance au survol » dans Distance de la cib
 Si un autre addon déplace les tooltips, désactive son option de placement.
 
 BUILDS DE TALENTS
+Le menu du build propose Dupliquer, Exporter et Importer. La duplication conserve
+l'ordre des points et le niveau du premier point dans un build indépendant.
+Exporter affiche un texte à copier avec Ctrl+C ; Importer permet de le coller avec Ctrl+V.
+Le format est propre à QoL Toolkit. Classe, arbre, version, premier niveau et ordre
+des points sont vérifiés avant confirmation. L'import ajoute un build sans remplacer les autres.
 Ouvre tes talents (N) : le panneau apparaît à côté de l'arbre.
 La classe et les talents viennent du personnage connecté, avec les noms et icônes du jeu.
 Plans enregistrés par personnage et spécialisation primaire / secondaire.
@@ -188,11 +216,13 @@ Le panneau se masque en combat et pendant l'inspection d'un autre joueur.
 Options : afficher avec les talents et replacer le panneau.
 
 RANGS DE SORTS
-Par défaut, contrôle des actions toutes les 2 s ; fréquence réglable. Les événements de sorts et de barres sont regroupés sous 0,2 s.
+Les rangs et les nouveaux boutons sont vérifiés toutes les 30 s, immédiatement à
+l'ouverture d'un maître de classe et à l'apprentissage d'un sort. Les changements
+de sorts et de barres rafraîchissent les boutons connus sous 0,2 s.
 Seuls les avertissements déjà détectés suivent les mouvements des barres toutes les 0,2 s.
-Cache des rangs : 30 s. Recherche globale des nouveaux boutons : 60 s, hors combat.
-Un chargement d'addon ou une entrée dans le monde demande aussi une recherche de boutons.
-Une barre tierce sans événement peut attendre 2 s ; un nouveau bouton sans événement, 60 s.
+La recherche globale des boutons attend la fin du combat si nécessaire.
+Une entrée dans le monde demande aussi une recherche de boutons.
+Un nouveau bouton sans événement peut attendre jusqu'à 30 s.
 Module désactivé : aucun scan. Ces intervalles ne constituent pas une mesure de gain FPS.
 /qt > Rangs de sorts. Module intégré à QoL Toolkit, actif par défaut.
 Un petit ! orange en bas à gauche d'un bouton signale un rang supérieur déjà appris.

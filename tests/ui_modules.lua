@@ -2,7 +2,7 @@
 local env = setmetatable({}, {__index = _G})
 env._G = env
 local frames, modules, overrides, menuItems = {}, {}, {}, {}
-local combat, dead, confirmation, lastLayout, ended = false, false, nil, nil, nil
+local combat, dead, confirmation, lastLayout, ended, revealed = false, false, nil, nil, nil, nil
 local methods = {}
 local function noop() end
 local function Frame(name, parent)
@@ -30,6 +30,10 @@ function methods:SetPoint(...) self.points[#self.points + 1] = {...} end
 function methods:ClearAllPoints() self.points = {} end
 function methods:SetText(value) self.text = value end
 function methods:GetText() return self.text end
+function methods:GetNumLines()
+    local _, newlines = self.text:gsub("\n", "\n")
+    return math.max(newlines + 1, math.ceil(#self.text / math.max(1, math.floor(self.width / 8))))
+end
 function methods:GetStringWidth() return #self.text * 6 end
 function methods:GetUnboundedStringWidth() return #self.text * 6 end
 function methods:GetStringHeight() return 14 * (1 + select(2, self.text:gsub("\n", ""))) end
@@ -53,6 +57,7 @@ function methods:SetValue(value) self.value = value end
 function methods:GetFontString() self.fontString = rawget(self, "fontString") or Frame(); return self.fontString end
 function methods:CreateFontString(name) return Frame(name, self) end
 function methods:CreateTexture(name) return Frame(name, self) end
+function methods:CreateLine(name) return Frame(name, self) end
 function methods:GetThumbTexture() return Frame() end
 function methods:HasFocus() return false end
 function methods:IsForbidden() return false end
@@ -76,11 +81,15 @@ ns.UI.IsOverride = function(id) return overrides[id] == true end
 ns.UI.SetOverride = function(id, value) overrides[id] = value; if modules[id] then modules[id].Refresh() end end
 ns.UI.GetStyle = function() return nil end
 ns.UI.StyleFrame, ns.UI.StylePanel, ns.UI.StyleButton = noop, noop, noop
+ns.UI.Label = function(parent, text, x, y)
+    local label = Frame(nil, parent); label:SetText(text); label:SetPoint("TOPLEFT", x, y); return label
+end
 ns.UI.ClampScroll = function(scroll, height)
     scroll:SetVerticalScroll(math.min(scroll:GetVerticalScroll(), math.max(0, height - scroll:GetHeight())))
 end
 ns.UI.StartLayout = function(id) lastLayout = id; return true end
 ns.UI.Notify = noop
+ns.UI.RevealControl = function(scroll, control) revealed = {scroll = scroll, control = control} end
 ns.UI.Confirm = function(_, accept) confirmation = accept; return true end
 ns.UI.PreviewEnded = function(id) ended = id end
 ns.RegisterModule = function(id, descriptor) modules[id] = descriptor end
@@ -91,6 +100,15 @@ Load("Core/WoWRuntime.lua")
 Load("Modules/AuraReminderModel.lua")
 Load("Modules/AuraReminders.lua")
 ns.InitializeReminders({})
+assert(not frames.ArkannsQOLReminderVisibilityTab, "Reminder display uses one tab for appearance and visibility")
+modules.reminders.OpenSettings("Mode compact : 2 effets")
+assert(frames.ArkannsQOLAppearancePage.shown and not frames.ArkannsQOLEffectsPage.shown)
+assert(revealed.control == frames.ArkannsQOLReminder_compact)
+local reminderPageBeforeReturn = frames.ArkannsQOLAppearancePage
+modules.reminders.OpenSettings(nil)
+assert(reminderPageBeforeReturn.shown, "Returning from layout preserves the display tab")
+modules.reminders.OpenSettings("Ajouter par nom / ID")
+assert(frames.ArkannsQOLEffectsPage.shown and revealed.control == frames.ArkannsQOLManualInput)
 local effectsList = frames.ArkannsQOLEffectsList
 assert(not effectsList.shown, "Empty reminders leave room for the add controls")
 local manual = frames.ArkannsQOLManualInput
@@ -112,13 +130,17 @@ local ok, reason = modules.reminders.Preview()
 assert(ok == false and type(reason) == "string", "Rejected preview must explain why")
 combat = false
 assert(frames.ArkannsQOLAppearancefontSize.enabled == false, "Inherited style cannot be edited")
+modules.reminders.OpenSettings("Police")
+assert(revealed.control == frames.ArkannsQOLAppearancefont)
+modules.reminders.OpenSettings(nil)
+assert(frames.ArkannsQOLAppearancePage.shown, "Reopening preserves the advanced reminder appearance section")
 overrides.reminders = true; modules.reminders.Refresh()
 assert(frames.ArkannsQOLAppearancefontSize.enabled)
 local appearance = env.ArkannsQOLRemindersDB.appearance
 appearance.title, appearance.customTitle = "My reminder", true
 appearance.width, appearance.layout, appearance.columns = 555, "grid", 3
 local reminderPage = frames.ArkannsQOLAppearancePage
-frames.ArkannsQOLAppearanceAdvanced.scripts.OnClick(frames.ArkannsQOLAppearanceAdvanced)
+-- Search already opens the detailed appearance controls.
 local wideAppearance = reminderPage.child:GetHeight()
 reminderPage.child:SetWidth(300)
 reminderPage.scripts.OnSizeChanged(reminderPage, 300)
@@ -141,8 +163,23 @@ frames.ArkannsQOLReminderSettings.scripts.OnSizeChanged()
 assert(frames.ArkannsQOLAppearanceTab.points[1][3] < frames.ArkannsQOLEffectsTab.points[1][3], "Narrow tabs stack")
 
 Load("Modules/SessionJournalModel.lua")
+Load("Modules/SessionHistory.lua")
 Load("Modules/SessionJournal.lua")
 ns.InitializeSessionJournal({})
+assert(not frames.ArkannsQOLSessionVisibilityTab, "Session display uses one tab for appearance and visibility")
+assert(frames.ArkannsQOLSession_compact.parent == frames.ArkannsQOLSession_enabled.parent,
+    "Compact mode and window visibility share the display group")
+modules.session.OpenSettings("Largeur min.")
+assert(frames.ArkannsQOLSessionAppearance.shown and revealed.control == frames.ArkannsQOLSession_width)
+modules.session.OpenSettings(nil)
+assert(frames.ArkannsQOLSessionAppearance.shown, "Layout return preserves session display tab")
+modules.session.OpenSettings("XP gagnée")
+assert(not frames.ArkannsQOLSessionAppearance.shown and revealed.control == frames.ArkannsQOLSessionMetric2)
+local metricOrder = env.ArkannsQOLSessionDB.order
+metricOrder[1], metricOrder[2] = metricOrder[2], metricOrder[1]
+modules.session.OpenSettings("XP gagnée")
+assert(revealed.control == frames.ArkannsQOLSessionMetric1, "Search follows the current statistic order")
+metricOrder[1], metricOrder[2] = metricOrder[2], metricOrder[1]
 assert(modules.session.toggleLabel == "Afficher le journal")
 assert(modules.session.Preview(true) == true and frames.ArkannsQOLSessionWindow.mouse == false)
 assert(frames.ArkannsQOLSessionWindow.strata == "MEDIUM")
@@ -178,6 +215,75 @@ combat = true
 assert(modules.session.Preview() == false)
 combat = false
 
+-- Drive the real journal lifecycle: hidden tracking, pause, reload, and login.
+local clock, wall, xp, cash = 0, 1800000000, 0, 100000
+env.GetTime = function() return clock end
+env.GetServerTime = function() return wall end
+env.UnitXP = function() return xp end
+env.UnitXPMax = function() return 1000 end
+env.UnitLevel = function() return 10 end
+env.GetMoney = function() return cash end
+local timers = {}
+env.C_Timer.NewTicker = function(interval, callback)
+    local timer = {interval = interval, callback = callback, Cancel = function(self) self.cancelled = true end}
+    timers[#timers + 1] = timer; return timer
+end
+local journalEvents = frames.ArkannsQOLSessionEvents
+local function JournalEvent(event, ...) journalEvents.scripts.OnEvent(journalEvents, event, ...) end
+JournalEvent("PLAYER_ENTERING_WORLD", true, false)
+local journalDB = env.ArkannsQOLSessionDB
+assert(journalDB.session.startedAt == wall)
+clock, wall, xp, cash = 120, wall + 120, 200, 110000
+JournalEvent("PLAYER_XP_UPDATE", "player"); JournalEvent("PLAYER_MONEY")
+env.SlashCmdList.ARKANNSQOLSESSION("stop")
+assert(journalDB.session.elapsed == 120 and journalDB.session.pause == "manual")
+clock, wall, xp, cash = 180, wall + 60, 300, 130000
+env.SlashCmdList.ARKANNSQOLSESSION("start")
+clock, wall, xp = 240, wall + 60, 400
+JournalEvent("PLAYER_XP_UPDATE", "player")
+JournalEvent("PLAYER_LOGOUT")
+assert(journalDB.session.elapsed == 180 and #journalDB.history == 0)
+JournalEvent("PLAYER_ENTERING_WORLD", false, true)
+assert(#journalDB.history == 0 and journalDB.session.xp == 300, "Reload resumes without counting paused XP")
+clock, wall = 300, wall + 60
+JournalEvent("PLAYER_LOGOUT")
+local previous = journalDB.session
+JournalEvent("PLAYER_ENTERING_WORLD", true, false)
+assert(#journalDB.history == 1 and journalDB.history[1].duration == 240)
+assert(journalDB.history[1].xp == 300 and journalDB.history[1].net == 10000)
+assert(journalDB.session ~= previous and journalDB.session.xp == 0)
+assert(not modules.session.ExportSettings().history, "Profiles never transfer character history")
+modules.session.OpenSettings("Historique et progression")
+assert(frames.ArkannsQOLSessionHistory.shown and not frames.ArkannsQOLSessionAppearance.shown)
+modules.session.SetEnabled(false)
+clock, wall = 390, wall + 90
+local historyTimer
+for _, timer in ipairs(timers) do
+    if timer.interval == 30 and not timer.cancelled then historyTimer = timer end
+end
+assert(historyTimer, "Hidden journal keeps the sampling timer active")
+historyTimer.callback()
+assert(journalDB.session.samples[#journalDB.session.samples].elapsed == 90)
+frames.ArkannsQOLSessionHistoryNew.scripts.OnClick()
+assert(#journalDB.history == 2 and journalDB.history[2].duration == 90)
+frames.ArkannsQOLSessionHistoryNew.scripts.OnClick()
+assert(#journalDB.history == 2, "Repeated save never archives an empty session")
+modules.session.SetEnabled(true)
+env.SlashCmdList.ARKANNSQOLSESSION("stop")
+JournalEvent("PLAYER_LOGOUT"); JournalEvent("PLAYER_ENTERING_WORLD", false, true)
+assert(journalDB.session.pause == "manual", "Reload preserves manual pause")
+assert(modules.session.ImportSettings({pauseAFK = true}))
+local afk = true
+env.UnitIsAFK = function() return afk end
+env.SlashCmdList.ARKANNSQOLSESSION("start")
+assert(journalDB.session.pause == "afk")
+clock, wall, xp = 450, wall + 60, 500
+JournalEvent("PLAYER_XP_UPDATE", "player")
+afk = false; JournalEvent("PLAYER_FLAGS_CHANGED", "player")
+clock, wall, xp = 510, wall + 60, 550
+JournalEvent("PLAYER_XP_UPDATE", "player"); env.SlashCmdList.ARKANNSQOLSESSION("stop")
+assert(journalDB.session.elapsed == 60 and journalDB.session.xp == 50, "AFK time and gains are excluded")
+
 Load("Modules/TalentPlanModel.lua")
 local first, second, third = {}, {}, {}
 local bucket = {plans = {first, second, third}, active = 3}
@@ -188,9 +294,15 @@ assert(ns.TalentPlanModel.DeletePlan(bucket, third) and bucket.active == 1)
 assert(ns.TalentPlanModel.DeletePlan(bucket, first) and #bucket.plans == 0)
 Load("Modules/TalentPlanner.lua")
 ns.InitializeTalentPlanner({})
+modules.talents.OpenSettings("Couleur du prochain point")
+assert(frames.ArkannsQOLTalentAdvanced.shown and revealed.control == frames.ArkannsQOLTalentColornextColor)
+modules.talents.OpenSettings("Déplacer")
+assert(revealed.control == frames.ArkannsQOLTalentMove)
 local talentOptions = frames.ArkannsQOLTalentSettings
 local talentScroll = frames.ArkannsQOLTalentSettingsScroll
 talentOptions.scripts.OnShow()
+-- Close the advanced section opened by the search before exercising its toggle.
+if frames.ArkannsQOLTalentAdvanced.shown then frames.ArkannsQOLTalentAdvancedToggle.scripts.OnClick() end
 assert(not frames.ArkannsQOLTalentAdvanced.shown)
 local moveY = frames.ArkannsQOLTalentMove.points[1][3]
 local collapsedHeight = talentScroll.child:GetHeight()
@@ -243,4 +355,57 @@ local replacement = {plans = {{name = "Replacement", order = {}}}, active = 1}
 env.ArkannsQOLTalentsDB.profiles["TEST:1:1"] = replacement
 modules.talents.Refresh(); confirmation()
 assert(#saved.plans == 1 and #replacement.plans == 1, "A changed profile invalidates pending deletion")
-print("PASS: passive module previews, inherited styles, theme preservation, layout shortcuts, narrow tabs, build deletion, and preview cleanup")
+-- Transfer and menu actions retain the exact bucket that the player reviewed.
+ns.TalentPlanData.Read = function()
+    return {classToken = "TEST", className = "Test", treeID = 1, configID = 1, maxPoints = 51, availablePoints = 0,
+        nodes = {[1] = {id = 1, groupID = 1, maxRanks = 2, entries = {[2] = {name = "Talent", maxRanks = 2}}}},
+        actualCounts = {}, actualChoices = {}}
+end
+local original = {name = "Original", firstLevel = 7, order = {{nodeID = 1, entryID = 2}}}
+local transferBucket = {plans = {original}, active = 1}
+env.ArkannsQOLTalentsDB.profiles["TEST:1:1"] = transferBucket
+modules.talents.Refresh()
+local function BuildMenu()
+    frames.ArkannsQOLTalentBuild.scripts.OnClick(frames.ArkannsQOLTalentBuild)
+end
+BuildMenu(); menuItems["Dupliquer ce build"]()
+assert(#transferBucket.plans == 2 and transferBucket.active == 2)
+local duplicate = transferBucket.plans[2]
+assert(duplicate.name == "Original (copie)" and duplicate.firstLevel == 7 and duplicate.order[1] ~= original.order[1])
+duplicate.order[1].entryID = 99; assert(original.order[1].entryID == 2)
+duplicate.order[1].entryID = 2
+BuildMenu(); menuItems["Exporter ce build"]()
+local dialog, input = frames.ArkannsQOLTalentTransfer, frames.ArkannsQOLTalentTransferInput
+local text = input:GetText()
+assert(dialog.shown and text:match("^QTB1;TEST;1;7;"))
+local transferScroll = frames.ArkannsQOLTalentTransferScroll
+transferScroll:SetHeight(100)
+input:SetText(string.rep("1234567890", 250)); input.scripts.OnTextChanged(input)
+assert(input:GetHeight() >= input:GetNumLines() * 16, "Long wrapped clipboard text expands the scroll child")
+input.scripts.OnCursorChanged(input, 0, -500, 1, 14)
+assert(transferScroll:GetVerticalScroll() == 414, "Cursor scrolls to the end of long text")
+input.scripts.OnCursorChanged(input, 0, 0, 1, 14)
+assert(transferScroll:GetVerticalScroll() == 0, "Cursor can return to the first character")
+BuildMenu(); menuItems["Importer un build"]()
+input:SetText(text)
+frames.ArkannsQOLTalentTransferApply.scripts.OnClick()
+assert(#transferBucket.plans == 2, "Import waits for confirmation")
+confirmation()
+assert(#transferBucket.plans == 3 and transferBucket.plans[1] == original and not dialog.shown)
+confirmation(); assert(#transferBucket.plans == 3, "Repeated acceptance cannot duplicate the import")
+BuildMenu(); menuItems["Importer un build"]()
+input:SetText("QTB9;invalid")
+frames.ArkannsQOLTalentTransferApply.scripts.OnClick()
+assert(#transferBucket.plans == 3 and dialog.shown, "Invalid text preserves all builds")
+input:SetText(text); frames.ArkannsQOLTalentTransferApply.scripts.OnClick()
+local importConfirmation = confirmation
+BuildMenu(); local oldSelection, oldDuplicate = menuItems.Original, menuItems["Dupliquer ce build"]
+local newBucket = {plans = {{name = "New context", order = {}}}, active = 1}
+env.ArkannsQOLTalentsDB.profiles["TEST:1:1"] = newBucket
+modules.talents.Refresh()
+oldSelection(); oldDuplicate(); importConfirmation()
+assert(#newBucket.plans == 1 and newBucket.active == 1 and #transferBucket.plans == 3, "Stale menus and imports cannot change a replacement bucket")
+BuildMenu(); menuItems["Importer un build"]()
+combat = true; frames.ArkannsQOLTalentEvents.scripts.OnEvent(nil, "PLAYER_REGEN_DISABLED"); combat = false
+assert(not dialog.shown, "Combat closes the transfer dialog")
+print("PASS: passive module previews, inherited styles, build deletion, talent copy/transfer, stale menus, and preview cleanup")

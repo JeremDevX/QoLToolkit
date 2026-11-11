@@ -12,7 +12,10 @@ for _, key in ipairs({"SetBackdropColor", "SetBackdropBorderColor", "SetTextColo
     methods[key] = noop
 end
 function methods:SetScript(key, callback) self.scripts[key] = callback end
-function methods:HookScript(key, callback) self.scripts[key] = callback end
+function methods:HookScript(key, callback)
+    local previous=self.scripts[key]
+    self.scripts[key]=function(...) if previous then previous(...) end; callback(...) end
+end
 function methods:GetScript(key) return self.scripts[key] end
 function methods:Hide()
     local visible = self.shown
@@ -28,8 +31,9 @@ function methods:SetWidth(w) self.width=w end
 function methods:SetHeight(h) self.height=h end
 function methods:GetWidth() return self.width end
 function methods:GetHeight() return self.height end
-function methods:GetScale() return 1 end
+function methods:GetScale() return self.scale or 1 end
 methods.GetEffectiveScale = methods.GetScale
+function methods:GetTop() return self.top end
 function methods:GetCenter() return self.x or 700,self.y or 400 end
 function methods:ClearAllPoints() self.points={} end
 function methods:SetPoint(point,relative,relativePoint,x,y)
@@ -61,7 +65,7 @@ local function Frame(_, name, parent)
     return frame
 end
 function methods:CreateTexture() return Frame() end
-function methods:CreateFontString() return Frame() end
+function methods:CreateFontString() return Frame(nil,nil,self) end
 function methods:GetFontString()
     if not self.fontString then self.fontString=Frame(); self.fontString:SetText(self:GetText()) end
     return self.fontString
@@ -73,6 +77,7 @@ function methods:GetHighlightTexture() return self.highlight end
 function methods:SetThumbTexture() self.thumb=Frame() end
 function methods:GetThumbTexture() return self.thumb end
 function methods:SetScrollChild(frame) self.child=frame end
+function methods:GetScrollChild() return self.child end
 function methods:GetVerticalScroll() return self.offset or 0 end
 function methods:SetVerticalScroll(value) self.offset=value end
 env.CreateFrame=Frame
@@ -84,7 +89,9 @@ env.InCombatLockdown=function() return combat end
 env.print=function(value) message=value end
 env.StaticPopup_ShowGenericConfirmation=function(text,callback) popup={text=text,callback=callback} end
 env.issecretvalue=function() return false end
-local ns={L=function(text) return text end}
+local useEnglish=false
+local ns={English={}}
+ns.L=function(text) return useEnglish and ns.English[text] or text end
 local function Load(path)
     local chunk = path=="Core/QOLInterface.lua" and QOL_UI_SOURCE and assert(loadstring(QOL_UI_SOURCE)) or assert(loadfile(path))
     setfenv(chunk,env)("QoLToolkit",ns)
@@ -146,6 +153,9 @@ env.Settings={RegisterCanvasLayoutSubcategory=function() return {GetID=function(
     OpenToCategory=function(id) opened=id end}
 module.category=function() return {GetID=function() return 2 end} end
 ns.RegisterModule("session", {label="Journal"})
+ns.RegisterModule("tooltips", {label="Infobulles", category=function() return {GetID=function() return 3 end} end})
+ns.RegisterModule("bags", {label="Sacs", category=function() return {GetID=function() return 4 end} end})
+ns.RegisterModule("advanced", {label="Réglages avancés", category=function() return {GetID=function() return 5 end} end})
 ns.home=Frame(); ns.home:SetSize(400,600)
 ns.InitializeInterface({})
 local panel=frames.ArkannsQOLCommonAppearance
@@ -176,21 +186,61 @@ local card=frames.ArkannsQOLHomeTalents
 card.scripts.OnClick()
 assert(opened==2)
 local homeScroll=frames.ArkannsQOLHomeScroll
-local favoriteOpened
+local duplicateFavorite=false
 for _, button in ipairs(homeScroll.child.children) do
-    if button:GetText()==module.label then
-        opened=nil; button.scripts.OnClick(); favoriteOpened=opened
-        break
-    end
+    if button:GetText()==module.label and button.scripts.OnClick then duplicateFavorite=true end
 end
-assert(favoriteOpened==2 and card.parent.parent==homeScroll.child)
-ns.home:SetWidth(589); ns.home.Refresh()
+assert(not duplicateFavorite and card.parent.parent==homeScroll.child, "Favorites reuse the module card without a duplicate shortcut")
 local journal=frames.ArkannsQOLHomeSession.parent
-assert(journal.points.TOPLEFT[2]>card.parent.points.TOPLEFT[2])
+assert(card.parent.points.TOPLEFT[2]>journal.points.TOPLEFT[2], "Favorite cards appear before their original group")
+local groupTitles={}
+for _,child in ipairs(homeScroll.child.children) do groupTitles[child:GetText()]=child end
+assert(groupTitles.Favoris:IsShown() and groupTitles.Personnage:IsShown() and groupTitles.Interface:IsShown())
+assert(groupTitles.Personnalisation:IsShown() and groupTitles.Outils:IsShown() and not groupTitles.Modules)
+appearance=UI.ExportSettings(); appearance.pins.session=true; UI.ImportSettings(appearance)
+ns.home:SetWidth(589); ns.home.Refresh()
+assert(journal.points.TOPLEFT[2]~=card.parent.points.TOPLEFT[2])
 local narrowHomeHeight=homeScroll.child:GetHeight()
 ns.home:SetWidth(590); ns.home.Refresh()
-assert(journal.points.TOPLEFT[2]==card.parent.points.TOPLEFT[2] and card.parent.points.TOPLEFT[1]>0)
+assert(journal.points.TOPLEFT[2]==card.parent.points.TOPLEFT[2] and journal.points.TOPLEFT[1]~=card.parent.points.TOPLEFT[1])
 assert(homeScroll.child:GetHeight()<narrowHomeHeight)
+appearance=UI.ExportSettings(); appearance.pins.session=nil; UI.ImportSettings(appearance)
+
+local openedSource, openedCalls=nil,0
+module.OpenSettings=function(source) openedSource=source; openedCalls=openedCalls+1 end
+assert(UI.OpenSettings("talents", "Couleur des erreurs") and opened==2 and openedSource=="Couleur des erreurs")
+module.SearchSettings={"Couleur des erreurs"}
+local preciseResults=UI.SearchSettings("talents erreurs")
+assert(#preciseResults==1)
+openedSource=nil; preciseResults[1].Open()
+assert(openedSource=="Couleur des erreurs", "Search forwards the source label to the module destination")
+assert(#UI.SearchSettings("talents nouveau")==0, "Modules only index their declared destinations")
+for _,buttonName in ipairs({"ArkannsQOLLayoutApply", "ArkannsQOLLayoutCancel"}) do
+    assert(UI.StartLayout("talents"))
+    opened=nil
+    local before=openedCalls
+    frames[buttonName].scripts.OnClick()
+    assert(opened==2 and openedCalls==before+1 and openedSource==nil,
+        "Applying or cancelling returns to the owning page without reopening a searched fold")
+end
+module.OpenSettings=nil
+local revealScroll,revealBody,revealTarget=Frame(),Frame(),Frame()
+revealScroll:SetHeight(200); revealBody:SetHeight(900); revealScroll:SetScrollChild(revealBody)
+revealBody.top,revealTarget.top=800,300
+UI.RevealControl(revealScroll,revealTarget)
+assert(revealScroll:GetVerticalScroll()==488, "Search reveals the target with a readable top margin")
+revealBody.scale,revealTarget.scale=2,1
+UI.RevealControl(revealScroll,revealTarget)
+assert(revealScroll:GetVerticalScroll()==638, "Search accounts for the control's effective scale")
+revealTarget.top=-1000
+UI.RevealControl(revealScroll,revealTarget)
+assert(revealScroll:GetVerticalScroll()==700, "Search remains inside the scroll range")
+revealTarget.top=2000
+UI.RevealControl(revealScroll,revealTarget)
+assert(revealScroll:GetVerticalScroll()==0)
+revealScroll:SetVerticalScroll(100); revealTarget.top=nil
+UI.RevealControl(revealScroll,revealTarget)
+assert(revealScroll:GetVerticalScroll()==100, "Missing geometry leaves the current scroll position intact")
 UI.SetOverride("talents", true)
 local themeButton, options = frames.ArkannsQOLCommonTheme, {}
 local borderButton = frames.ArkannsQOLCommonBorder
@@ -261,3 +311,123 @@ assert(afterReset.border == "theme" and afterReset.scale == 1)
 assert(not afterReset.grid and not afterReset.snap and afterReset.pins.talents and afterReset.overrides.talents)
 assert(ns.home.Refresh)
 print("PASS: shared layout, responsive home and appearance, scoped reset, previews, and profiles")
+
+-- Layout owns position only; commands remain effective while it is open.
+settings.x, settings.y, settings.enabled = .75, .65, true
+assert(UI.StartLayout("talents"))
+frames.ArkannsQOLLayoutCenter.scripts.OnClick()
+settings.enabled = false
+UI.EndLayout(true)
+assert(settings.x == .75 and settings.y == .65 and settings.enabled == false,
+    "Cancelling layout preserves unrelated changes")
+assert(UI.StartLayout("talents"))
+frames.ArkannsQOLLayoutCenter.scripts.OnClick()
+frames.ArkannsQOLInterfaceEvents.scripts.OnEvent(nil, "PLAYER_LOGOUT")
+assert(settings.x == .75 and settings.y == .65, "Logout cancels unconfirmed layout positions")
+assert(UI.StartLayout("talents"))
+settings.enabled = true
+UI.EndLayout(false)
+assert(settings.enabled == true, "Applying untouched layout preserves unrelated changes")
+
+-- Search uses settings labels, supports accents, and opens the owning category.
+local function Category(id) return {GetID=function() return id end} end
+ns.RegisterModule("tooltips",{label="Infobulles",category=function() return Category(3) end})
+ns.RegisterModule("bags",{label="Sacs",category=function() return Category(4) end})
+ns.RegisterModule("advanced",{label="Réglages avancés",category=function() return Category(5) end})
+local advancedName
+ns.AdvancedSettings={IsNative=function(name) return name=="nativeSetting" end,
+    OpenSetting=function(name) advancedName=name end}
+ns.AdvancedSettingsCatalog={
+    {name="cameraZoomSpeed",label="Vitesse du zoom",help="Vitesse du zoom à la molette."},
+    {name="nativeSetting",label="Option native"},
+}
+ns.profilesCategory,ns.diagnosticsCategory=Category(6),Category(7)
+ns.modules.session.category=function() return Category(8) end
+ns.modules.session.label="Journal de session"
+local function JournalSetting(query, label)
+    for _,entry in ipairs(UI.SearchSettings(query)) do
+        if entry.label==ns.modules.session.label.." · "..ns.L(label) then
+            entry.Open(); assert(opened==8); return
+        end
+    end
+    error("Missing journal setting: "..query)
+end
+JournalSetting("journal theme", "Thème")
+JournalSetting("journal disposition", "Disposition")
+JournalSetting("journal historique", "Historique et progression")
+assert(#UI.SearchSettings("  ")==0)
+local results=UI.SearchSettings("ÉCHELLE infobulles")
+assert(#results==1 and results[1].label:find("Échelle",1,true))
+assert(#UI.SearchSettings("echelle infobulles")==1, "Unaccented queries match accented labels")
+results[1].Open(); assert(opened==3)
+results=UI.SearchSettings("talents erreurs")
+assert(#results==1); results[1].Open(); assert(opened==2)
+assert(#UI.SearchSettings("nativeSetting")==0, "Native-only options stay in the game's menus")
+results=UI.SearchSettings("cameraZoomSpeed")
+assert(#results==1); results[1].Open(); assert(advancedName=="cameraZoomSpeed")
+results=UI.SearchSettings("profils enregistrer")
+assert(#results==1); results[1].Open(); assert(opened==6)
+results=UI.SearchSettings("diagnostics trace")
+assert(#results==1); results[1].Open(); assert(opened==7)
+local search=frames.ArkannsQOLHomeSearch
+local personHeading
+for _,child in ipairs(homeScroll.child.children) do
+    if child:GetText()=="Personnage" then personHeading=child end
+end
+assert(personHeading and personHeading:IsShown())
+ns.home:SetWidth(320)
+search:SetText("talents erreurs"); search.scripts.OnTextChanged()
+local result=frames.ArkannsQOLHomeSearchResult1
+assert(result:IsShown() and result:GetWidth()==270 and not card.parent:IsShown())
+search.scripts.OnEnterPressed(); assert(opened==2)
+search:SetText("zz-no-match"); search.scripts.OnTextChanged()
+assert(not result:IsShown() and not card.parent:IsShown())
+search.scripts.OnEscapePressed()
+assert(search:GetText()=="" and card.parent:IsShown() and not result:IsShown())
+assert(personHeading:IsShown(), "Escape restores the task groups")
+for _,path in ipairs({"Locales/enUS-Core.lua","Locales/enUS-Advanced.lua","Locales/enUS-TalentsAuras.lua","Locales/enUS-Utilities.lua","Locales/enUS-SessionHistory.lua"}) do Load(path) end
+useEnglish=true
+results=UI.SearchSettings("talents error")
+assert(#results==1 and results[1].label:find("Error",1,true))
+search:SetText("talents error"); search.scripts.OnTextChanged()
+assert(result:GetText():find("Error",1,true))
+frames.ArkannsQOLHomeSearchClear.scripts.OnClick()
+assert(search:GetText()=="" and card.parent:IsShown())
+assert(personHeading:IsShown(), "Clear restores the task groups")
+ns.modules.session.label="Session Journal"
+JournalSetting("journal theme", "Thème")
+JournalSetting("journal layout", "Disposition")
+JournalSetting("journal history", "Historique et progression")
+print("PASS: global settings search, accent folding, English labels, advanced navigation, and narrow results")
+
+-- Legacy distance favorites remain usable after their settings page is merged.
+useEnglish=false
+local sharedCategory=Category(9)
+ns.modules.tooltips.category=function() return sharedCategory end
+ns.RegisterModule("distance",{label="Distance",category=function() return sharedCategory end})
+local favorites=UI.ExportSettings()
+favorites.pins.tooltips=nil; favorites.pins.distance=true
+UI.ImportSettings(favorites)
+local tooltipText
+env.GameTooltip={SetOwner=function() end,SetText=function(_,value) tooltipText=value end,Show=function() end,
+    GetOwner=function() return nil end}
+UI.BuildHome(ns.home)
+local merged=frames.ArkannsQOLHomeTooltips.parent
+assert(not frames.ArkannsQOLHomeDistance, "The merged page has one home card")
+local pin
+for _,child in ipairs(merged.children) do if child.scripts.OnEnter then pin=child; break end end
+pin.scripts.OnEnter(pin)
+assert(tooltipText=="Retirer des favoris", "Inherited distance favorite has matching help")
+pin.scripts.OnClick(pin)
+assert(not UI.ExportSettings().pins.distance and not UI.ExportSettings().pins.tooltips)
+
+-- Shared appearance offers a return only while visiting from a module.
+assert(UI.OpenSettings("appearance",nil,"talents"))
+panel.scripts.OnShow()
+assert(frames.ArkannsQOLAppearanceBack:IsShown())
+frames.ArkannsQOLAppearanceBack.scripts.OnClick()
+assert(opened==2)
+assert(UI.OpenSettings("appearance",nil,"talents"))
+panel.scripts.OnHide(); panel.scripts.OnShow()
+assert(not frames.ArkannsQOLAppearanceBack:IsShown(), "Native navigation clears an old return destination")
+print("PASS: merged favorites and scoped shared-theme return")

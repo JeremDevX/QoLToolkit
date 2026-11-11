@@ -92,7 +92,7 @@ end
 local function GetMeters(unit)
     local status, squaredYards, checked = ReadAPI(UnitDistanceSquared, unit)
     if status ~= "ok" then return status end
-    if checked == false then return "unchecked" end
+    if checked == false or (checked == nil and squaredYards == nil) then return "unchecked" end
     if checked ~= true or not Finite(squaredYards) then return "invalid" end
     return "ok", math.floor(math.sqrt(squaredYards) * 0.9144 + 0.5)
 end
@@ -177,6 +177,8 @@ local function ReadSpellBand(band, unit)
 end
 
 local function GetRangeBand(unit)
+    -- A public alias of the target must use the same permitted probes as its badge.
+    if unit == "mouseover" and Read(UnitIsUnit, unit, "target") == true then unit = "target" end
     local status, enemy = ReadAPI(UnitCanAttack, "player", unit)
     if status ~= "absent" and (status ~= "ok" or type(enemy) ~= "boolean") then return end
     if not enemy and Read(UnitCanAssist, "player", unit) ~= true then return end
@@ -432,14 +434,15 @@ end
 local function RegisterSettings(root)
     if not root or not Settings or not Settings.RegisterCanvasLayoutSubcategory then return end
     local UI = ns.UI
-    local panel = CreateFrame("Frame", "ArkannsQOLTargetDistanceSettings", UIParent, "BackdropTemplate")
+    local host = ns.TooltipSettingsHost
+    local panel = CreateFrame("Frame", "ArkannsQOLTargetDistanceSettings", host and host.panel or UIParent, "BackdropTemplate")
     panel:Hide()
     UI.StylePanel(panel)
-    UI.Label(panel, title, 20, -20, 18)
+    if not host then UI.Label(panel, title, 20, -20, 18) end
 
     local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 20, -54)
-    scroll:SetPoint("BOTTOMRIGHT", -34, 16)
+    scroll:SetPoint("TOPLEFT", host and 0 or 20, host and 0 or -54)
+    scroll:SetPoint("BOTTOMRIGHT", host and 0 or -34, host and 0 or 16)
     local body = CreateFrame("Frame", nil, scroll)
     body:SetSize(508, 556)
     scroll:SetScrollChild(body)
@@ -574,7 +577,7 @@ local function RegisterSettings(root)
     colorHelp:SetWidth(496)
 
     Layout = function()
-        local width = math.max(270, panel:GetWidth() - 54)
+        local width = math.max(270, panel:GetWidth() - (host and 0 or 54))
         local narrow = width < 508
         local extra = width < 344 and 34 or 0
         local function Place(control, x, y)
@@ -658,7 +661,31 @@ local function RegisterSettings(root)
     end
     panel:SetScript("OnShow", refreshSettings)
     panel:HookScript("OnSizeChanged", Layout)
-    return Settings.RegisterCanvasLayoutSubcategory(root, panel, title)
+    local category
+    if host then
+        host.AddDistancePage(panel)
+        category=host.category
+    else category=Settings.RegisterCanvasLayoutSubcategory(root, panel, title) end
+    function ns.OpenDistanceSettings(source)
+        Settings.OpenToCategory(category:GetID())
+        if host then host.Select("distance") end
+        local targets={
+            ["Afficher le badge de la cible"]=toggle,["Afficher la distance au survol"]=mouseover,
+            ["Arrondir les estimations par pas de 5 m"]=rounded,["Placement et couleurs"]=advancedButton,
+            ["Ancrer au portrait plutôt qu’au nom"]=portrait,["Décalage X / Y"]=offsetX,
+            ["Réinitialiser le placement"]=resetPosition,["Fond et bordure"]=frame,
+            ["Fond seul"]=frame,["Texte seul"]=frame,["Couleur du texte"]=rowControls[1].text,
+            ["Texte"]=rowControls[1].text,["Fond"]=rowControls[1].background,["Bordure"]=borderButton,
+            ["Infobulle au survol"]=rowControls[1].tooltip,["Réinitialiser les couleurs"]=resetColors,
+        }
+        local target=targets[source]
+        if target and target~=toggle and target~=mouseover and target~=rounded then advanced=true end
+        refreshSettings()
+        if target==borderButton and db.appearance.frame~="framed" then target=frame end
+        if target==rowControls[1].background and db.appearance.frame=="text" then target=frame end
+        if source and UI.RevealControl then UI.RevealControl(scroll,target or toggle) end
+    end
+    return category
 end
 
 function ns.InitializeTargetDistance(root)
@@ -673,6 +700,10 @@ function ns.InitializeTargetDistance(root)
     ns.RegisterModule("distance", {
         label = title, icon = "Interface\\Icons\\INV_Misc_Spyglass_02",
         category = function() return category end,
+        OpenSettings = ns.OpenDistanceSettings,
+        SearchSettings = {"Afficher le badge de la cible","Afficher la distance au survol","Arrondir les estimations par pas de 5 m",
+            "Placement et couleurs","Ancrer au portrait plutôt qu’au nom","Décalage X / Y","Réinitialiser le placement",
+            "Fond et bordure","Fond seul","Texte seul","Texte","Fond","Bordure","Infobulle au survol","Réinitialiser les couleurs"},
         DiagnosticFrame = function() return badge end,
         IsEnabled = function() return db.enabled end, SetEnabled = SetEnabled,
         toggleLabel = L("Afficher le badge de la cible"),

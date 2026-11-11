@@ -39,7 +39,7 @@ local function ValidSetting(key, value, default)
 end
 
 local function ValidColor(quality, hex)
-    return type(quality) == "number" and quality >= 0 and quality <= 8 and quality % 1 == 0
+    return (quality == "quest" or type(quality) == "number" and quality >= 0 and quality <= 8 and quality % 1 == 0)
         and type(hex) == "string" and hex:match("^%x%x%x%x%x%x$")
 end
 
@@ -87,6 +87,7 @@ end
 local function QualityColor(quality)
     local hex = db.qualityColors[quality]
     if hex then return tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255 end
+    if quality == "quest" then return 1, .82, 0 end
     local ok, r, g, b = pcall(getQualityColor, quality)
     if ok and not Secret(r) and not Secret(g) and not Secret(b)
         and type(r) == "number" and type(g) == "number" and type(b) == "number" then return r, g, b end
@@ -215,11 +216,24 @@ local function PaintInnerGlow(button, regions, icon, r, g, b)
     regions.glowMask = mask
 end
 
+local function BagBorderCategory(button, quality)
+    if Secret(quality) or type(quality) ~= "number" then return nil end
+    local bagID = WoW.ReadValue(button.GetBagID, button)
+    local slot = WoW.ReadValue(button.GetID, button)
+    if IsPersonalBagID(bagID) and WoW.IsFiniteNumber(slot) and slot > 0 then
+        local info = WoW.ReadValue(C_Container.GetContainerItemQuestInfo, bagID, slot)
+        if type(info) == "table" and (not Secret(info.isQuestItem) and info.isQuestItem == true
+            or WoW.IsFiniteNumber(info.questID) and info.questID > 0) then return "quest" end
+    end
+    return quality
+end
+
 local function PaintQualityBorder(button, quality)
     if button.IsForbidden and button:IsForbidden() then return end
     local regions = qualityBorders[button]
     local minimum = db.qualityUncommonOnly and 2 or 0
-    if not db.qualityBorders or Secret(quality) or type(quality) ~= "number" or not (quality >= minimum and quality <= 8) then
+    if not db.qualityBorders or Secret(quality) or (quality ~= "quest"
+        and (type(quality) ~= "number" or not (quality >= minimum and quality <= 5))) then
         return HideBorder(regions)
     end
     local r, g, b = QualityColor(quality)
@@ -335,7 +349,7 @@ local function OnItemQuality(button, quality)
     local frame = button.containerFrame or button:GetParent()
     if IsPersonalBag(frame) and (frame == ContainerFrameCombinedBags
         or ContainerFrameUtil_GetShownFrameForID(frame:GetBagID()) == frame) then
-        if showQuality then PaintQualityBorder(button, quality) end
+        if showQuality then PaintQualityBorder(button, BagBorderCategory(button, quality)) end
         if showTransmog then PaintTransmogIcon(button) end
     else
         HideBorder(qualityBorders[button])
@@ -353,7 +367,7 @@ local function RefreshQualityBorders()
         if IsPersonalBag(frame) and frame:IsVisible() and frame.EnumerateValidItems then
             for _, button in frame:EnumerateValidItems() do
                 local info = C_Container.GetContainerItemInfo(button:GetBagID(), button:GetID())
-                PaintQualityBorder(button, not Secret(info) and info and info.quality)
+                PaintQualityBorder(button, BagBorderCategory(button, not Secret(info) and info and info.quality))
             end
         end
     end
@@ -528,12 +542,14 @@ local function BuildAppearance(body, compact)
     local UI = ns.UI
     local prefix = compact and "ArkannsQOLBagQuick" or "ArkannsQOLBag"
     local syncing
+    local targets = {}
     local filterLabel = compact and L("Masquer gris et blancs") or L("Masquer les contours gris et blancs")
     local filter = UI.Check(body, prefix .. "UncommonOnly", filterLabel, 16, compact and -113 or 0, function(value)
         db.qualityUncommonOnly = value
         RefreshSamples()
         RefreshQualityBorders()
     end)
+    targets["Masquer gris et blancs"] = filter
     local function Slider(key, name, y)
         local isThickness = key == "qualityThickness"
         local label = UI.Label(body, "", 20, y)
@@ -555,22 +571,25 @@ local function BuildAppearance(body, compact)
             Caption()
             PreviewAppearance()
         end)
+        local source = ({qualityOpacity = "Opacité du contour", qualityThickness = "Épaisseur du contour", qualityInnerGlow = "Halo intérieur"})[key]
+        targets[source] = slider
         return function() slider:SetValue(db[key]); Caption() end
     end
     local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -149 or -40)
     local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and -195 or -96)
     local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -241 or -152)
-    UI.Label(body, L("Couleurs et aperçu"), 20, compact and -287 or -202, 15)
+    targets["Couleurs de rareté"] = UI.Label(body, L("Couleurs et aperçu"), 20, compact and -287 or -202, 15)
     if not compact then UI.Label(body, L("Clic gauche · Couleur\nClic droit · Couleur WoW"), 20, -228) end
     local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -311 or -266
     local count = 0
-    for quality = 0, 8 do
-        local name = _G["ITEM_QUALITY" .. quality .. "_DESC"] or qualityLabels[quality + 1]
+    for _, quality in ipairs({0, 1, 2, 3, 4, 5, "quest"}) do
+        local name = quality == "quest" and L("Objets de quête")
+            or _G["ITEM_QUALITY" .. quality .. "_DESC"] or qualityLabels[quality + 1]
         if name then
             local sample = CreateFrame("Button", prefix .. "Color" .. quality, body)
             sample:SetSize(size, size)
             sample:SetPoint("TOPLEFT", 22 + (count % 6) * spacing, top - math.floor(count / 6) * (size + 9))
-            sample:SetNormalTexture(sampleIcons[quality + 1] or sampleIcons[2])
+            sample:SetNormalTexture(sampleIcons[type(quality) == "number" and quality + 1 or 2])
             sample:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
             sample:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             sample:SetScript("OnClick", function(_, button)
@@ -616,7 +635,7 @@ local function BuildAppearance(body, compact)
         innerGlow()
         syncing = false
         RefreshSamples()
-    end, footerY
+    end, footerY, targets
 end
 
 local function SetEnabled(value)
@@ -780,20 +799,26 @@ function ns.InitializeBagSort(rootCategory)
     transmogCheck = CreateTransmogCheck(body, "ArkannsQOLBagTransmog", 16, -140)
     ns.UI.Label(body, L("Bordures de rareté"), 20, -168, 15)
     qualityCheck = ns.UI.Check(body, "ArkannsQOLBagQualityBorders", L("Bordure selon la rareté"), 16, -191, SetQualityBorders)
+    local searchTargets = {["Trier à l’ouverture manuelle"] = check, ["Bordure selon la rareté"] = qualityCheck,
+        ["Transmos manquantes"] = transmogCheck}
+    local advanced, advancedButton, ShowAppearance
     if qualityListening then
-        local advanced = CreateFrame("Frame", nil, body)
+        advanced = CreateFrame("Frame", nil, body)
         advanced:SetPoint("TOPLEFT", 0, -264)
-        local footerY
-        refreshAppearance, footerY = BuildAppearance(advanced)
+        local footerY, appearanceTargets
+        refreshAppearance, footerY, appearanceTargets = BuildAppearance(advanced)
+        for key, target in pairs(appearanceTargets) do searchTargets[key] = target end
         advanced:SetSize(282, -footerY + 36)
         advanced:Hide()
-        ns.UI.Button(body, "ArkannsQOLBagAdvanced", L("Personnaliser les bordures"), 18, -228, 245, function(button)
-            local opened = not advanced:IsShown()
+        ShowAppearance = function(opened)
             advanced:SetShown(opened)
-            button:SetText(opened and L("Masquer les réglages de bordure") or L("Personnaliser les bordures"))
+            advancedButton:SetText(opened and L("Masquer les réglages de bordure") or L("Personnaliser les bordures"))
             body:SetHeight(opened and 264 + advanced:GetHeight() or 264)
             ns.UI.ClampScroll(scroll, body:GetHeight())
-        end)
+        end
+        advancedButton = ns.UI.Button(body, "ArkannsQOLBagAdvanced", L("Personnaliser les bordures"), 18, -228, 245,
+            function() ShowAppearance(not advanced:IsShown()) end)
+        searchTargets["Personnaliser les bordures"] = advancedButton
         body:SetHeight(264)
     else
         qualityCheck:Disable()
@@ -847,6 +872,15 @@ function ns.InitializeBagSort(rootCategory)
     ns.RegisterModule("bags", {
         label = L("Sacs"), icon = "Interface\\Icons\\INV_Misc_Bag_08", category = function() return category end,
         Refresh = Refresh,
+        SearchSettings = {"Trier à l’ouverture manuelle", "Bordure selon la rareté", "Transmos manquantes",
+            "Personnaliser les bordures", "Masquer gris et blancs", "Couleurs de rareté", "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
+        OpenSettings = function(source)
+            if not source then return end
+            local target = searchTargets[source]
+            if not target then target = qualityCheck end
+            if ShowAppearance and target ~= check and target ~= qualityCheck and target ~= transmogCheck then ShowAppearance(true) end
+            if ns.UI.RevealControl then ns.UI.RevealControl(scroll, target) end
+        end,
         Summary = function()
             local function State(value) return value and L("actif") or L("inactif") end
             return L("Tri : %s · Contours : %s\nTransmos : %s"):format(

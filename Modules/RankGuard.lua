@@ -5,12 +5,13 @@ local ReadAPI, Read = ns.WoW.Read, ns.WoW.ReadValue
 local Public, FiniteNumber = ns.WoW.IsPublic, ns.WoW.IsFiniteNumber
 local db, initialized
 local buttons, rankCache, warnings = {}, {}, {}
-local REFRESH_INTERVAL, EVENT_INTERVAL, CACHE_INTERVAL, DISCOVERY_INTERVAL = 2, 0.2, 30, 60
-local elapsed, visualElapsed, discoveryElapsed, cacheElapsed = 0, 0, DISCOVERY_INTERVAL, 0
-local refreshPending, cachePending = true, true
+local REFRESH_INTERVAL, EVENT_INTERVAL = 30, 0.2
+local elapsed, visualElapsed, periodicElapsed = 0, 0, 0
+local discoveryPending = true
+local refreshPending, cachePending, immediatePending = true, true, false
 local enabled, active = false, false
 local preview, previewRemaining = nil, 0
-local defaults = {enabled = true, interval = 2, style = "mark", corner = "BOTTOMLEFT", size = 14,
+local defaults = {enabled = true, interval = 30, style = "mark", corner = "BOTTOMLEFT", size = 14,
     opacity = 1, color = {1, 0.72, 0.15}, showCombat = true, showRest = true, exceptions = {}}
 local driver = CreateFrame("Frame", "ArkannsQOLRankEvents")
 driver:Hide()
@@ -37,7 +38,8 @@ local function Copy(value, depth)
 end
 local function Validate(target)
     for key, value in pairs(defaults) do if type(target[key]) ~= type(value) then target[key] = Copy(value) end end
-    for key, bounds in pairs({interval = {0.2, 10}, size = {8, 32}, opacity = {0.1, 1}}) do
+    target.interval = REFRESH_INTERVAL -- Keep the legacy profile key with the fixed cadence.
+    for key, bounds in pairs({size = {8, 32}, opacity = {0.1, 1}}) do
         if not FiniteNumber(target[key]) then target[key] = defaults[key] end
         target[key] = math.max(bounds[1], math.min(bounds[2], target[key]))
     end
@@ -240,7 +242,6 @@ local function UpdateDriver()
     local visible = Visible()
     if visible and not active then
         Invalidate()
-        discoveryElapsed = DISCOVERY_INTERVAL
     end
     active = visible
     if active or previewRemaining > 0 then driver:Show() else driver:Hide() end
@@ -274,7 +275,7 @@ local function Changed()
     if previewRemaining > 0 then Preview() end
     if settingsPanel and settingsPanel.OnRefresh then settingsPanel:OnRefresh() end
 end
-local events = {"ADDON_LOADED", "PLAYER_ENTERING_WORLD", "SPELLS_CHANGED",
+local events = {"PLAYER_ENTERING_WORLD", "TRAINER_SHOW", "SPELLS_CHANGED", "LEARNED_SPELL_IN_SKILL_LINE",
     "LEARNED_SPELL_IN_TAB", "SPELL_TEXT_UPDATE", "ACTIONBAR_SLOT_CHANGED", "ACTIONBAR_PAGE_CHANGED",
     "UPDATE_BONUS_ACTIONBAR", "UPDATE_SHAPESHIFT_FORM", "UPDATE_OVERRIDE_ACTIONBAR",
     "PLAYER_SPECIALIZATION_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}
@@ -288,9 +289,10 @@ local function SetEnabled(value)
         StopPreview()
         driver:UnregisterAllEvents()
     end
-    rankCache, cacheElapsed, cachePending = {}, 0, false
-    if enabled then discoveryElapsed = DISCOVERY_INTERVAL end
+    rankCache, periodicElapsed, cachePending = {}, 0, true
+    discoveryPending = enabled
     elapsed, visualElapsed, refreshPending = 0, 0, enabled
+    immediatePending = false
     UpdateDriver()
     Refresh()
     if settingsPanel and settingsPanel.OnRefresh then settingsPanel:OnRefresh() end
@@ -339,6 +341,7 @@ local function RegisterSettings(rootCategory)
             local caption = tostring(db[key]); for _, item in ipairs(values) do if item[1] == db[key] then caption = item[2] end end
             button:SetText(string.format(L("%s : %s"), label, caption))
         end
+        return button
     end
     local activation = Check("Enabled", L("Avertissements de rang"), "enabled")
     if not C_SpellBook or not C_SpellBook.IsSpellBookItemLowRank then
@@ -346,11 +349,12 @@ local function RegisterSettings(rootCategory)
         Text(L("API de rangs Forever indisponible : aucun avertissement affiché."))
     end
     Text(L("Rang supérieur appris uniquement. Macros ignorées. Aucun sort remplacé."))
+    Text(L("Vérification toutes les 30 s, à l’ouverture d’un maître et à l’apprentissage d’un sort."))
     Button("Preview", L("Aperçu · 12 s"), 185, function() UI.PreviewModule("ranks") end)
 
     Text(L("Visibilité"), 15)
-    Check("Combat", L("En combat"), "showCombat")
-    Check("Rest", L("Hors combat"), "showRest")
+    local combatCheck = Check("Combat", L("En combat"), "showCombat")
+    local restCheck = Check("Rest", L("Hors combat"), "showRest")
     items[#items].pair = true
 
     Text(L("Rangs inférieurs volontaires"), 15)
@@ -404,7 +408,7 @@ local function RegisterSettings(rootCategory)
     status = Text("")
     items[#items].condition = function() return (status:GetText() or "") ~= "" end
     Button("ResetBehavior", L("Fonctionnement par défaut"), 235, function()
-        UI.Confirm(L("Rétablir l’activation et la fréquence des avertissements de rang ?"), function()
+        UI.Confirm(L("Réactiver les avertissements de rang ?"), function()
             db.interval = defaults.interval; SetEnabled(defaults.enabled)
         end)
     end)
@@ -414,7 +418,7 @@ local function RegisterSettings(rootCategory)
             Changed()
         end)
     end)
-    Button("AppearanceToggle", L("Apparence du badge"), 280, function(self)
+    local appearanceToggle = Button("AppearanceToggle", L("Apparence du badge"), 280, function(self)
         advanced = not advanced
         self:SetText(advanced and L("Masquer l’apparence du badge") or L("Apparence du badge"))
         Layout()
@@ -425,11 +429,12 @@ local function RegisterSettings(rootCategory)
     end)
     Track(own, "check")
     updates[#updates + 1] = function() own:SetChecked(UI.IsOverride("ranks")) end
-    Choice("Style", L("Badge"), "style", {{"mark", "!"}, {"dot", L("Point")}, {"border", L("Bordure")}})
-    Choice("Corner", L("Coin"), "corner", {{"BOTTOMLEFT", L("Bas gauche")}, {"BOTTOMRIGHT", L("Bas droite")}, {"TOPLEFT", L("Haut gauche")}, {"TOPRIGHT", L("Haut droite")}})
+    if UI.AddAppearanceLink then Track(UI.AddAppearanceLink(panel, "ranks", 0, 0, 280), "button", 280) end
+    local style = Choice("Style", L("Badge"), "style", {{"mark", "!"}, {"dot", L("Point")}, {"border", L("Bordure")}})
+    local corner = Choice("Corner", L("Coin"), "corner", {{"BOTTOMLEFT", L("Bas gauche")}, {"BOTTOMRIGHT", L("Bas droite")}, {"TOPLEFT", L("Haut gauche")}, {"TOPRIGHT", L("Haut droite")}})
     items[#items].condition = function() return db.style ~= "border" end
-    Choice("Size", L("Taille"), "size", {{10, "10"}, {14, "14"}, {18, "18"}, {24, "24"}, {32, "32"}})
-    Choice("Opacity", L("Opacité"), "opacity", {{0.25, L("25 %")}, {0.5, L("50 %")}, {0.75, L("75 %")}, {1, L("100 %")}})
+    local size = Choice("Size", L("Taille"), "size", {{10, "10"}, {14, "14"}, {18, "18"}, {24, "24"}, {32, "32"}})
+    local opacity = Choice("Opacity", L("Opacité"), "opacity", {{0.25, L("25 %")}, {0.5, L("50 %")}, {0.75, L("75 %")}, {1, L("100 %")}})
     items[#items].pair = true
     local colorButton = Button("Color", L("Couleur"), 110, function()
         if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
@@ -493,6 +498,24 @@ local function RegisterSettings(rootCategory)
     canvas:SetScript("OnShow", canvas.OnRefresh)
     canvas:HookScript("OnSizeChanged", Layout)
     canvas:SetScript("OnHide", StopPreview)
+    local targets = {["Avertissements de rang"] = activation, ["Exceptions"] = input,
+        ["En combat"] = combatCheck, ["Hors combat"] = restCheck, ["Badge"] = style,
+        ["Coin"] = corner, ["Taille"] = size, ["Opacité"] = opacity, ["Couleur"] = colorButton,
+        ["Apparence propre à ce module"] = own}
+    canvas.OpenSetting = function(source)
+        local target = targets[source]
+        if not target then return end
+        for _, item in ipairs(items) do
+            if item.frame == target and item.advanced then
+                advanced = true
+                appearanceToggle:SetText(L("Masquer l’apparence du badge"))
+            end
+        end
+        Layout()
+        -- A border badge has no corner. Keep the controlling choice visible instead.
+        if source == "Coin" and db.style == "border" then target = style end
+        if UI.RevealControl then UI.RevealControl(scroll, target) end
+    end
     UI.StylePanel(canvas)
     ns.rankGuardCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, canvas, L("Rangs de sorts"))
     settingsPanel = canvas
@@ -515,13 +538,15 @@ function ns.InitializeRankGuard(rootCategory)
     initialized = true
     SetEnabled(db.enabled)
     Invalidate()
-    elapsed = REFRESH_INTERVAL
     if ns.RegisterModule then ns.RegisterModule("ranks", {
         label = L("Rangs de sorts"), icon = "Interface\\Icons\\INV_Misc_Book_11", iconAtlas = "UI-HUD-MicroMenu-SpellbookAbilities-Up", category = function() return ns.rankGuardCategory end,
         IsEnabled = function() return enabled end, SetEnabled = SetEnabled,
         Summary = function() local count = 0; for _ in pairs(db.exceptions) do count = count + 1 end; return string.format(L("%d exception(s) · %s s"), count, tostring(db.interval)) end,
         Preview = Preview, StopPreview = StopPreview, Refresh = Changed,
+        OpenSettings = function(source) if settingsPanel and settingsPanel.OpenSetting then settingsPanel.OpenSetting(source) end end,
+        SearchSettings = {"Avertissements de rang", "Exceptions", "En combat", "Hors combat", "Badge", "Coin", "Taille", "Opacité", "Couleur", "Apparence propre à ce module"},
         ExportSettings = function() local result = {}; for key in pairs(defaults) do result[key] = Copy(db[key]) end; return result end,
+        profileMigrations = {function(config) config.interval = REFRESH_INTERVAL end},
         ImportSettings = function(config)
             if type(config) ~= "table" then return false end
             local candidate = {}; for key, value in pairs(defaults) do candidate[key] = Copy(config[key] == nil and value or config[key]) end
@@ -531,6 +556,23 @@ function ns.InitializeRankGuard(rootCategory)
     }) end
 end
 
+local function CheckRanks()
+    if cachePending then rankCache, cachePending = {}, false end
+    if discoveryPending and type(EnumerateFrames) == "function" and Read(InCombatLockdown) == false then
+        DiscoverButtons()
+        discoveryPending = false
+    end
+    Refresh()
+    elapsed, refreshPending, immediatePending = 0, false, false
+end
+
+local function FullCheck()
+    Invalidate()
+    discoveryPending, periodicElapsed = true, 0
+    -- All learning notifications from this frame share the next frame's check.
+    immediatePending = true
+end
+
 driver:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_REGEN_DISABLED" then StopPreview() end
     if not initialized or not enabled then return end
@@ -538,14 +580,16 @@ driver:SetScript("OnEvent", function(_, event)
         UpdateDriver()
         if not active then Refresh() end
     end
+    if event == "TRAINER_SHOW" or event == "LEARNED_SPELL_IN_TAB" or event == "LEARNED_SPELL_IN_SKILL_LINE"
+        or event == "PLAYER_ENTERING_WORLD" then
+        FullCheck()
+        return
+    end
     refreshPending = true
-    if event == "SPELLS_CHANGED" or event == "LEARNED_SPELL_IN_TAB" or event == "SPELL_TEXT_UPDATE"
-        or event == "PLAYER_SPECIALIZATION_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
+    if event == "SPELLS_CHANGED" or event == "SPELL_TEXT_UPDATE" or event == "PLAYER_SPECIALIZATION_CHANGED" then
         cachePending = true
     end
-    if event == "ADDON_LOADED" or event == "PLAYER_ENTERING_WORLD" then
-        discoveryElapsed = DISCOVERY_INTERVAL
-    end
+    if event == "PLAYER_REGEN_ENABLED" and discoveryPending and active then CheckRanks() end
 end)
 
 driver:SetScript("OnUpdate", function(_, delta)
@@ -553,19 +597,16 @@ driver:SetScript("OnUpdate", function(_, delta)
         if delta >= previewRemaining then StopPreview() else previewRemaining = previewRemaining - delta end
     end
     if not active then return end
-    elapsed, visualElapsed = elapsed + delta, visualElapsed + delta
-    discoveryElapsed, cacheElapsed = discoveryElapsed + delta, cacheElapsed + delta
-    -- Regrouper les événements : aucun scan complet plus de cinq fois par seconde.
-    if elapsed >= db.interval or (refreshPending and elapsed >= EVENT_INTERVAL) then
-        if cachePending or cacheElapsed >= CACHE_INTERVAL then
-            rankCache, cacheElapsed, cachePending = {}, 0, false
-        end
-        if discoveryElapsed >= DISCOVERY_INTERVAL and type(EnumerateFrames) == "function" and Read(InCombatLockdown) == false then
-            DiscoverButtons()
-            discoveryElapsed = 0
-        end
-        Refresh()
-        elapsed, visualElapsed, refreshPending = 0, 0, false
+    elapsed, visualElapsed, periodicElapsed = elapsed + delta, visualElapsed + delta, periodicElapsed + delta
+    if periodicElapsed >= REFRESH_INTERVAL then
+        periodicElapsed = periodicElapsed % REFRESH_INTERVAL
+        discoveryPending = true
+        Invalidate()
+        immediatePending = true
+    end
+    if immediatePending or (refreshPending and elapsed >= EVENT_INTERVAL) then
+        CheckRanks()
+        visualElapsed = 0
     elseif visualElapsed >= EVENT_INTERVAL then
         -- Seuls les avertissements connus suivent les déplacements et le masquage des barres.
         -- Aucun accès au grimoire ni lecture des actions dans ce passage visuel.

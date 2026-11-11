@@ -13,6 +13,7 @@ local overlays, rows = {}, {}
 local Refresh, Draw, QueueRefresh, PositionPanel
 local Model = ns.TalentPlanModel
 local preview, previewRemaining, options, PositionPreview
+local transfer, transferInput, transferViewport, transferTitle, transferHelp, transferApply, transferStatus, transferContext
 local previewForLayout = false
 local defaults = {enabled = true, glowIntensity = 1, futureSteps = 0, compact = false,
     nextColor = {1, 0.72, 0.15}, futureColor = {0.82, 0.77, 0.69}, errorColor = {1, 0.4, 0.32}}
@@ -65,6 +66,7 @@ end
 local function Combat() return InCombatLockdown() end
 local function NativeVisible() return native and native:IsVisible() end
 local function HidePanel()
+    if transfer then transfer:Hide() end
     automaticHide = true; panel:Hide(); automaticHide = false
 end
 local function CleanName(value)
@@ -416,6 +418,7 @@ Refresh = function()
     if native.IsInspecting and native:IsInspecting() then HidePanel(); return end
     local ok, result, reason = pcall(ns.TalentPlanData.Read, native)
     if not ok or not result then
+        if transfer then transfer:Hide() end
         catalog, plan, bucket, editing = nil, nil, nil, false
         HideOverlays(); PositionPanel(); panel:Show()
         title:SetText(L("Builds de talents"))
@@ -427,8 +430,10 @@ Refresh = function()
     end
     local changed = not catalog or catalog.treeID ~= result.treeID or catalog.configID ~= result.configID
     catalog = result
-    if changed then editing = false; tooltip:Hide() end
+    if changed then editing = false; tooltip:Hide(); if transfer then transfer:Hide() end end
+    local previousBucket = bucket
     CurrentBucket()
+    if previousBucket ~= bucket and transfer then transfer:Hide() end
     editButton:SetEnabled(true); buildButton:SetEnabled(true); firstButton:SetEnabled(true)
     PositionPanel(); panel:Show(); Draw()
 end
@@ -437,6 +442,87 @@ QueueRefresh = function()
     if queued then return end
     queued = true
     C_Timer.After(0, function() queued = false; Refresh() end)
+end
+
+local function CurrentTransfer(context)
+    return context and bucket == context.bucket and catalog and catalog.classToken == context.classToken
+        and catalog.treeID == context.treeID and catalog.configID == context.configID
+        and db.enabled and NativeVisible() and not dismissed and not Combat()
+end
+
+local function ResizeTransferText()
+    local lines = ns.WoW.ReadValue(transferInput.GetNumLines, transferInput)
+    if not ns.WoW.IsFiniteNumber(lines) or lines < 1 then
+        local _, newlines = transferInput:GetText():gsub("\n", "\n")
+        lines = newlines + 1
+    end
+    transferInput:SetHeight(math.max(transfer:GetHeight() - 170, lines * 16 + 16))
+end
+
+local function OpenTransfer(importing)
+    if not bucket or not catalog or Combat() then return end
+    local text, reason = ""
+    if not importing then
+        text, reason = Model.ExportPlan(catalog, plan, FirstLevel())
+        if not text then Message(L(reason)); return end
+    end
+    if not transfer then
+        transfer = CreateFrame("Frame", "ArkannsQOLTalentTransfer", UIParent, "BackdropTemplate")
+        transfer:SetPoint("CENTER"); transfer:SetFrameStrata("DIALOG"); transfer:SetClampedToScreen(true); transfer:EnableMouse(true)
+        ns.UI.StylePanel(transfer)
+        transferTitle = ns.UI.Label(transfer, "", 16, -16, 18)
+        transferHelp = ns.UI.Label(transfer, "", 16, -44)
+        local close = CreateFrame("Button", nil, transfer, "UIPanelCloseButton")
+        close:SetPoint("TOPRIGHT", -4, -4); close:SetScript("OnClick", function() transfer:Hide() end)
+        local viewport = CreateFrame("ScrollFrame", "ArkannsQOLTalentTransferScroll", transfer, "UIPanelScrollFrameTemplate")
+        transferViewport = viewport
+        viewport:SetPoint("TOPLEFT", 16, -94); viewport:SetPoint("BOTTOMRIGHT", -34, 76)
+        transferInput = CreateFrame("EditBox", "ArkannsQOLTalentTransferInput", viewport)
+        transferInput:SetMultiLine(true); transferInput:SetFontObject(GameFontHighlightSmall)
+        transferInput:SetAutoFocus(false); transferInput:SetMaxLetters(4097)
+        transferInput:SetScript("OnEscapePressed", function() transfer:Hide() end)
+        transferInput:SetScript("OnTextChanged", ResizeTransferText)
+        -- Cursor coordinates use a negative Y offset from the edit box's top.
+        transferInput:SetScript("OnCursorChanged", function(_, _, y, _, height)
+            ResizeTransferText()
+            local offset, top = viewport:GetVerticalScroll(), -y
+            local visible = viewport:GetHeight()
+            if top < offset then viewport:SetVerticalScroll(math.max(0, top))
+            elseif top + height > offset + visible then viewport:SetVerticalScroll(math.max(0, top + height - visible)) end
+        end)
+        viewport:SetScrollChild(transferInput)
+        transferStatus = ns.UI.Label(transfer, "", 16, 0)
+        transferStatus:ClearAllPoints(); transferStatus:SetPoint("BOTTOMLEFT", 16, 42); transferStatus:SetHeight(30)
+        transferApply = CreateFrame("Button", "ArkannsQOLTalentTransferApply", transfer, "UIPanelButtonTemplate")
+        transferApply:SetPoint("BOTTOMLEFT", 16, 12); transferApply:SetSize(200, 26); transferApply:SetText(L("Importer comme nouveau build"))
+        ns.UI.StyleButton(transferApply)
+        transferApply:SetScript("OnClick", function()
+            local owner, input = transferContext, transferInput:GetText()
+            if not CurrentTransfer(owner) or not owner.importing then return end
+            local candidate, error = Model.ImportPlan(catalog, input)
+            if not candidate then transferStatus:SetText(L(error)); return end
+            ns.UI.Confirm(L("Importer le build « %s » ? Les builds existants seront conservés."):format(candidate.name), function()
+                if transferContext ~= owner or not transfer:IsShown() or not CurrentTransfer(owner) then return end
+                local imported, failure = Model.ImportPlan(catalog, input)
+                if not imported then transferStatus:SetText(L(failure)); return end
+                owner.bucket.plans[#owner.bucket.plans + 1] = imported
+                owner.bucket.active = #owner.bucket.plans
+                transfer:Hide(); editing = false; CurrentBucket(); Draw()
+            end)
+        end)
+        transfer:SetScript("OnHide", function() transferInput:ClearFocus(); transferContext = nil end)
+        table.insert(UISpecialFrames, "ArkannsQOLTalentTransfer")
+    end
+    local width, height = math.min(600, UIParent:GetWidth() - 32), math.min(360, UIParent:GetHeight() - 32)
+    transfer:SetSize(width, height); transferInput:SetWidth(width - 50); transferInput:SetHeight(height - 170)
+    transferHelp:SetWidth(width - 50); transferHelp:SetHeight(42); transferStatus:SetWidth(width - 50)
+    transferTitle:SetText(L(importing and "Importer un build" or "Exporter ce build"))
+    transferHelp:SetText(L(importing and "Colle le texte du build avec Ctrl+V. L’import crée un nouveau build après confirmation."
+        or "Copie ce texte avec Ctrl+C. Il contient la classe, l’arbre et le niveau du premier point."))
+    transferApply:SetShown(importing); transferStatus:SetText("")
+    transferContext = {bucket = bucket, classToken = catalog.classToken, treeID = catalog.treeID, configID = catalog.configID, importing = importing}
+    transferInput:SetText(text); transfer:Show(); ResizeTransferText()
+    transferInput:SetFocus(); transferInput:HighlightText(); transferViewport:SetVerticalScroll(0)
 end
 
 local function Attach()
@@ -591,20 +677,43 @@ function ns.InitializeTalentPlanner(parentCategory)
     panel:SetScript("OnHide", function()
         if not automaticHide then dismissed = true end
         editing = false; panel:StopMovingOrSizing(); HideOverlays()
+        if transfer then transfer:Hide() end
     end)
     table.insert(UISpecialFrames, "ArkannsQOLTalentPlanner")
     buildButton = Button("Build", "Build 1", 12, -46, 204, function(self)
-        if not bucket then return end
+        if not bucket or not catalog or Combat() then return end
+        local owner = {bucket = bucket, classToken = catalog.classToken, treeID = catalog.treeID, configID = catalog.configID}
+        local selectedPlan = plan
         MenuUtil.CreateContextMenu(self, function(_, menu)
             menu:SetScrollMode(300)
             for index, saved in ipairs(bucket.plans) do
-                local selected = index
+                local selected = saved
                 menu:CreateButton(type(saved) == "table" and CleanName(saved.name) and saved.name or "Build " .. index, function()
-                    bucket.active = selected; editing = false; CurrentBucket(); Draw()
+                    if not CurrentTransfer(owner) then return end
+                    for position, current in ipairs(owner.bucket.plans) do
+                        if current == selected then bucket.active = position; editing = false; CurrentBucket(); Draw(); return end
+                    end
                 end)
             end
             menu:CreateDivider()
+            menu:CreateButton(L("Dupliquer ce build"), function()
+                if not CurrentTransfer(owner) or plan ~= selectedPlan then return end
+                local state = Model.Replay(catalog, plan.order, FirstLevel())
+                if state.error then Message(L(state.error)); return end
+                local duplicate = Model.CopyPlan(plan)
+                duplicate.name = L("%s (copie)"):format(plan.name)
+                if not CleanName(duplicate.name) then duplicate.name = L("Copie du build") end
+                bucket.plans[#bucket.plans + 1] = duplicate; bucket.active = #bucket.plans
+                editing = true; CurrentBucket(); Draw()
+            end)
+            menu:CreateButton(L("Exporter ce build"), function()
+                if CurrentTransfer(owner) and plan == selectedPlan then OpenTransfer(false) end
+            end)
+            menu:CreateButton(L("Importer un build"), function()
+                if CurrentTransfer(owner) then OpenTransfer(true) end
+            end)
             menu:CreateButton(L("Supprimer ce build"), function()
+                if not CurrentTransfer(owner) then return end
                 local selectedBucket, selectedPlan = bucket, plan
                 if not selectedPlan or Combat() then return end
                 ns.UI.Confirm(L("Supprimer le build « %s » ?"):format(selectedPlan.name), function()
@@ -775,6 +884,7 @@ function ns.InitializeTalentPlanner(parentCategory)
     own:SetFontString(ownLabel)
     own:SetScript("OnClick", function(self) ns.UI.SetOverride("talents", self:GetChecked() == true) end)
     updates[#updates + 1] = function() own:SetChecked(ns.UI.IsOverride("talents")) end
+    local appearanceLink = ns.UI.AddAppearanceLink and ns.UI.AddAppearanceLink(advanced, "talents", 0, 0, 280)
     local LayoutAppearance
     local advancedButton = OptionButton("AdvancedToggle", L("Personnalisation avancée"), 290, function()
         advanced:SetShown(not advanced:IsShown()); LayoutAppearance()
@@ -830,11 +940,13 @@ function ns.InitializeTalentPlanner(parentCategory)
         if advanced:IsShown() then
             local columns = width >= 455 and 3 or 1
             local size = math.min(145, math.max(1, width))
-            local height = 34 + math.ceil(#colors / columns) * 34
+            local colorsTop = appearanceLink and 68 or 34
+            local height = colorsTop + math.ceil(#colors / columns) * 34
             Place(advanced, 0, y); advanced:SetSize(width, height)
             Place(own, -4, 0); ownLabel:SetWidth(math.max(1, width - 34))
+            if appearanceLink then Place(appearanceLink, 0, 34, math.min(280, width)) end
             for index, button in ipairs(colors) do
-                Place(button, (index - 1) % columns * (size + 10), 34 + math.floor((index - 1) / columns) * 34, size)
+                Place(button, (index - 1) % columns * (size + 10), colorsTop + math.floor((index - 1) / columns) * 34, size)
             end
             y = y + height
         end
@@ -850,6 +962,10 @@ function ns.InitializeTalentPlanner(parentCategory)
     options:SetScript("OnHide", StopPreview)
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(options) end
     ns.talentCategory = Settings.RegisterCanvasLayoutSubcategory(parentCategory, options, L("Builds de talents"))
+    local searchTargets = {["Afficher avec les talents"] = check, ["Étapes visibles"] = steps,
+        ["Points suivants visibles"] = steps, ["Panneau compact"] = compact, ["Intensité du halo"] = glow,
+        ["Couleur du prochain point"] = colors[1], ["Couleur des points suivants"] = colors[2],
+        ["Couleur des erreurs"] = colors[3], ["Apparence propre à ce module"] = own, ["Déplacer"] = moveButton}
     if ns.RegisterModule then ns.RegisterModule("talents", {
         label = L("Builds de talents"), icon = "Interface\\Buttons\\UI-MicroButton-Talents-Up", iconAtlas = "UI-HUD-MicroMenu-SpecTalents-Up", category = function() return ns.talentCategory end,
         profileClassIndependent = true,
@@ -862,6 +978,15 @@ function ns.InitializeTalentPlanner(parentCategory)
             return L("%s · %d étapes"):format(mode, db.futureSteps)
         end,
         Preview = Preview, StopPreview = StopPreview, Refresh = SettingsChanged,
+        SearchSettings = {"Afficher avec les talents", "Étapes visibles", "Panneau compact", "Intensité du halo",
+            "Couleur du prochain point", "Couleur des points suivants", "Couleur des erreurs", "Apparence propre à ce module", "Déplacer"},
+        OpenSettings = function(source)
+            local target = searchTargets[source]
+            if not target then return end
+            if target == own or target == colors[1] or target == colors[2] or target == colors[3] then advanced:Show() end
+            LayoutAppearance(); options.OnRefresh()
+            if ns.UI.RevealControl then ns.UI.RevealControl(optionsScroll, target) end
+        end,
         ExportSettings = function()
             local result = {}; for key in pairs(defaults) do result[key] = Copy(db[key]) end
             result.x, result.y = db.x, db.y

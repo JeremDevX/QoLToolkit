@@ -1,6 +1,13 @@
 local _, ns = ...
 
 for source, translation in pairs({
+    ["Rechercher dans tous les réglages"] = "Search all settings",
+    ["Aucun réglage trouvé."] = "No settings found.",
+    ["%d résultat(s) — ouvre la rubrique correspondante."] = "%d result(s) — open the matching category.",
+    ["Effacer"] = "Clear",
+    ["Position fixe"] = "Fixed position",
+    ["Buffs"] = "Buffs",
+    ["Limite"] = "Limit",
     [" : absent du profil, conservé."] = ": Missing from profile. Current settings kept.",
     [" : configuration refusée."] = ": Settings rejected.",
     [" : module indisponible, ignoré."] = ": Module unavailable. Skipped.",
@@ -205,6 +212,18 @@ for source, translation in pairs({
     ["Démarrer une capture"] = "Start recording",
     ["Arrêter la capture"] = "Stop recording",
     ["Copier la dernière trace"] = "Copy the latest trace",
+    ["Régler le thème commun"] = "Configure shared theme",
+    ["Retour au module"] = "Back to module",
+    ["Personnage"] = "Character",
+    ["Personnalisation"] = "Customization",
+    ["Outils"] = "Tools",
+    ["Infobulles et distance"] = "Tooltips and distance",
+    ["Options avancées"] = "Advanced options",
+    ["Distance"] = "Distance",
+    ["Suivi et statistiques"] = "Tracking and statistics",
+    ["Affichage"] = "Display",
+    ["Rétablir la sélection des statistiques et la pause AFK ?"] = "Reset statistic selection and AFK pausing?",
+    ["Rétablir l’affichage et la position par défaut du journal ?"] = "Reset the journal display and position?",
 }) do
     ns.English[source] = translation
 end

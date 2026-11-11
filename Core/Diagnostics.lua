@@ -118,12 +118,17 @@ local function Stop(reason)
     return true
 end
 
-local function OnEvent(_, event, argument)
+local function OnEvent(_, event, argument, method)
     if event == "PLAYER_LOGOUT" then Stop("logout"); return end
     if event == "UNIT_AURA" or event == "PLAYER_XP_UPDATE" then
         if not WoW.IsPublic(argument) or argument ~= "player" then return end
     elseif event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
         if not WoW.IsPublic(argument) or argument ~= addonName then return end
+        -- Keep the API name supplied by Blizzard, without recording arbitrary event data.
+        local name = WoW.IsPublic(method) and type(method) == "string" and #method <= 160
+            and method:match("^[%w_%.:()]+$") and method or "?"
+        diagnostics.Note(event .. " function=" .. name)
+        return
     end
     diagnostics.Note(event)
 end
@@ -295,5 +300,13 @@ function ns.InitializeDiagnostics(root)
         panel:SetScript("OnShow", function() refreshPanel() end)
         panel:HookScript("OnSizeChanged", function() if panel:IsShown() then Layout() end end)
         ns.diagnosticsCategory = Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Diagnostics"))
+        if ns.UI.RegisterSettings then ns.UI.RegisterSettings("diagnostics", {
+            category = function() return ns.diagnosticsCategory end,
+            OpenSettings = function(source)
+                for index, label in ipairs({"Démarrer une capture", "Arrêter la capture", "Copier la dernière trace", "Inventaire du client"}) do
+                    if source == label then ns.UI.RevealControl(viewport, buttons[index]) end
+                end
+            end,
+        }) end
     end
 end

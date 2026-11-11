@@ -1,5 +1,21 @@
-QoL Toolkit 0.1.2 for WoW Forever 1.60.1
+QoL Toolkit 0.1.3 for WoW Forever 1.60.1
 
-- Target Distance. Fixed incorrect range estimates caused by Hunter spells that always target the Hunter or their pet.
-- Talent Planner. Fixed planned builds failing to load or advance when a class tree contains talents outside its regular rows.
-- Bags. Fixed the inner glow intensity slider in both the full settings and the backpack shortcut. Changes now show immediately on open bags.
+Added
+
+- Session Journal. Save up to 100 recent sessions per character. Review all-time, 7-day, and 30-day totals, plot XP and net gold over a session, and compare hourly rates across sessions.
+- Settings search. Find controls from the dashboard and jump to the matching setting, including controls inside collapsed sections.
+- Talent Planner. Duplicate builds and share them through a copy-and-paste import and export format. Imports validate the full plan before saving a new build.
+- Bags. Give quest items their own border color, even when gray and white rarity borders are hidden.
+
+Improved
+
+- Dashboard. Find tools under Character, Interface, Customization, and Tools. Tooltips and distance share a settings page. Journal tracking and reminder selection each have their own section separate from display options.
+- Spell Rank Guard. Refresh warnings when you learn a spell or open a trainer, with a 30-second background scan.
+- Restored the QoL Toolkit minimap artwork.
+
+Fixed
+
+- Target Distance. Keep range estimates when a direct measurement is unavailable and use consistent estimates when the target is also under the cursor.
+- Session Journal. Restore search results for all journal stats and display options.
+- Advanced Settings. Keep minimum and maximum nameplate scale and opacity consistent when resetting settings.
+- Diagnostics. Include the Blizzard API name in captures when an addon action is blocked or forbidden and the client supplies the name.

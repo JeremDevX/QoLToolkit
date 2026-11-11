@@ -1,10 +1,10 @@
 ## Interface: 16001
 ## Title: QoL Toolkit
-## IconTexture: Interface\Icons\INV_Misc_Wrench_01
+## IconTexture: Interface\AddOns\QoLToolkit\Media\QoLToolkit.tga
 ## Notes: Tooltips, effect reminders, session journal, talents, spell ranks, target distance, bags, and advanced settings. /qt
 ## Notes-frFR: Infobulles, rappels, journal, talents, rangs de sorts, distance, sacs et réglages avancés. /qt
 ## Author: Arkann
-## Version: 0.1.2
+## Version: 0.1.3
 ## SavedVariables: ForeverTooltipLibreDB
 ## SavedVariablesPerCharacter: ArkannsQOLRemindersDB, ArkannsQOLSessionDB, ArkannsQOLTalentsDB
 
@@ -13,11 +13,13 @@ Locales\enUS-Core.lua
 Locales\enUS-Advanced.lua
 Locales\enUS-TalentsAuras.lua
 Locales\enUS-Utilities.lua
+Locales\enUS-SessionHistory.lua
 Core\WoWRuntime.lua
 Core\SettingsState.lua
 Core\QOLInterface.lua
 Modules\Tooltips.lua
 Modules\SessionJournalModel.lua
+Modules\SessionHistory.lua
 Modules\SessionJournal.lua
 Modules\AuraReminderModel.lua
 Modules\AuraReminders.lua

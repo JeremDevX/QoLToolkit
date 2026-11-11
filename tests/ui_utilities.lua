@@ -124,6 +124,9 @@ ns.InitializeTooltips({})
 Load("Modules/TargetDistance.lua")
 ns.InitializeTargetDistance({})
 frames.ArkannsQOLTargetDistanceSettings.scripts.OnShow()
+assert(modules.tooltips.category() == modules.distance.category(), "Tooltips and distance share one settings category")
+assert(frames.ArkannsQOLTargetDistanceSettings.parent == frames.ForeverTooltipLibreSettings,
+    "Distance settings are embedded in the shared page")
 
 local settings = modules.distance.ExportSettings()
 settings.mouseoverDistance = false
@@ -203,6 +206,69 @@ for _, widget in ipairs(widgets) do
 end
 assert(badge and badge.clamped and not badge.mouse and badge.scale == .8 and badge.alpha == .6)
 assert(badge.strata == "LOW" and badge.level == 5, "The badge must follow the target frame's presentation")
+-- The same hostile unit must use the target's permitted probes in both displays.
+do
+    local combat, same, instance, player, calls = true, true, false, false, 0
+    env.UnitDistanceSquared = function() return nil, nil end
+    env.UnitIsUnit = function(a, b) assert(a == "mouseover" and b == "target"); return same end
+    env.InCombatLockdown = function() return combat end
+    env.IsInInstance = function() return instance end
+    env.UnitIsPlayer = function() return player end
+    env.Enum.SpellBookSpellBank, env.Enum.SpellBookItemType = {Player = 0}, {Spell = 1}
+    env.C_SpellBook = {
+        GetNumSpellBookSkillLines = function() return 1 end,
+        GetSpellBookSkillLineInfo = function() return {itemIndexOffset = 0, numSpellBookItems = 1} end,
+        GetSpellBookItemInfo = function() return {itemType = 1, spellID = 1} end,
+        IsSpellBookItemInRange = function() return true end,
+    }
+    env.C_Spell = {
+        GetSpellInfo = function(id) return {minRange = 0, maxRange = id == 1 and 10 or 5} end,
+        SpellHasRange = function() return true end,
+        IsSpellHarmful = function() return true end,
+        IsSpellHelpful = function() return false end,
+    }
+    env.C_Item = {
+        ItemHasRange = function(id) return id == 8149 end,
+        GetItemSpell = function() return "Probe", 2 end,
+        IsItemInRange = function(_, unit)
+            calls = calls + 1
+            assert(not combat or unit == "target", "Never probe another mouseover with items in combat")
+            return true
+        end,
+    }
+    local driver = frames.ArkannsQOLTargetDistanceEvents
+    driver.scripts.OnUpdate(nil, .2)
+    local label
+    for _, widget in ipairs(widgets) do if widget.parent == badge then label = widget end end
+    assert(label.text == "≈ 0–5 m")
+    assert(ns.GetMouseoverDistance() == "Distance · " .. label.text,
+        "Hovering the target must match the badge's more precise combat estimate")
+    for _, comparison in ipairs({false, "secret"}) do
+        same = comparison
+        local before = calls
+        assert(ns.GetMouseoverDistance() == "Distance · ≈ 0–10 m" and calls == before)
+    end
+    same = true
+    for _, restricted in ipairs({"instance", "player"}) do
+        instance, player = restricted == "instance", restricted == "player"
+        local before = calls
+        driver.scripts.OnUpdate(nil, .2)
+        assert(ns.GetMouseoverDistance() == "Distance · " .. label.text and calls == before)
+        assert(label.text == "≈ 0–10 m")
+    end
+    instance, player, combat, same = false, false, false, false
+    assert(ns.GetMouseoverDistance() == "Distance · ≈ 0–5 m", "Other mouseovers retain item estimates out of combat")
+    same, combat = true, true
+    modules.distance.SetEnabled(false)
+    assert(ns.GetMouseoverDistance() == "Distance · ≈ 0–5 m", "The tooltip works with the badge disabled")
+    env.UnitDistanceSquared = function() return "secret", true end
+    local before = calls
+    assert(ns.GetMouseoverDistance() == nil and calls == before, "Secret direct measurements never fall back to probes")
+    env.UnitDistanceSquared = function() return 400, true end
+    assert(ns.GetMouseoverDistance() == "Distance · 18 m")
+    env.InCombatLockdown = function() return false end
+    modules.distance.SetEnabled(true)
+end
 local panel = frames.ArkannsQOLTargetDistanceSettings
 panel:SetWidth(330); panel.scripts.OnSizeChanged()
 local narrowColorHeight = colorReset.parent.height
@@ -211,6 +277,32 @@ assert(colorReset.parent.height < narrowColorHeight, "Wide color controls use a 
 colorReset.parent.parent:SetVerticalScroll(550)
 Click("ArkannsQOLDistanceAdvanced")
 assert(not colorReset.shown and colorReset.parent.parent:GetVerticalScroll() == 0)
+
+local revealed
+ui.RevealControl = function(_, control) revealed = control end
+modules.distance.OpenSettings("Couleur du texte")
+assert(colorReset.shown, "A color result opens the advanced distance controls")
+assert(revealed and revealed.parent == colorReset.parent, "A distance color result reveals its editable control")
+assert(panel.shown)
+modules.tooltips.OpenSettings(nil)
+assert(panel.shown, "Returning from placement preserves the Distance section")
+modules.tooltips.OpenSettings("Échelle")
+assert(not panel.shown and revealed == frames.ForeverTooltipLibreSize)
+modules.tooltips.OpenSettings("Objets")
+assert(revealed == frames.ArkannsQOLTooltipKind and frames.ArkannsQOLTooltipCustom.shown)
+modules.tooltips.OpenSettings("Décalage du curseur")
+assert(revealed == frames.ForeverTooltipLibreCursor, "An unavailable offset reveals its cursor prerequisite")
+cursor:SetChecked(true); Click("ForeverTooltipLibreCursor")
+modules.tooltips.OpenSettings("Décalage X / Y (0 à 100)")
+assert(revealed == frames.ArkannsQOLTooltipOffsetX and offsetBody.shown)
+local advancedPage = behavior.parent
+advancedPage:SetHeight(100)
+advancedPage:SetVerticalScroll(45)
+modules.tooltips.OpenSettings(nil)
+assert(advancedPage.shown and advancedPage:GetVerticalScroll() == 45,
+    "Returning from placement preserves the advanced section and its scroll")
+modules.tooltips.OpenSettings("Personnaliser les infobulles")
+assert(revealed == frames.ArkannsQOLTooltipGeneralEnabled and not advancedPage.shown)
 
 Load("Modules/RankGuard.lua")
 ns.InitializeRankGuard({})
@@ -234,6 +326,12 @@ ended = nil
 assert(modules.ranks.Preview())
 frames.ArkannsQOLRankEvents.scripts.OnUpdate(nil, 12)
 assert(ended == "ranks", "Expiring a rank preview must clear its shared controls")
+modules.ranks.OpenSettings("Couleur")
+assert(frames.ArkannsQOLRankStyle.shown and revealed == frames.ArkannsQOLRankColor)
+modules.ranks.OpenSettings("Exceptions")
+assert(revealed == frames.ArkannsQOLRankExceptionID)
+modules.ranks.OpenSettings("Coin")
+assert(revealed == frames.ArkannsQOLRankStyle, "A hidden corner setting reveals the badge style prerequisite")
 print("PASS: utility settings, independent resets, shared placement, badge bounds, and narrow rank layout")
 
 -- Exercise profile migration through the actual tooltip and distance importers.

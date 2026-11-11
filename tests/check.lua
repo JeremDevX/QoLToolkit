@@ -23,7 +23,14 @@ end
 manifest:close()
 assert(catalogs[1] == "Locales/Locale.lua", "Load the locale selector before translations")
 assert(lastFile == "Core/Bootstrap.lua", "Load bootstrap after the modules")
-assert(addonIcon == "Interface\\Icons\\INV_Misc_Wrench_01", "Use the native WoW icon")
+assert(addonIcon == "Interface\\AddOns\\QoLToolkit\\Media\\QoLToolkit.tga", "Use the bundled addon icon")
+local iconFile = assert(io.open("Media/QoLToolkit.tga", "rb"))
+local iconHeader = iconFile:read(18)
+iconFile:close()
+assert(#iconHeader == 18 and iconHeader:byte(3) == 2 and iconHeader:byte(17) == 32,
+    "Use an uncompressed 32-bit TGA")
+assert(iconHeader:byte(13) == 128 and iconHeader:byte(14) == 0
+    and iconHeader:byte(15) == 128 and iconHeader:byte(16) == 0, "Keep the icon square at 128 pixels")
 
 local function CheckLocale(locale, expected)
     GetLocale = locale and function() return locale end or nil
@@ -43,6 +50,8 @@ local function CheckLocale(locale, expected)
         chunks[catalogs[i]]("QoLToolkit", ns)
     end
     assert(ns.L("Infobulles") == expected, "Unexpected client language")
+    assert(ns.L("Infobulles et distance") == (locale == "frFR" and "Infobulles et distance" or "Tooltips and distance"))
+    assert(ns.L("Affichage") == (locale == "frFR" and "Affichage" or "Display"))
     assert(ns.L("Annuler", "talent.undo") == (locale == "frFR" and "Annuler" or "Undo"))
     assert(ns.L("Untranslated example") == "Untranslated example", "Missing translation should use source text")
 end
@@ -192,6 +201,20 @@ assert(exportBox.text:find(trace.header, 1, true))
 command("clear")
 assert(not ForeverTooltipLibreDB.diagnostics and ForeverTooltipLibreDB.userSetting and exportBox.text == "")
 command("start")
+eventFrame:OnEvent("ADDON_ACTION_FORBIDDEN", "QoLToolkit", "C_Container.UseContainerItem()")
+eventFrame:OnEvent("ADDON_ACTION_BLOCKED", "QoLToolkit", "ContainerFrame1:Hide()")
+eventFrame:OnEvent("ADDON_ACTION_FORBIDDEN", "QoLToolkit", "secret")
+eventFrame:OnEvent("ADDON_ACTION_FORBIDDEN", "QoLToolkit", "bad\nmethod")
+eventFrame:OnEvent("ADDON_ACTION_FORBIDDEN", "QoLToolkit", string.rep("x", 161))
+eventFrame:OnEvent("ADDON_ACTION_BLOCKED", "AnotherAddon", "OtherFunction()")
+callback()
+local actions = ForeverTooltipLibreDB.diagnostics.rows[2]
+assert(actions:find("ADDON_ACTION_FORBIDDEN function=C_Container.UseContainerItem()", 1, true),
+    "Preserve the rejected function so a blocked item use can be diagnosed")
+assert(actions:find("ADDON_ACTION_BLOCKED function=ContainerFrame1:Hide()", 1, true))
+assert(actions:find("ADDON_ACTION_FORBIDDEN function=?", 1, true))
+assert(not actions:find("secret", 1, true) and not actions:find("bad", 1, true)
+    and not actions:find(string.rep("x", 161), 1, true) and not actions:find("OtherFunction", 1, true))
 eventFrame:OnEvent("PLAYER_LOGOUT")
 trace = ForeverTooltipLibreDB.diagnostics
 assert(cancelled == 2 and trace.rows[#trace.rows]:find("logout", 1, true))
@@ -244,6 +267,13 @@ measured = "secret"
 assert(getDistance() == nil, "Private measurements stay unavailable")
 measured, checked = 0, false
 assert(getDistance() == "Distance · ≈ 25–40 m", "Round both bounds outward")
+measured, checked = nil, nil
+assert(getDistance() == "Distance · ≈ 25–40 m", "A missing direct measurement must not suppress public range estimates")
+measured, checked = 400, true
+assert(getDistance() == "Distance · 18 m", "A direct measurement takes priority again when available")
+measured, checked = "secret", true
+assert(getDistance() == nil, "Restricted measurements must not trigger the missing-measurement fallback")
+measured, checked = 0, false
 hostile = false
 assert(getDistance() == "Distance · ≈ 0–45 m", "Use helpful spell ranges for allies and ignore implicit pet/self targets")
 
@@ -273,6 +303,7 @@ print("PASS: target distance sources, conservative rounding, and legacy appearan
 
 local frames = {}
 local createStub = CreateFrame
+local missingTexture
 CreateFrame = function(kind, name)
     local widget = createStub(kind, name)
     setmetatable(widget, {__index = function(_, key)
@@ -284,11 +315,12 @@ CreateFrame = function(kind, name)
     widget.SetPoint = function(self, point, ...) self.points[point] = {...} end
     widget.SetTexture = function(self, asset)
         self.asset = asset
-        return true
+        return asset ~= missingTexture
     end
     widget.SetAllPoints = function(self, relative) self.relative = relative end
     widget.AddMaskTexture = function(self, mask) self.mask = mask end
     widget.SetTexCoord = function(self, ...) self.coords = {...} end
+    widget.SetVertexColor = function(self, ...) self.color = {...} end
     widget.SetGradient = function(self, _, ...) self.gradient = {...} end
     widget.SetBlendMode = function(self, mode) self.blend = mode end
     widget.SetAlpha = function(self, alpha) self.alpha = alpha end
@@ -321,6 +353,10 @@ do
         HookScript = function(self, event, fn) self[event] = fn end,
     }
     GetCursorPosition = function() return 250, 250 end
+    local metadata = C_AddOns.GetAddOnMetadata
+    C_AddOns.GetAddOnMetadata = function(name, key)
+        if name == "QoLToolkit" and key == "IconTexture" then return addonIcon end
+    end
     local bootstrapNS = {L = distanceNS.L, WoW = distanceNS.WoW, UI = {Initialize = noop},
         SettingsState = {Initialize = function() return true end}}
     local function LoadButton()
@@ -330,7 +366,7 @@ do
     end
     local button = LoadButton()
     local background, icon, border = unpack(button.textures)
-    assert(icon.asset == addonIcon, "Use the same native icon as the addon list")
+    assert(icon.asset == addonIcon and not rawget(icon, "coords"), "Use the full bundled artwork")
     assert(icon.relative == background and icon.mask == background.mask and icon.mask.relative == background,
         "Fill the round area and clip the artwork with its mask")
     assert(border.layer == "OVERLAY")
@@ -353,8 +389,14 @@ do
     diameter = 160
     Minimap:OnSizeChanged()
     assert(button.points.CENTER[4] == 84)
+    missingTexture = addonIcon
+    assert(LoadButton().textures[2].asset == "Interface\\Icons\\INV_Misc_Wrench_01", "Missing artwork uses the native icon")
+    missingTexture = nil
+    C_AddOns.GetAddOnMetadata = nil
+    assert(LoadButton().textures[2].asset == "Interface\\Icons\\INV_Misc_Wrench_01", "Missing metadata uses the native icon")
+    C_AddOns.GetAddOnMetadata = metadata
 end
-print("PASS: minimap icon, mask, click, scaled drag, reload, and map resize")
+print("PASS: minimap artwork, mask, fallback, click, scaled drag, reload, and map resize")
 
 do
     local hook, bagModule, shortcut, opened
@@ -386,7 +428,10 @@ do
     ContainerFrameUtil_EnumerateContainerFrames = function() return ipairs({bag}) end
     hooksecurefunc = function(name, fn) assert(name == "SetItemButtonQuality"); hook = fn end
     SetItemButtonQuality = function(...) hook(...) end
-    C_Container = {GetContainerItemInfo = function() return {quality = 4} end}
+    local questInfo
+    C_Container = {GetContainerItemInfo = function() return {quality = 4} end,
+        GetContainerItemQuestInfo = function() return questInfo end}
+    ITEM_QUALITY6_DESC, ITEM_QUALITY7_DESC, ITEM_QUALITY8_DESC = "Artifact", "Heirloom", "WoW Token"
     C_Item = {GetItemQualityColor = function() return .64, .21, .93 end}
     CreateColor = function(...) return {...} end
     local bagsCategory = {GetID = function() return 2 end}
@@ -416,6 +461,15 @@ do
     scroll.offset = 200
     frames.ArkannsQOLBagAdvanced:OnClick()
     assert(not advanced.shown and body:GetHeight() == collapsedHeight and scroll.offset == 0)
+    local revealedScroll, revealedControl
+    bagNS.UI.RevealControl = function(viewport, control) revealedScroll, revealedControl = viewport, control end
+    bagModule.OpenSettings("Halo intérieur")
+    assert(advanced.shown and revealedScroll == scroll and revealedControl == frames.ArkannsQOLBag_qualityInnerGlow,
+        "Bag search opens the border section and reveals the exact control")
+    scroll.offset = 48
+    bagModule.OpenSettings(nil)
+    assert(advanced.shown and scroll.offset == 48, "Returning to bags preserves the section and scroll")
+    frames.ArkannsQOLBagAdvanced:OnClick()
     SetItemButtonQuality(slot, 4)
     local outline, glow = slot.textures[1], slot.textures[2]
     assert(outline.points.TOPLEFT[1] == slot.IconBorder and outline.points.BOTTOMRIGHT[2] == "BOTTOMRIGHT")
@@ -435,6 +489,40 @@ do
     SetItemButtonQuality(slot, "secret")
     assert(not outline.shown and slot.IconBorder.alpha == .8)
 
+    assert(not frames.ArkannsQOLBagColor6 and not frames.ArkannsQOLBagColor7 and not frames.ArkannsQOLBagColor8)
+    assert(frames.ArkannsQOLBagColorquest, "Quest items need a separate color sample")
+    assert(bagModule.ImportSettings({enabled = false, qualityUncommonOnly = true,
+        qualityColors = {quest = "FFCC00", [1] = "FFFFFF", [6] = "123456"}}))
+    questInfo = {isQuestItem = true}
+    SetItemButtonQuality(slot, 1)
+    assert(outline.shown and outline.color[1] == 1 and outline.color[2] == .8 and outline.color[3] == 0,
+        "Quest color must override common quality and survive the gray/white filter")
+    questInfo = {isQuestItem = false, questID = 123}
+    SetItemButtonQuality(slot, 1)
+    assert(outline.shown, "Quest starters use the quest category too")
+    questInfo = {isQuestItem = false}
+    SetItemButtonQuality(slot, 1)
+    assert(not outline.shown, "Ordinary whites still obey the filter")
+    questInfo = {isQuestItem = "secret", questID = "secret"}
+    SetItemButtonQuality(slot, 1)
+    assert(not outline.shown, "Secret quest fields must not classify an item")
+    local questAPI = C_Container.GetContainerItemQuestInfo
+    C_Container.GetContainerItemQuestInfo = nil
+    SetItemButtonQuality(slot, 1)
+    assert(not outline.shown, "Missing quest API falls back to item quality")
+    C_Container.GetContainerItemQuestInfo = function() error("unavailable") end
+    SetItemButtonQuality(slot, 1)
+    assert(not outline.shown, "Refused quest reads fall back to item quality")
+    C_Container.GetContainerItemQuestInfo = questAPI
+    local exported = bagModule.ExportSettings()
+    assert(exported.qualityColors.quest == "FFCC00" and exported.qualityColors[6] == "123456")
+    assert(bagModule.ImportSettings(exported), "Quest colors must survive a profile round trip")
+    assert(bagModule.ImportSettings({enabled = false, qualityUncommonOnly = false, qualityColors = {}}))
+    questInfo = {isQuestItem = true}
+    SetItemButtonQuality(slot, 1)
+    assert(outline.color[2] == .82, "Reset restores the default yellow quest color")
+    questInfo = nil
+
     local tooltip = GameTooltip
     GameTooltip = nil
     shortcut:OnClick("LeftButton")
@@ -442,6 +530,7 @@ do
     assert(quick.shown and quick.points.TOPRIGHT[1] == bag)
     assert(frames.ArkannsQOLBagQuickUncommonOnly and frames.ArkannsQOLBagQuickColor4,
         "The backpack shortcut must expose the rarity filter and colors")
+    assert(frames.ArkannsQOLBagQuickColorquest and not frames.ArkannsQOLBagQuickColor6)
     for key, value in pairs({qualityOpacity = 75, qualityThickness = 3, qualityInnerGlow = 40}) do
         local slider = assert(frames["ArkannsQOLBagQuick_" .. key], "Missing backpack slider " .. key)
         slider:OnValueChanged(value)
@@ -459,7 +548,7 @@ end
 print("PASS: bag border geometry, inner glow, native restoration, and backpack settings")
 
 -- Keep each simulation isolated from the globals used above.
-for _, path in ipairs({"tests/talent_plan.lua","tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/ui_utilities.lua","tests/ui_modules.lua"}) do
+for _, path in ipairs({"tests/session_history.lua","tests/session_history_ui.lua","tests/talent_plan.lua","tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/advanced_bounds.lua","tests/ui_utilities.lua","tests/rank_events.lua","tests/ui_modules.lua"}) do
     local chunk = assert(loadfile(path))
     local environment = setmetatable({}, {__index = testGlobals})
     environment._G = environment

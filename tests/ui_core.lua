@@ -354,6 +354,7 @@ local function JournalSetting(query, label)
 end
 JournalSetting("journal theme", "Thème")
 JournalSetting("journal disposition", "Disposition")
+JournalSetting("journal historique", "Historique et progression")
 assert(#UI.SearchSettings("  ")==0)
 local results=UI.SearchSettings("ÉCHELLE infobulles")
 assert(#results==1 and results[1].label:find("Échelle",1,true))
@@ -384,7 +385,7 @@ assert(not result:IsShown() and not card.parent:IsShown())
 search.scripts.OnEscapePressed()
 assert(search:GetText()=="" and card.parent:IsShown() and not result:IsShown())
 assert(personHeading:IsShown(), "Escape restores the task groups")
-for _,path in ipairs({"Locales/enUS-Core.lua","Locales/enUS-Advanced.lua","Locales/enUS-TalentsAuras.lua","Locales/enUS-Utilities.lua"}) do Load(path) end
+for _,path in ipairs({"Locales/enUS-Core.lua","Locales/enUS-Advanced.lua","Locales/enUS-TalentsAuras.lua","Locales/enUS-Utilities.lua","Locales/enUS-SessionHistory.lua"}) do Load(path) end
 useEnglish=true
 results=UI.SearchSettings("talents error")
 assert(#results==1 and results[1].label:find("Error",1,true))
@@ -396,6 +397,7 @@ assert(personHeading:IsShown(), "Clear restores the task groups")
 ns.modules.session.label="Session Journal"
 JournalSetting("journal theme", "Thème")
 JournalSetting("journal layout", "Disposition")
+JournalSetting("journal history", "Historique et progression")
 print("PASS: global settings search, accent folding, English labels, advanced navigation, and narrow results")
 
 -- Legacy distance favorites remain usable after their settings page is merged.

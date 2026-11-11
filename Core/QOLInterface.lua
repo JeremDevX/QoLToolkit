@@ -752,7 +752,7 @@ function UI.BuildHome(panel)
             "Mode compact : 2 effets", "Développer au survol", "Limite", "Taille du texte", "Opacité du fond", "Largeur", "Disposition",
             "Colonnes (grille)", "Espacement", "Marges", "Alignement", "Police", "Contour", "Ombre du texte", "Afficher le titre",
             "Titre personnalisé", "Taille du titre", "Afficher les icônes", "Taille des icônes", "Fond", "Texte", "Bordure", "Épaisseur de bordure"},
-        session = {"Afficher la fenêtre", "Démarrer le suivi", "Arrêter le suivi", "Mettre en pause pendant l’AFK", "Masquer les valeurs nulles",
+        session = {"Historique et progression", "Afficher la fenêtre", "Démarrer le suivi", "Arrêter le suivi", "Mettre en pause pendant l’AFK", "Masquer les valeurs nulles",
             "Mode compact (3 statistiques)", "Développer au survol", "Réinitialiser les stats", "Taille du texte", "Opacité du fond (%)",
             "Afficher le titre", "Afficher la bordure", "Largeur min.", "Masquer en combat", "Durée", "XP gagnée", "Prochain niveau",
             "Or reçu", "Or dépensé", "Solde", "Morts", "Niveaux gagnés", "Thème", "Disposition",

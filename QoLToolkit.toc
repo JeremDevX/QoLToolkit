@@ -13,11 +13,13 @@ Locales\enUS-Core.lua
 Locales\enUS-Advanced.lua
 Locales\enUS-TalentsAuras.lua
 Locales\enUS-Utilities.lua
+Locales\enUS-SessionHistory.lua
 Core\WoWRuntime.lua
 Core\SettingsState.lua
 Core\QOLInterface.lua
 Modules\Tooltips.lua
 Modules\SessionJournalModel.lua
+Modules\SessionHistory.lua
 Modules\SessionJournal.lua
 Modules\AuraReminderModel.lua
 Modules\AuraReminders.lua

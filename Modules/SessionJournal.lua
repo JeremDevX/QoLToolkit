@@ -5,7 +5,8 @@ local db, session, window, title, names, values, footer, settings, refreshSettin
 local ready, moving = false, false
 local startedAt
 local afkUnavailable
-local ticker, xpRetry, Draw
+local ticker, historyTicker, xpRetry, Draw
+local refreshHistory
 local rateTooltip, hovered
 local moveHint
 local trackingToggle, trackingTooltip
@@ -74,6 +75,16 @@ end
 
 local function Elapsed()
     return Model.Elapsed(session, startedAt and ReadNumber(GetTime), startedAt)
+end
+
+local function WallTime()
+    return ReadNumber(GetServerTime) or ReadNumber(time)
+end
+
+local function Checkpoint()
+    if not ready then return end
+    Model.Sample(session, Elapsed(), true)
+    session.checkpointAt = WallTime()
 end
 
 local function IsTracking()
@@ -181,8 +192,9 @@ end
 local function SetPause(pause)
     if not ready or session.pause == pause then return end
     if IsTracking() then
-        session.elapsed = Elapsed()
         ObserveMoney(); ObserveXP(); ObserveDeath(true)
+        Checkpoint()
+        session.elapsed = Elapsed()
         startedAt, xpRetry = nil, false
     elseif not pause then
         Baseline()
@@ -201,9 +213,13 @@ local function BeginSession(previous, pause)
         session = previous
         pause = session.pause
     else
+        if Model.IsResumable(db.session) then
+            Model.Archive(db, db.session, db.session.elapsed, db.session.checkpointAt, "logout")
+        end
         local xp, maximum, level = XPState()
         session = Model.New(xp, maximum, level, ReadNumber(GetMoney))
     end
+    Model.StartHistory(session, WallTime(), session.elapsed)
     db.session = session
     startedAt, ready, xpRetry = nil, true, false
     if pause == "manual" then
@@ -241,6 +257,18 @@ local function Visible()
 end
 
 local function SyncTicker()
+    if IsTracking() then
+        if not historyTicker and C_Timer and type(C_Timer.NewTicker) == "function" then
+            historyTicker = C_Timer.NewTicker(30, function()
+                if not IsTracking() then return end
+                Model.Sample(session, Elapsed())
+                session.checkpointAt = WallTime()
+                if refreshHistory then refreshHistory() end
+            end)
+        end
+    elseif historyTicker then
+        historyTicker:Cancel(); historyTicker = nil
+    end
     if IsTracking() and (xpRetry or (Visible() and not preview)) then
         if not ticker and C_Timer and type(C_Timer.NewTicker) == "function" then
             ticker = C_Timer.NewTicker(1, function()
@@ -446,7 +474,13 @@ end
 function ns.InitializeSessionJournal(parentCategory)
     if type(ArkannsQOLSessionDB) ~= "table" then ArkannsQOLSessionDB = {} end
     db = ArkannsQOLSessionDB
+    if (db.historyVersion ~= nil and db.historyVersion ~= 1)
+        or (type(db.session) == "table" and db.session.historyVersion ~= nil and db.session.historyVersion ~= 1) then
+        if ns.UI.Notify then ns.UI.Notify(L("Version des réglages non prise en charge. Utilise une version compatible de l’addon.")) end
+        return
+    end
     NormalizeOptions()
+    Model.NormalizeHistory(db)
     window = CreateFrame("Frame", "ArkannsQOLSessionWindow", UIParent, "BackdropTemplate")
     window:SetFrameStrata("MEDIUM"); window:SetMovable(true); window:SetClampedToScreen(true)
     window:RegisterForDrag("LeftButton")
@@ -538,6 +572,7 @@ function ns.InitializeSessionJournal(parentCategory)
     local operationBody = body
     scroll:SetScript("OnSizeChanged", function(_, width) operationBody:SetWidth(math.max(1, width)) end)
     local appearancePage, displayBody = Page("ArkannsQOLSessionAppearance", 900)
+    local historyPage, historyBody = Page("ArkannsQOLSessionHistory", 1100)
     local visibilityBody = CreateFrame("Frame", "ArkannsQOLSessionVisibility", displayBody)
     visibilityBody:SetPoint("TOPLEFT"); visibilityBody:SetPoint("TOPRIGHT"); visibilityBody:SetHeight(360)
     local appearanceBody = CreateFrame("Frame", nil, displayBody)
@@ -549,6 +584,7 @@ function ns.InitializeSessionJournal(parentCategory)
         for _, tab in ipairs(tabs) do tab:SetEnabled(tab.page ~= page) end
         StopPreview()
         scroll:SetShown(page == scroll); appearancePage:SetShown(page == appearancePage)
+        historyPage:SetShown(page == historyPage)
         if page == appearancePage then Preview() end
         refreshSettings()
     end
@@ -565,19 +601,55 @@ function ns.InitializeSessionJournal(parentCategory)
     end
     Tab(L("Suivi et statistiques"), 16, scroll, "ArkannsQOLSessionOperationTab")
     Tab(L("Affichage"), 216, appearancePage, "ArkannsQOLSessionAppearanceTab")
+    Tab(L("Historique et progression"), 416, historyPage, "ArkannsQOLSessionHistoryTab")
     local function LayoutTabs()
         local width = math.max(280, panel:GetWidth() - 32)
-        local columns = width >= 450 and 2 or 1
+        local columns = width >= 600 and 3 or (width >= 450 and 2 or 1)
         local size = (width - (columns - 1) * 8) / columns
         for index, button in ipairs(tabs) do
             button:ClearAllPoints(); button:SetPoint("TOPLEFT", 16 + ((index - 1) % columns) * (size + 8), -10 - math.floor((index - 1) / columns) * 34)
             button:SetWidth(size)
         end
-        for _, page in ipairs({scroll, appearancePage}) do
-            page:ClearAllPoints(); page:SetPoint("TOPLEFT", 0, -16 - math.ceil(2 / columns) * 34); page:SetPoint("BOTTOMRIGHT", -28, 8)
+        for _, page in ipairs({scroll, appearancePage, historyPage}) do
+            page:ClearAllPoints(); page:SetPoint("TOPLEFT", 0, -16 - math.ceil(#tabs / columns) * 34); page:SetPoint("BOTTOMRIGHT", -28, 8)
         end
     end
     panel:HookScript("OnSizeChanged", LayoutTabs)
+    local function ArchiveAndRestart()
+        if not ready then return end
+        ObserveMoney(); ObserveXP(); Checkpoint()
+        Model.Archive(db, session, Elapsed(), WallTime(), "manual")
+        local pause = session.pause
+        -- BeginSession sees the archived session and cannot save it twice.
+        BeginSession(nil, pause)
+        Draw(); refreshSettings()
+    end
+    refreshHistory = ns.CreateSessionHistoryPanel(historyBody, {
+        GetHistory = function() return db.history end,
+        GetCurrent = function()
+            if not ready then return end
+            local current = Model.Totals(session, Elapsed())
+            current.startedAt, current.samples, current.approximateXP = session.startedAt, session.samples, session.approximateXP
+            return current
+        end,
+        Now = WallTime, FormatMoney = Money, FormatDuration = Duration,
+        NewSession = ArchiveAndRestart,
+        Delete = function(entry)
+            ns.UI.Confirm(L("Supprimer cette session de l’historique ?"), function()
+                for index, saved in ipairs(db.history) do
+                    if saved == entry then table.remove(db.history, index); break end
+                end
+                refreshHistory()
+            end)
+        end,
+        Clear = function()
+            ns.UI.Confirm(L("Effacer toutes les sessions enregistrées de ce personnage ? La session en cours est conservée."), function()
+                db.history = {}; refreshHistory()
+            end)
+        end,
+    })
+    historyPage:HookScript("OnShow", function() refreshHistory() end)
+    historyBody:HookScript("OnSizeChanged", function() ns.UI.ClampScroll(historyPage, historyBody:GetHeight()) end)
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel) end
     local function Text(text, y, font)
         local label = body:CreateFontString(nil, "ARTWORK", font or "GameFontHighlightSmall")
@@ -697,9 +769,7 @@ function ns.InitializeSessionJournal(parentCategory)
     end)
     local resetButton = Button("ArkannsQOLSessionReset", L("Réinitialiser les stats"), 16, -686, function()
         if not ready then return end
-        ns.UI.Confirm(L("Remettre les statistiques de cette session à zéro ?"), function()
-            if ready then BeginSession(nil, session.pause); Draw(); refreshSettings() end
-        end)
+        ns.UI.Confirm(L("Enregistrer cette session dans l’historique et remettre ses compteurs à zéro ?"), ArchiveAndRestart)
     end)
     local help = Text(L("Survole XP gagnée ou Solde pour le taux horaire.\nLe démarrage reprend les compteurs. L’option AFK suspend le suivi jusqu’au retour.\nUne nouvelle connexion remet les compteurs à zéro et démarre le suivi.\n/reload conserve les compteurs et l’arrêt manuel. ≥ indique des données XP incomplètes."), -730)
     local function LayoutOperation()
@@ -819,6 +889,7 @@ function ns.InitializeSessionJournal(parentCategory)
         lockButton:SetText(L("Déplacer"))
         LayoutOperation(); LayoutDisplay()
         syncing = false
+        if historyPage:IsShown() then refreshHistory() end
     end
     panel:SetScript("OnShow", function()
         LayoutTabs()
@@ -847,6 +918,7 @@ function ns.InitializeSessionJournal(parentCategory)
             label = L("Journal de session"), icon = "Interface\\Icons\\INV_Misc_Book_09", category = function() return settings end,
             OpenSettings = function(source)
                 if not source then return end
+                if source == "Historique et progression" then SelectPage(historyPage); return end
                 local operationControls = {
                     ["Démarrer le suivi"] = trackingButton, ["Arrêter le suivi"] = trackingButton,
                     ["Mettre en pause pendant l’AFK"] = _G.ArkannsQOLSession_pauseAFK,
@@ -957,6 +1029,7 @@ function ns.InitializeSessionJournal(parentCategory)
             ObserveDeath(false)
         elseif event == "PLAYER_LOGOUT" and ready then
             ObserveMoney(); ObserveXP(); SavePosition()
+            Checkpoint()
             session.elapsed = Elapsed()
             startedAt, ready = nil, false
         elseif event == "DISPLAY_SIZE_CHANGED" or event == "UI_SCALE_CHANGED" then

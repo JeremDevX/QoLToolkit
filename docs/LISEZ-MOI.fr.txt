@@ -39,7 +39,7 @@ Le panneau de talents utilise un exemple : le mode Disposition n'ouvre pas l'arb
 Les badges de rang restent attachés aux boutons de sorts ; leur position se règle par coin.
 
 OPTIONS DES MODULES
-Journal : « Suivi et statistiques » et « Affichage ».
+Journal : « Suivi et statistiques », « Affichage » et « Historique et progression ».
 Rappels : « Effets suivis » et « Affichage ».
 Affichage réunit visibilité, mode compact, survol, apparence, aperçu et déplacement.
 Infobulles et distance partagent une rubrique : « Infobulles », « Distance », « Options avancées ».
@@ -58,6 +58,18 @@ Les réglages avancés conservent leurs onglets par catégorie et leur liste dé
   L'option de combat restaure le placement WoW. Le texte des PNJ, objets et quêtes est conservé.
 - Réglages avancés : favoris, filtre Modifiés, valeurs actuelles/défaut et sélection
   de plusieurs options à réinitialiser après lecture du récapitulatif.
+
+HISTORIQUE DU JOURNAL
+L’historique conserve les 100 dernières sessions du personnage. Filtres : tout, 7 jours, 30 jours.
+Bilans : temps suivi, XP, niveaux, morts, solde et taux horaires calculés sur le temps suivi total.
+Les courbes comparent les taux horaires entre sessions ou les gains cumulés d’une session sélectionnée.
+Les pauses sont exclues. Les sessions de moins d’une minute n’ont pas de taux horaire.
+« Enregistrer et recommencer » archive la session. Réinitialiser les stats l’enregistre aussi avant remise à zéro.
+Une nouvelle connexion archive la session précédente ; /reload reprend la même session sans doublon.
+La session en cours reste séparée des bilans enregistrés. Les profils ne copient jamais l’historique.
+Un relevé par minute pendant le suivi, même fenêtre masquée ; 120 points maximum par session.
+Les anciennes sessions n’ont pas de dates ni de courbes reconstituées. ≥ indique une XP incomplète.
+La suppression d’une session ou de tout l’historique demande confirmation.
 
 APERÇUS
 L'onglet Affichage du journal et des rappels affiche un exemple pendant les réglages.

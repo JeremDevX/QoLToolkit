@@ -23,6 +23,10 @@ The talent build menu offers **Duplicate**, **Export**, and **Import**. Copy or 
 
 Spell Rank Guard checks ranks and discovers action buttons every 30 seconds, immediately when opening a trainer, and immediately when learning a spell. Action-bar changes still refresh existing buttons promptly. Button discovery waits until combat ends when necessary.
 
+Session Journal includes **History and progression**: the character's last 100 saved sessions, all-time/7-day/30-day summaries, tracked time, XP, levels, deaths, net gold, and hourly rates weighted by tracked duration. Select a session to view its cumulative XP or net gold curve, or compare hourly rates across sessions. Pauses are excluded. Sessions shorter than one minute have no hourly rate. Incomplete XP remains marked with ≥.
+
+**Save and start a new session** archives the current counters. Resetting stats also saves them first. A new login archives the previous session; `/reload` resumes it without creating a duplicate. The active session is shown separately from saved totals. History remains with the character and is excluded from profiles. Samples are taken once per minute while tracking, even when the journal window is hidden, and compacted to at most 120 points per session. Older sessions from before this update have no reconstructed dates or curves. Individual and bulk history deletion require confirmation.
+
 Layout changes require **Apply**. Cancelling or logging out restores the original placement while preserving other settings changed during the preview.
 
 ## Install

@@ -57,6 +57,7 @@ function methods:SetValue(value) self.value = value end
 function methods:GetFontString() self.fontString = rawget(self, "fontString") or Frame(); return self.fontString end
 function methods:CreateFontString(name) return Frame(name, self) end
 function methods:CreateTexture(name) return Frame(name, self) end
+function methods:CreateLine(name) return Frame(name, self) end
 function methods:GetThumbTexture() return Frame() end
 function methods:HasFocus() return false end
 function methods:IsForbidden() return false end
@@ -162,6 +163,7 @@ frames.ArkannsQOLReminderSettings.scripts.OnSizeChanged()
 assert(frames.ArkannsQOLAppearanceTab.points[1][3] < frames.ArkannsQOLEffectsTab.points[1][3], "Narrow tabs stack")
 
 Load("Modules/SessionJournalModel.lua")
+Load("Modules/SessionHistory.lua")
 Load("Modules/SessionJournal.lua")
 ns.InitializeSessionJournal({})
 assert(not frames.ArkannsQOLSessionVisibilityTab, "Session display uses one tab for appearance and visibility")
@@ -212,6 +214,75 @@ assert(frames.ArkannsQOLSessionHover_net and not frames.ArkannsQOLSessionHover_i
 combat = true
 assert(modules.session.Preview() == false)
 combat = false
+
+-- Drive the real journal lifecycle: hidden tracking, pause, reload, and login.
+local clock, wall, xp, cash = 0, 1800000000, 0, 100000
+env.GetTime = function() return clock end
+env.GetServerTime = function() return wall end
+env.UnitXP = function() return xp end
+env.UnitXPMax = function() return 1000 end
+env.UnitLevel = function() return 10 end
+env.GetMoney = function() return cash end
+local timers = {}
+env.C_Timer.NewTicker = function(interval, callback)
+    local timer = {interval = interval, callback = callback, Cancel = function(self) self.cancelled = true end}
+    timers[#timers + 1] = timer; return timer
+end
+local journalEvents = frames.ArkannsQOLSessionEvents
+local function JournalEvent(event, ...) journalEvents.scripts.OnEvent(journalEvents, event, ...) end
+JournalEvent("PLAYER_ENTERING_WORLD", true, false)
+local journalDB = env.ArkannsQOLSessionDB
+assert(journalDB.session.startedAt == wall)
+clock, wall, xp, cash = 120, wall + 120, 200, 110000
+JournalEvent("PLAYER_XP_UPDATE", "player"); JournalEvent("PLAYER_MONEY")
+env.SlashCmdList.ARKANNSQOLSESSION("stop")
+assert(journalDB.session.elapsed == 120 and journalDB.session.pause == "manual")
+clock, wall, xp, cash = 180, wall + 60, 300, 130000
+env.SlashCmdList.ARKANNSQOLSESSION("start")
+clock, wall, xp = 240, wall + 60, 400
+JournalEvent("PLAYER_XP_UPDATE", "player")
+JournalEvent("PLAYER_LOGOUT")
+assert(journalDB.session.elapsed == 180 and #journalDB.history == 0)
+JournalEvent("PLAYER_ENTERING_WORLD", false, true)
+assert(#journalDB.history == 0 and journalDB.session.xp == 300, "Reload resumes without counting paused XP")
+clock, wall = 300, wall + 60
+JournalEvent("PLAYER_LOGOUT")
+local previous = journalDB.session
+JournalEvent("PLAYER_ENTERING_WORLD", true, false)
+assert(#journalDB.history == 1 and journalDB.history[1].duration == 240)
+assert(journalDB.history[1].xp == 300 and journalDB.history[1].net == 10000)
+assert(journalDB.session ~= previous and journalDB.session.xp == 0)
+assert(not modules.session.ExportSettings().history, "Profiles never transfer character history")
+modules.session.OpenSettings("Historique et progression")
+assert(frames.ArkannsQOLSessionHistory.shown and not frames.ArkannsQOLSessionAppearance.shown)
+modules.session.SetEnabled(false)
+clock, wall = 390, wall + 90
+local historyTimer
+for _, timer in ipairs(timers) do
+    if timer.interval == 30 and not timer.cancelled then historyTimer = timer end
+end
+assert(historyTimer, "Hidden journal keeps the sampling timer active")
+historyTimer.callback()
+assert(journalDB.session.samples[#journalDB.session.samples].elapsed == 90)
+frames.ArkannsQOLSessionHistoryNew.scripts.OnClick()
+assert(#journalDB.history == 2 and journalDB.history[2].duration == 90)
+frames.ArkannsQOLSessionHistoryNew.scripts.OnClick()
+assert(#journalDB.history == 2, "Repeated save never archives an empty session")
+modules.session.SetEnabled(true)
+env.SlashCmdList.ARKANNSQOLSESSION("stop")
+JournalEvent("PLAYER_LOGOUT"); JournalEvent("PLAYER_ENTERING_WORLD", false, true)
+assert(journalDB.session.pause == "manual", "Reload preserves manual pause")
+assert(modules.session.ImportSettings({pauseAFK = true}))
+local afk = true
+env.UnitIsAFK = function() return afk end
+env.SlashCmdList.ARKANNSQOLSESSION("start")
+assert(journalDB.session.pause == "afk")
+clock, wall, xp = 450, wall + 60, 500
+JournalEvent("PLAYER_XP_UPDATE", "player")
+afk = false; JournalEvent("PLAYER_FLAGS_CHANGED", "player")
+clock, wall, xp = 510, wall + 60, 550
+JournalEvent("PLAYER_XP_UPDATE", "player"); env.SlashCmdList.ARKANNSQOLSESSION("stop")
+assert(journalDB.session.elapsed == 60 and journalDB.session.xp == 50, "AFK time and gains are excluded")
 
 Load("Modules/TalentPlanModel.lua")
 local first, second, third = {}, {}, {}

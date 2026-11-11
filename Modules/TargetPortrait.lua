@@ -3,6 +3,7 @@ local L, UI, WoW = ns.L, ns.UI, ns.WoW
 local title = L("Portrait de cible")
 local toggleSource = "Afficher l’entourage de classe"
 local classTexture = "Interface\\WorldStateFrame\\Icons-Classes"
+local portraitMask = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 -- Zero-based cells in the native 4 × 4 texture. Forever has nine classes.
 local classSlots = {WARRIOR = 0, MAGE = 1, ROGUE = 2, DRUID = 3,
     HUNTER = 4, SHAMAN = 5, PRIEST = 6, WARLOCK = 7, PALADIN = 8}
@@ -11,21 +12,44 @@ local events = {"PLAYER_ENTERING_WORLD", "PLAYER_TARGET_CHANGED", "PLAYER_REGEN_
 local db, driver, overlay, toggle
 local anchoredPortrait, rejectedPortrait, paintedClass
 
-local function AddArc(frame, first, last, count, alpha)
-    local radius = 33.5
-    local step = (last - first) / count
-    for index = 1, count do
-        -- A small overlap closes seams between successive chords at fractional UI scales.
-        local startAngle = math.rad(first + (index - 1) * step - (index > 1 and .35 or 0))
-        local endAngle = math.rad(first + index * step + (index < count and .35 or 0))
-        local highlight = math.sin(math.pi * (index - .5) / count)
-        local line = frame:CreateLine(nil, "ARTWORK")
-        line:SetStartPoint("CENTER", frame, radius * math.sin(startAngle), radius * math.cos(startAngle))
-        line:SetEndPoint("CENTER", frame, radius * math.sin(endAngle), radius * math.cos(endAngle))
-        line:SetThickness(1.3 + highlight)
-        frame.arcs[#frame.arcs + 1] = {line = line, highlight = .10 + .20 * highlight,
-            alpha = alpha * (.66 + .34 * highlight)}
+local function AddTrim(frame, x, y, width, height, alpha)
+    local mask = frame:CreateMaskTexture()
+    if not mask:SetTexture(portraitMask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE") then return end
+    mask:SetSize(width, height)
+    mask:SetPoint("CENTER", frame, "CENTER", x, y)
+    local trim = frame:CreateTexture(nil, "ARTWORK")
+    trim:Hide()
+    trim:AddMaskTexture(mask)
+    trim:SetTexelSnappingBias(0)
+    trim:SetSnapToPixelGrid(false)
+    trim:SetDesaturated(true)
+    trim:SetAlpha(alpha)
+    frame.trims[#frame.trims + 1] = trim
+end
+
+local function AnchorTrims(frame, source)
+    frame.trimSource, frame.trimAtlas = nil, nil
+    for _, trim in ipairs(frame.trims) do trim:Hide() end
+    if not WoW.IsPublic(source) or not source
+        or (source.IsAnchoringSecret and WoW.ReadValue(source.IsAnchoringSecret, source) ~= false) then return end
+    for _, trim in ipairs(frame.trims) do
+        trim:ClearAllPoints()
+        if not pcall(trim.SetAllPoints, trim, source) then return end
     end
+    frame.trimSource = source
+end
+
+local function UpdateTrimAtlas(frame)
+    local source = frame.trimSource
+    local atlas = source and WoW.ReadValue(source.GetAtlas, source)
+    if type(atlas) ~= "string" or #frame.trims == 0 then atlas = nil end
+    if frame.trimAtlas == atlas then return end
+    if atlas and (not C_Texture or type(WoW.ReadValue(C_Texture.GetAtlasInfo, atlas)) ~= "table") then atlas = nil end
+    for _, trim in ipairs(frame.trims) do
+        if atlas then trim:SetAtlas(atlas, false) end
+        trim:SetShown(atlas ~= nil)
+    end
+    frame.trimAtlas = atlas
 end
 
 local function AnchorOverlay(container, portrait)
@@ -41,16 +65,17 @@ local function AnchorOverlay(container, portrait)
         overlay:Hide()
         overlay:EnableMouse(false)
         overlay:SetSize(1, 1)
-        overlay.arcs = {}
-        if overlay.CreateLine then
-            AddArc(overlay, -42, 61, 10, .94)
-            AddArc(overlay, 178, 234, 6, .82)
+        overlay.trims = {}
+        if overlay.CreateMaskTexture then
+            -- Tint two small patches of the actual Blizzard rim, using the same atlas and anchors.
+            AddTrim(overlay, 20, 26, 24, 16, .74)
+            AddTrim(overlay, -14, -29, 18, 10, .46)
         end
         local icon = overlay:CreateTexture(nil, "OVERLAY")
         if icon:SetTexture(classTexture) then
-            icon:SetSize(19, 19)
+            icon:SetSize(16, 16)
             -- The raid marker is centered over the portrait. The PvP badge is below the glyph.
-            icon:SetPoint("CENTER", overlay, "CENTER", 25, 24)
+            icon:SetPoint("CENTER", overlay, "CENTER", 24, 22)
             overlay.icon = icon
         else
             icon:Hide()
@@ -65,6 +90,7 @@ local function AnchorOverlay(container, portrait)
         return
     end
     anchoredPortrait = portrait
+    AnchorTrims(overlay, container.FrameTexture)
     return overlay
 end
 
@@ -87,21 +113,21 @@ local function Refresh()
     local portrait = container.Portrait
     if not WoW.IsPublic(portrait) or not portrait then return end
     local frame = AnchorOverlay(container, portrait)
-    if not frame or (not frame.icon and #frame.arcs == 0) then return end
+    if not frame then return end
     if WoW.ReadValue(portrait.IsShown, portrait) ~= true or WoW.ReadValue(UnitIsPlayer, "target") ~= true then return end
     if IsClassPortrait(portrait) then return end
 
     local class = WoW.ReadValue(UnitClassBase, "target")
     local slot = type(class) == "string" and classSlots[class]
     if not slot then return end
+    UpdateTrimAtlas(frame)
+    if not frame.icon and not frame.trimAtlas then return end
     if paintedClass ~= class then
         local color = C_ClassColor and WoW.ReadValue(C_ClassColor.GetClassColor, class)
         if type(color) ~= "table" or not WoW.IsFiniteNumber(color.r) or not WoW.IsFiniteNumber(color.g)
             or not WoW.IsFiniteNumber(color.b) then return end
-        for _, segment in ipairs(frame.arcs) do
-            local shine = segment.highlight
-            segment.line:SetColorTexture(color.r + (1 - color.r) * shine, color.g + (.86 - color.g) * shine,
-                color.b + (.62 - color.b) * shine, segment.alpha)
+        for _, trim in ipairs(frame.trims) do
+            trim:SetVertexColor(.24 + .76 * color.r, .22 + .76 * color.g, .19 + .76 * color.b)
         end
         if frame.icon then
             local x, y = (slot % 4) / 4, math.floor(slot / 4) / 4

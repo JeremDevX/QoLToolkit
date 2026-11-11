@@ -392,15 +392,20 @@ do
     local colors = {MAGE = {r = .25, g = .78, b = .92}, DRUID = {r = 1, g = .49, b = .04}}
     local container = Widget("Frame", nil, env.TargetFrame)
     local portrait = Widget("Texture", nil, container)
+    local rim = Widget("Texture", nil, container)
+    local atlas = "UI-HUD-UnitFrame-Target-PortraitOn-c60"
+    local nativeAtlas = atlas
     portrait:Show()
     portrait.IsAnchoringSecret = function() return secretAnchor end
-    env.TargetFrame.TargetFrameContainer, container.Portrait = container, portrait
+    rim.GetAtlas = function() return nativeAtlas end
+    env.TargetFrame.TargetFrameContainer, container.Portrait, container.FrameTexture = container, portrait, rim
     container:SetFrameLevel(4)
     env.InCombatLockdown = function() return combat end
     env.UnitIsPlayer = function(unit) assert(unit == "target"); return player end
     env.UnitClassBase = function(unit) assert(unit == "target"); return class end
     env.UnitIsUnit = function(a, b) assert(a == "target" and b == "player"); return false end
     env.C_ClassColor = {GetClassColor = function(token) return colors[token] end}
+    env.C_Texture = {GetAtlasInfo = function(name) if name == atlas then return {} end end}
     env.C_CVar = {GetCVarBool = function(name)
         assert(name == "ReplaceOtherPlayerPortraits")
         return replacement
@@ -414,15 +419,15 @@ do
     end
     function methods:IsEventRegistered(event) return self.events and self.events[event] ~= nil end
     function methods:UnregisterAllEvents() self.events = {} end
-    function methods:CreateLine(_, layer)
-        assert(not combat and layer == "ARTWORK")
-        local line = Widget("Line", nil, self)
-        line.SetStartPoint = function(widget, _, owner, x, y) assert(owner == self); widget.start = {x, y} end
-        line.SetEndPoint = function(widget, _, owner, x, y) assert(owner == self); widget.finish = {x, y} end
-        line.SetThickness = function(widget, thickness) widget.thickness = thickness end
-        line.SetColorTexture = function(widget, ...) widget.color = {...} end
-        return line
-    end
+    function methods:CreateLine() error("Do not redraw the native portrait rim with line segments") end
+    function methods:CreateMaskTexture() assert(not combat); return Widget("MaskTexture", nil, self) end
+    function methods:AddMaskTexture(mask) self.mask = mask end
+    function methods:SetTexelSnappingBias(value) self.snappingBias = value end
+    function methods:SetSnapToPixelGrid(value) self.snapToGrid = value end
+    function methods:SetDesaturated(value) self.desaturated = value end
+    function methods:SetAllPoints(region) assert(not combat); self.alignedTo = region end
+    function methods:SetAtlas(name, useAtlasSize) assert(useAtlasSize == false); self.atlas = name end
+    function methods:SetVertexColor(...) self.color = {...} end
     function methods:SetTexture(texture) self.texture = texture; return true end
     function methods:SetTexCoord(...) self.coords = {...} end
 
@@ -445,17 +450,25 @@ do
     Event("PLAYER_ENTERING_WORLD")
     local frame = assert(Overlay())
     assert(frame.shown and not frame.mouse and frame.level == container.level and frame.points[1][2] == portrait)
-    assert(#frame.arcs == 16 and frame.icon.width == 19 and frame.icon.points[1][4] > 22)
+    assert(#frame.trims == 2 and frame.icon.width == 16 and frame.icon.points[1][4] == 24)
     assert(frame.icon.texture == "Interface\\WorldStateFrame\\Icons-Classes" and frame.icon.coords[1] > .25)
-    for _, segment in ipairs(frame.arcs) do
-        local line = segment.line
-        local x, y = (line.start[1] + line.finish[1]) / 2, (line.start[2] + line.finish[2]) / 2
-        assert(math.sqrt(x * x + y * y) - line.thickness / 2 > 29, "Every stroke stays outside the face")
+    for _, trim in ipairs(frame.trims) do
+        assert(trim.shown and trim.atlas == atlas and trim.alignedTo == rim and trim.desaturated)
+        assert(trim.mask.texture == "Interface\\CharacterFrame\\TempPortraitAlphaMask")
+        assert(trim.mask.width < 58 and trim.mask.height < 58, "Tint only a small section of the frame art")
     end
-    local firstColor = frame.arcs[1].line.color[1]
+    assert(frame.trims[1].mask.points[1][4] > 0 and frame.trims[2].mask.points[1][4] < 0)
+    local firstColor = frame.trims[1].color[1]
     combat, class = true, "DRUID"
     Event("PLAYER_TARGET_CHANGED")
-    assert(frame.shown and frame.icon.coords[1] > .75 and frame.arcs[1].line.color[1] > firstColor)
+    assert(frame.shown and frame.icon.coords[1] > .75 and frame.trims[1].color[1] > firstColor)
+    nativeAtlas = "unknown-atlas"
+    Event("UNIT_PORTRAIT_UPDATE", "target")
+    assert(frame.shown and not frame.trims[1].shown and not frame.trims[2].shown,
+        "An unavailable atlas must leave just the class emblem")
+    nativeAtlas = atlas
+    Event("UNIT_PORTRAIT_UPDATE", "target")
+    assert(frame.trims[1].shown and frame.trims[2].shown)
     class = "secret"
     Event("PLAYER_TARGET_CHANGED")
     assert(not frame.shown)

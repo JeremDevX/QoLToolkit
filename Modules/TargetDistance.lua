@@ -177,6 +177,8 @@ local function ReadSpellBand(band, unit)
 end
 
 local function GetRangeBand(unit)
+    -- A public alias of the target must use the same permitted probes as its badge.
+    if unit == "mouseover" and Read(UnitIsUnit, unit, "target") == true then unit = "target" end
     local status, enemy = ReadAPI(UnitCanAttack, "player", unit)
     if status ~= "absent" and (status ~= "ok" or type(enemy) ~= "boolean") then return end
     if not enemy and Read(UnitCanAssist, "player", unit) ~= true then return end

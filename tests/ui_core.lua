@@ -61,7 +61,7 @@ local function Frame(_, name, parent)
     return frame
 end
 function methods:CreateTexture() return Frame() end
-function methods:CreateFontString() return Frame() end
+function methods:CreateFontString() return Frame(nil,nil,self) end
 function methods:GetFontString()
     if not self.fontString then self.fontString=Frame(); self.fontString:SetText(self:GetText()) end
     return self.fontString
@@ -294,9 +294,22 @@ ns.AdvancedSettingsCatalog={
     {name="nativeSetting",label="Option native"},
 }
 ns.profilesCategory,ns.diagnosticsCategory=Category(6),Category(7)
+ns.modules.session.category=function() return Category(8) end
+ns.modules.session.label="Journal de session"
+local function JournalSetting(query, label)
+    for _,entry in ipairs(UI.SearchSettings(query)) do
+        if entry.label==ns.modules.session.label.." · "..ns.L(label) then
+            entry.Open(); assert(opened==8); return
+        end
+    end
+    error("Missing journal setting: "..query)
+end
+JournalSetting("journal theme", "Thème")
+JournalSetting("journal disposition", "Disposition")
 assert(#UI.SearchSettings("  ")==0)
 local results=UI.SearchSettings("ÉCHELLE infobulles")
 assert(#results==1 and results[1].label:find("Échelle",1,true))
+assert(#UI.SearchSettings("echelle infobulles")==1, "Unaccented queries match accented labels")
 results[1].Open(); assert(opened==3)
 results=UI.SearchSettings("talents erreurs")
 assert(#results==1); results[1].Open(); assert(opened==2)
@@ -308,6 +321,11 @@ assert(#results==1); results[1].Open(); assert(opened==6)
 results=UI.SearchSettings("diagnostics trace")
 assert(#results==1); results[1].Open(); assert(opened==7)
 local search=frames.ArkannsQOLHomeSearch
+local modulesHeading
+for _,child in ipairs(homeScroll.child.children) do
+    if child:GetText()=="Modules" then modulesHeading=child end
+end
+assert(modulesHeading and modulesHeading:IsShown())
 ns.home:SetWidth(320)
 search:SetText("talents erreurs"); search.scripts.OnTextChanged()
 local result=frames.ArkannsQOLHomeSearchResult1
@@ -317,6 +335,7 @@ search:SetText("zz-no-match"); search.scripts.OnTextChanged()
 assert(not result:IsShown() and not card.parent:IsShown())
 search.scripts.OnEscapePressed()
 assert(search:GetText()=="" and card.parent:IsShown() and not result:IsShown())
+assert(modulesHeading:IsShown(), "Escape restores the modules heading")
 for _,path in ipairs({"Locales/enUS-Core.lua","Locales/enUS-Advanced.lua","Locales/enUS-TalentsAuras.lua","Locales/enUS-Utilities.lua"}) do Load(path) end
 useEnglish=true
 results=UI.SearchSettings("talents error")
@@ -325,4 +344,8 @@ search:SetText("talents error"); search.scripts.OnTextChanged()
 assert(result:GetText():find("Error",1,true))
 frames.ArkannsQOLHomeSearchClear.scripts.OnClick()
 assert(search:GetText()=="" and card.parent:IsShown())
+assert(modulesHeading:IsShown(), "Clear restores the modules heading")
+ns.modules.session.label="Session Journal"
+JournalSetting("journal theme", "Thème")
+JournalSetting("journal layout", "Disposition")
 print("PASS: global settings search, accent folding, English labels, advanced navigation, and narrow results")

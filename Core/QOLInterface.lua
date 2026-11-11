@@ -691,7 +691,8 @@ function UI.BuildHome(panel)
         session = {"Afficher la fenêtre", "Démarrer le suivi", "Arrêter le suivi", "Mettre en pause pendant l’AFK", "Masquer les valeurs nulles",
             "Mode compact (3 statistiques)", "Développer au survol", "Réinitialiser les stats", "Taille du texte", "Opacité du fond (%)",
             "Afficher le titre", "Afficher la bordure", "Largeur min.", "Masquer en combat", "Durée", "XP gagnée", "Prochain niveau",
-            "Or reçu", "Or dépensé", "Solde", "Morts", "Niveaux gagnés"},
+            "Or reçu", "Or dépensé", "Solde", "Morts", "Niveaux gagnés", "Thème", "Disposition",
+            "Apparence personnalisée", "Thème commun", "Déplacer"},
         talents = {"Modifier le build", "Retirer le dernier point", "Nouveau", "Dupliquer ce build", "Exporter ce build", "Importer un build", "1er point", "Couleur du prochain point",
             "Couleur des points suivants", "Couleur des erreurs", "Points suivants visibles", "Déplacer"},
         ranks = {"Avertissements de rang", "Exceptions", "Badge", "Coin", "Taille", "Opacité", "Couleur", "En combat", "Hors combat"},
@@ -708,9 +709,9 @@ function UI.BuildHome(panel)
         ["î"]="i", ["ï"]="i", ["Î"]="i", ["Ï"]="i", ["ô"]="o", ["ö"]="o", ["Ô"]="o", ["Ö"]="o",
         ["ù"]="u", ["û"]="u", ["ü"]="u", ["Ù"]="u", ["Û"]="u", ["Ü"]="u", ["ç"]="c", ["Ç"]="c", ["œ"]="oe", ["Œ"]="oe" }
     local function SearchText(value)
-        local text=tostring(value or ""):lower()
+        local text=tostring(value or "")
         for accented, plain in pairs(accents) do text=text:gsub(accented,plain) end
-        return text
+        return text:lower()
     end
     function UI.SearchSettings(query)
         local words, result = {}, {}
@@ -904,6 +905,7 @@ function UI.BuildHome(panel)
         end
         for index=#entries+1,#favoriteButtons do favoriteButtons[index]:Hide() end
         if #entries>0 then y=y+8 end
+        modulesTitle:Show()
         Place(modulesTitle,0,y,width)
         y=y+modulesTitle:GetStringHeight()+8
         local rowHeight=0

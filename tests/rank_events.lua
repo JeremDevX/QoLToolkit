@@ -75,6 +75,8 @@ end
 assert(module.ExportSettings().interval == 30, "Normalize legacy saved intervals")
 assert(driver.events.TRAINER_SHOW and driver.events.LEARNED_SPELL_IN_SKILL_LINE and driver.events.SPELLS_CHANGED)
 Event("PLAYER_ENTERING_WORLD")
+assert(scans == 0, "Collect notifications until the next frame")
+Tick(0)
 assert(scans == 1 and rankReads == 1, "Check immediately on entering the world")
 Tick(29)
 assert(scans == 1 and rankReads == 1, "Visual updates must not rescan ranks")
@@ -84,9 +86,11 @@ for _ = 1, 30 do Event("ACTIONBAR_PAGE_CHANGED"); Tick(1) end
 assert(scans == 3 and rankReads == 3, "Page events must not postpone or multiply the periodic scan")
 local before = scans
 Event("TRAINER_SHOW")
+Tick(0)
 assert(scans == before + 1 and rankReads == 4, "Trainer opening checks immediately")
 oldRank = false
 Event("LEARNED_SPELL_IN_SKILL_LINE")
+Tick(0)
 assert(scans == before + 2 and rankReads == 5, "Learning invalidates the cached rank immediately")
 for _ = 1, 20 do Event("SPELLS_CHANGED") end
 Tick(.2)
@@ -114,4 +118,27 @@ Tick(.2)
 assert(scans == stoppedScans + 1, "Reactivation rediscovers buttons")
 Tick(29.8)
 assert(scans == stoppedScans + 2, "Reactivation restarts the 30-second clock")
+local scanBefore, ranksBefore = scans, rankReads
+for _ = 1, 20 do Event("LEARNED_SPELL_IN_SKILL_LINE"); Event("LEARNED_SPELL_IN_TAB") end
+Event("SPELLS_CHANGED")
+assert(scans == scanBefore and rankReads == ranksBefore, "Coalesce the entire learning burst")
+Tick(0)
+assert(scans == scanBefore + 1 and rankReads == ranksBefore + 1, "One check next frame for all learning notifications")
+Tick(.2)
+assert(scans == scanBefore + 1 and rankReads == ranksBefore + 1, "No duplicate check after the burst")
+Event("TRAINER_SHOW"); Event("LEARNED_SPELL_IN_SKILL_LINE"); Event("SPELLS_CHANGED")
+Tick(0)
+assert(scans == scanBefore + 2 and rankReads == ranksBefore + 2, "Trainer and learning share the next frame check")
+Event("LEARNED_SPELL_IN_SKILL_LINE"); module.SetEnabled(false); Tick(0)
+assert(scans == scanBefore + 2, "Disabling cancels a queued immediate check")
+module.SetEnabled(true); Tick(.2)
+scanBefore = scans
+combat = true; Event("PLAYER_REGEN_DISABLED")
+for _ = 1, 20 do Event("LEARNED_SPELL_IN_SKILL_LINE") end
+Tick(0)
+assert(scans == scanBefore, "Learning during combat never discovers frames")
+combat = false; Event("PLAYER_REGEN_ENABLED")
+assert(scans == scanBefore + 1, "Combat exit performs the deferred discovery once")
+Tick(.2)
+assert(scans == scanBefore + 1, "No second discovery after combat exit")
 print("PASS: rank cadence, immediate trainer/learning checks, event coalescing, combat, profiles, and disable")

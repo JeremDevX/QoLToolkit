@@ -8,7 +8,7 @@ local buttons, rankCache, warnings = {}, {}, {}
 local REFRESH_INTERVAL, EVENT_INTERVAL = 30, 0.2
 local elapsed, visualElapsed, periodicElapsed = 0, 0, 0
 local discoveryPending = true
-local refreshPending, cachePending = true, true
+local refreshPending, cachePending, immediatePending = true, true, false
 local enabled, active = false, false
 local preview, previewRemaining = nil, 0
 local defaults = {enabled = true, interval = 30, style = "mark", corner = "BOTTOMLEFT", size = 14,
@@ -292,6 +292,7 @@ local function SetEnabled(value)
     rankCache, periodicElapsed, cachePending = {}, 0, true
     discoveryPending = enabled
     elapsed, visualElapsed, refreshPending = 0, 0, enabled
+    immediatePending = false
     UpdateDriver()
     Refresh()
     if settingsPanel and settingsPanel.OnRefresh then settingsPanel:OnRefresh() end
@@ -540,13 +541,14 @@ local function CheckRanks()
         discoveryPending = false
     end
     Refresh()
-    elapsed, refreshPending = 0, false
+    elapsed, refreshPending, immediatePending = 0, false, false
 end
 
 local function FullCheck()
     Invalidate()
     discoveryPending, periodicElapsed = true, 0
-    if active then CheckRanks() end
+    -- All learning notifications from this frame share the next frame's check.
+    immediatePending = true
 end
 
 driver:SetScript("OnEvent", function(_, event)
@@ -578,9 +580,9 @@ driver:SetScript("OnUpdate", function(_, delta)
         periodicElapsed = periodicElapsed % REFRESH_INTERVAL
         discoveryPending = true
         Invalidate()
-        CheckRanks()
-        visualElapsed = 0
-    elseif refreshPending and elapsed >= EVENT_INTERVAL then
+        immediatePending = true
+    end
+    if immediatePending or (refreshPending and elapsed >= EVENT_INTERVAL) then
         CheckRanks()
         visualElapsed = 0
     elseif visualElapsed >= EVENT_INTERVAL then

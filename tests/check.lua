@@ -307,7 +307,8 @@ local missingTexture
 CreateFrame = function(kind, name)
     local widget = createStub(kind, name)
     setmetatable(widget, {__index = function(_, key)
-        if key ~= "IconBorder" and key ~= "Icon" and key ~= "icon" then return noop end
+        if key ~= "IconBorder" and key ~= "IconQuestTexture" and key ~= "NewItemTexture"
+            and key ~= "UpdateNewItem" and key ~= "Icon" and key ~= "icon" then return noop end
     end})
     widget.GetScript = rawget
     widget.ClearAllPoints = function(self) self.points = {} end
@@ -426,19 +427,44 @@ do
     NUM_TOTAL_BAG_FRAMES = 5
     ContainerFrameUtil_GetShownFrameForID = function() return bag end
     ContainerFrameUtil_EnumerateContainerFrames = function() return ipairs({bag}) end
-    hooksecurefunc = function(name, fn) assert(name == "SetItemButtonQuality"); hook = fn end
+    local newItemHook
+    slot.UpdateNewItem = noop
+    hooksecurefunc = function(target, name, fn)
+        if target == "SetItemButtonQuality" then hook = name
+        else
+            assert(target == slot and name == "UpdateNewItem")
+            newItemHook = fn
+        end
+    end
     SetItemButtonQuality = function(...) hook(...) end
+    local newItemGlow = CreateFrame("Texture")
+    slot.NewItemTexture = newItemGlow
+    newItemGlow.GetAtlas = function(self) return self.atlas end
+    newItemGlow.SetAtlas = function(self, atlas) self.atlas = atlas end
     local questInfo
-    C_Container = {GetContainerItemInfo = function() return {quality = 4} end,
+    slot.IconQuestTexture = CreateFrame("Texture")
+    slot.IconQuestTexture.alpha = .9
+    local bagItem = {quality = 4, itemID = 42}
+    C_Container = {GetContainerItemInfo = function() return bagItem end,
         GetContainerItemQuestInfo = function() return questInfo end}
     ITEM_QUALITY6_DESC, ITEM_QUALITY7_DESC, ITEM_QUALITY8_DESC = "Artifact", "Heirloom", "WoW Token"
-    C_Item = {GetItemQualityColor = function() return .64, .21, .93 end}
+    local reagent
+    C_Item = {GetItemQualityColor = function() return .64, .21, .93 end,
+        GetItemInfo = function(item)
+            assert(item == 42 or item == "item:42")
+            return "Linen", nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, reagent
+        end}
     CreateColor = function(...) return {...} end
     local bagsCategory = {GetID = function() return 2 end}
     Settings.RegisterCanvasLayoutSubcategory = function() return bagsCategory end
     Settings.OpenToCategory = function(id) opened = id end
     local function Control() return CreateFrame("Frame") end
-    local function Check(_, name) return CreateFrame("CheckButton", name) end
+    local function Check(_, name, _, _, _, callback)
+        local control = CreateFrame("CheckButton", name)
+        control.SetChecked = function(self, value) self.checked = value end
+        control:SetScript("OnClick", function(_, value) callback(value) end)
+        return control
+    end
     local function Button(_, name, _, _, _, _, callback)
         local button = CreateFrame("Button", name)
         button:SetScript("OnClick", callback)
@@ -448,9 +474,11 @@ do
         UI = {StylePanel = noop, Label = Control, Check = Check, Button = Button, Refresh = noop,
             ClampScroll = function(scroll, height) scroll.offset = math.min(scroll.offset, math.max(0, height - scroll:GetHeight())) end},
         RegisterModule = function(_, module) bagModule = module end}
-    ForeverTooltipLibreDB.bagSort = {qualityInnerGlow = 100}
+    ForeverTooltipLibreDB.bagSort = {qualityInnerGlow = 100, qualityUncommonOnly = true}
     chunks["Modules/BagSort.lua"]("QoLToolkit", bagNS)
     bagNS.InitializeBagSort({GetID = function() return 1 end})
+    assert(not frames.ArkannsQOLBagShowColor0.checked and not frames.ArkannsQOLBagShowColor1.checked
+        and frames.ArkannsQOLBagShowColorreagent.checked, "Migrate the old filter on reload")
     local advanced = frames.ArkannsQOLBagColor4.parent
     local body, scroll = advanced.parent, advanced.parent.parent
     local collapsedHeight = body:GetHeight()
@@ -486,8 +514,15 @@ do
     SetItemButtonQuality(slot, 4)
     assert(not slot.textures[6].shown and not glow.shown and outline.points.BOTTOMRIGHT[2] == "BOTTOMRIGHT")
     assert(slot.IconBorder.alpha == 0)
+    newItemGlow:SetAtlas("bags-glow-purple")
+    newItemGlow:Show()
+    if newItemHook then newItemHook(slot) end
+    assert(newItemGlow.atlas == "bags-glow-white" and newItemGlow.color[1] == outline.color[1],
+        "A fresh item's native halo must follow the replacement color")
     SetItemButtonQuality(slot, "secret")
     assert(not outline.shown and slot.IconBorder.alpha == .8)
+    assert(newItemGlow.atlas == "bags-glow-purple" and newItemGlow.color[1] == 1)
+    newItemGlow:Hide()
 
     assert(not frames.ArkannsQOLBagColor6 and not frames.ArkannsQOLBagColor7 and not frames.ArkannsQOLBagColor8)
     assert(frames.ArkannsQOLBagColorquest, "Quest items need a separate color sample")
@@ -497,9 +532,10 @@ do
     SetItemButtonQuality(slot, 1)
     assert(outline.shown and outline.color[1] == 1 and outline.color[2] == .8 and outline.color[3] == 0,
         "Quest color must override common quality and survive the gray/white filter")
+    assert(slot.IconQuestTexture.alpha == 0, "Replace the native quest border too")
     questInfo = {isQuestItem = false, questID = 123}
     SetItemButtonQuality(slot, 1)
-    assert(outline.shown, "Quest starters use the quest category too")
+    assert(outline.shown and slot.IconQuestTexture.alpha == .9, "Keep the native quest-start marker")
     questInfo = {isQuestItem = false}
     SetItemButtonQuality(slot, 1)
     assert(not outline.shown, "Ordinary whites still obey the filter")
@@ -523,13 +559,44 @@ do
     assert(outline.color[2] == .82, "Reset restores the default yellow quest color")
     questInfo = nil
 
+    bagModule.OpenSettings("Composants d’artisanat")
+    assert(revealedControl == frames.ArkannsQOLBagColorreagent)
+    SetItemButtonQuality(slot, 4, "item:42")
+    assert(outline.color[1] == .64, "An item awaiting data keeps its quality color")
+    reagent = true
+    frames.ArkannsQOLBagQualityEvents:OnEvent("ITEM_DATA_LOAD_RESULT", 42, true)
+    assert(outline.color[1] == 0x36 / 255 and outline.color[2] == 0xD9 / 255, "Late reagent data applies turquoise")
+    local colorOptions
+    ColorPickerFrame = {
+        SetupColorPickerAndShow = function(_, options) colorOptions = options end,
+        GetColorRGB = function() return 1, .5, 0 end,
+    }
+    frames.ArkannsQOLBagColorreagent:OnClick("LeftButton")
+    assert(colorOptions.r == 0x36 / 255)
+    colorOptions.swatchFunc()
+    assert(outline.color[1] == 1 and outline.color[2] == 0x80 / 255)
+    colorOptions.cancelFunc()
+    assert(outline.color[1] == 0x36 / 255)
+    colorOptions.swatchFunc()
+    frames.ArkannsQOLBagShowColorreagent:OnClick(false)
+    assert(not outline.shown and slot.IconBorder.alpha == .8
+        and bagModule.ExportSettings().qualityColors.reagent == "FF8000", "Unchecked reagents use the native border")
+    assert(bagModule.ImportSettings(bagModule.ExportSettings()), "Reagent color and checkbox survive a profile round trip")
+    local old = {enabled = false, qualityUncommonOnly = true}
+    bagModule.profileMigrations[#bagModule.profileMigrations](old, bagModule.ExportSettings())
+    assert(old.qualityUncommonOnly == nil and old.qualityHidden[0] and old.qualityHidden[1])
+    ColorPickerFrame = nil
+
     local tooltip = GameTooltip
     GameTooltip = nil
     shortcut:OnClick("LeftButton")
     local quick = frames.ArkannsQOLBagQuickSettings
     assert(quick.shown and quick.points.TOPRIGHT[1] == bag)
-    assert(frames.ArkannsQOLBagQuickUncommonOnly and frames.ArkannsQOLBagQuickColor4,
-        "The backpack shortcut must expose the rarity filter and colors")
+    assert(not frames.ArkannsQOLBagQuickShowColorreagent.checked and frames.ArkannsQOLBagQuickShowColor4.checked)
+    frames.ArkannsQOLBagQuickShowColorreagent:OnClick(true)
+    assert(outline.shown and frames.ArkannsQOLBagShowColorreagent.checked)
+    frames.ArkannsQOLBagQuickColorreagent:OnClick("RightButton")
+    assert(outline.color[1] == 0x36 / 255, "Reset the reagent color to turquoise from quick settings")
     assert(frames.ArkannsQOLBagQuickColorquest and not frames.ArkannsQOLBagQuickColor6)
     for key, value in pairs({qualityOpacity = 75, qualityThickness = 3, qualityInnerGlow = 40}) do
         local slider = assert(frames["ArkannsQOLBagQuick_" .. key], "Missing backpack slider " .. key)

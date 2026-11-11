@@ -105,7 +105,7 @@ local fieldLabels = {
     mouseoverDistance = "Distance au survol", rounded = "Arrondi des estimations", portrait = "Ancrage au portrait",
     frame = "Style du badge", background = "Fond", tooltip = "Texte d’infobulle",
     qualityBorders = "Contours de rareté", qualityOpacity = "Opacité du contour", qualityThickness = "Épaisseur du contour",
-    qualityInnerGlow = "Halo intérieur", qualityUncommonOnly = "Masquer gris et blancs", qualityColors = "Couleurs de rareté",
+    qualityInnerGlow = "Halo intérieur", qualityHidden = "Couleurs désactivées", qualityColors = "Couleurs de rareté",
     transmogIcons = "Transmos manquantes", glowIntensity = "Intensité de surbrillance", futureSteps = "Points suivants visibles",
     interval = "Fréquence de vérification", style = "Style", corner = "Coin", size = "Taille", color = "Couleur",
     exceptions = "Exceptions", ignored = "Exceptions", auras = "Effets surveillés", tracking = "Suivis surveillés",

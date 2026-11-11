@@ -765,7 +765,7 @@ function UI.BuildHome(panel)
             "Fond et bordure", "Fond seul", "Texte seul", "Couleur du texte"},
         flights = {"Chronométrer les vols", "Exporter mes temps de vol"},
         bags = {"Trier à l’ouverture manuelle", "Bordure selon la rareté", "Personnaliser les bordures", "Transmos manquantes",
-            "Masquer gris et blancs", "Couleurs de rareté", "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
+            "Couleurs de rareté", "Objets de quête", "Composants d’artisanat", "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
         appearance = {"Thème", "Taille du texte des modules", "Type de bordure", "Épaisseur de bordure", "Police", "Échelle (%)",
             "Opacité du fond (%)", "Marge intérieure", "Espacement", "Fond", "Texte", "Bordure et accents"},
     }

@@ -2,7 +2,7 @@
 local env = setmetatable({}, {__index = _G})
 env._G = env
 local frames, modules, overrides, menuItems = {}, {}, {}, {}
-local combat, dead, confirmation, lastLayout, ended = false, false, nil, nil, nil
+local combat, dead, confirmation, lastLayout, ended, revealed = false, false, nil, nil, nil, nil
 local methods = {}
 local function noop() end
 local function Frame(name, parent)
@@ -88,6 +88,7 @@ ns.UI.ClampScroll = function(scroll, height)
 end
 ns.UI.StartLayout = function(id) lastLayout = id; return true end
 ns.UI.Notify = noop
+ns.UI.RevealControl = function(scroll, control) revealed = {scroll = scroll, control = control} end
 ns.UI.Confirm = function(_, accept) confirmation = accept; return true end
 ns.UI.PreviewEnded = function(id) ended = id end
 ns.RegisterModule = function(id, descriptor) modules[id] = descriptor end
@@ -98,6 +99,15 @@ Load("Core/WoWRuntime.lua")
 Load("Modules/AuraReminderModel.lua")
 Load("Modules/AuraReminders.lua")
 ns.InitializeReminders({})
+assert(not frames.ArkannsQOLReminderVisibilityTab, "Reminder display uses one tab for appearance and visibility")
+modules.reminders.OpenSettings("Mode compact : 2 effets")
+assert(frames.ArkannsQOLAppearancePage.shown and not frames.ArkannsQOLEffectsPage.shown)
+assert(revealed.control == frames.ArkannsQOLReminder_compact)
+local reminderPageBeforeReturn = frames.ArkannsQOLAppearancePage
+modules.reminders.OpenSettings(nil)
+assert(reminderPageBeforeReturn.shown, "Returning from layout preserves the display tab")
+modules.reminders.OpenSettings("Ajouter par nom / ID")
+assert(frames.ArkannsQOLEffectsPage.shown and revealed.control == frames.ArkannsQOLManualInput)
 local effectsList = frames.ArkannsQOLEffectsList
 assert(not effectsList.shown, "Empty reminders leave room for the add controls")
 local manual = frames.ArkannsQOLManualInput
@@ -119,13 +129,17 @@ local ok, reason = modules.reminders.Preview()
 assert(ok == false and type(reason) == "string", "Rejected preview must explain why")
 combat = false
 assert(frames.ArkannsQOLAppearancefontSize.enabled == false, "Inherited style cannot be edited")
+modules.reminders.OpenSettings("Police")
+assert(revealed.control == frames.ArkannsQOLAppearancefont)
+modules.reminders.OpenSettings(nil)
+assert(frames.ArkannsQOLAppearancePage.shown, "Reopening preserves the advanced reminder appearance section")
 overrides.reminders = true; modules.reminders.Refresh()
 assert(frames.ArkannsQOLAppearancefontSize.enabled)
 local appearance = env.ArkannsQOLRemindersDB.appearance
 appearance.title, appearance.customTitle = "My reminder", true
 appearance.width, appearance.layout, appearance.columns = 555, "grid", 3
 local reminderPage = frames.ArkannsQOLAppearancePage
-frames.ArkannsQOLAppearanceAdvanced.scripts.OnClick(frames.ArkannsQOLAppearanceAdvanced)
+-- Search already opens the detailed appearance controls.
 local wideAppearance = reminderPage.child:GetHeight()
 reminderPage.child:SetWidth(300)
 reminderPage.scripts.OnSizeChanged(reminderPage, 300)
@@ -150,6 +164,20 @@ assert(frames.ArkannsQOLAppearanceTab.points[1][3] < frames.ArkannsQOLEffectsTab
 Load("Modules/SessionJournalModel.lua")
 Load("Modules/SessionJournal.lua")
 ns.InitializeSessionJournal({})
+assert(not frames.ArkannsQOLSessionVisibilityTab, "Session display uses one tab for appearance and visibility")
+assert(frames.ArkannsQOLSession_compact.parent == frames.ArkannsQOLSession_enabled.parent,
+    "Compact mode and window visibility share the display group")
+modules.session.OpenSettings("Largeur min.")
+assert(frames.ArkannsQOLSessionAppearance.shown and revealed.control == frames.ArkannsQOLSession_width)
+modules.session.OpenSettings(nil)
+assert(frames.ArkannsQOLSessionAppearance.shown, "Layout return preserves session display tab")
+modules.session.OpenSettings("XP gagnée")
+assert(not frames.ArkannsQOLSessionAppearance.shown and revealed.control == frames.ArkannsQOLSessionMetric2)
+local metricOrder = env.ArkannsQOLSessionDB.order
+metricOrder[1], metricOrder[2] = metricOrder[2], metricOrder[1]
+modules.session.OpenSettings("XP gagnée")
+assert(revealed.control == frames.ArkannsQOLSessionMetric1, "Search follows the current statistic order")
+metricOrder[1], metricOrder[2] = metricOrder[2], metricOrder[1]
 assert(modules.session.toggleLabel == "Afficher le journal")
 assert(modules.session.Preview(true) == true and frames.ArkannsQOLSessionWindow.mouse == false)
 assert(frames.ArkannsQOLSessionWindow.strata == "MEDIUM")
@@ -195,9 +223,15 @@ assert(ns.TalentPlanModel.DeletePlan(bucket, third) and bucket.active == 1)
 assert(ns.TalentPlanModel.DeletePlan(bucket, first) and #bucket.plans == 0)
 Load("Modules/TalentPlanner.lua")
 ns.InitializeTalentPlanner({})
+modules.talents.OpenSettings("Couleur du prochain point")
+assert(frames.ArkannsQOLTalentAdvanced.shown and revealed.control == frames.ArkannsQOLTalentColornextColor)
+modules.talents.OpenSettings("Déplacer")
+assert(revealed.control == frames.ArkannsQOLTalentMove)
 local talentOptions = frames.ArkannsQOLTalentSettings
 local talentScroll = frames.ArkannsQOLTalentSettingsScroll
 talentOptions.scripts.OnShow()
+-- Close the advanced section opened by the search before exercising its toggle.
+if frames.ArkannsQOLTalentAdvanced.shown then frames.ArkannsQOLTalentAdvancedToggle.scripts.OnClick() end
 assert(not frames.ArkannsQOLTalentAdvanced.shown)
 local moveY = frames.ArkannsQOLTalentMove.points[1][3]
 local collapsedHeight = talentScroll.child:GetHeight()

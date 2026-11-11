@@ -542,12 +542,14 @@ local function BuildAppearance(body, compact)
     local UI = ns.UI
     local prefix = compact and "ArkannsQOLBagQuick" or "ArkannsQOLBag"
     local syncing
+    local targets = {}
     local filterLabel = compact and L("Masquer gris et blancs") or L("Masquer les contours gris et blancs")
     local filter = UI.Check(body, prefix .. "UncommonOnly", filterLabel, 16, compact and -113 or 0, function(value)
         db.qualityUncommonOnly = value
         RefreshSamples()
         RefreshQualityBorders()
     end)
+    targets["Masquer gris et blancs"] = filter
     local function Slider(key, name, y)
         local isThickness = key == "qualityThickness"
         local label = UI.Label(body, "", 20, y)
@@ -569,12 +571,14 @@ local function BuildAppearance(body, compact)
             Caption()
             PreviewAppearance()
         end)
+        local source = ({qualityOpacity = "Opacité du contour", qualityThickness = "Épaisseur du contour", qualityInnerGlow = "Halo intérieur"})[key]
+        targets[source] = slider
         return function() slider:SetValue(db[key]); Caption() end
     end
     local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -149 or -40)
     local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and -195 or -96)
     local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -241 or -152)
-    UI.Label(body, L("Couleurs et aperçu"), 20, compact and -287 or -202, 15)
+    targets["Couleurs de rareté"] = UI.Label(body, L("Couleurs et aperçu"), 20, compact and -287 or -202, 15)
     if not compact then UI.Label(body, L("Clic gauche · Couleur\nClic droit · Couleur WoW"), 20, -228) end
     local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -311 or -266
     local count = 0
@@ -631,7 +635,7 @@ local function BuildAppearance(body, compact)
         innerGlow()
         syncing = false
         RefreshSamples()
-    end, footerY
+    end, footerY, targets
 end
 
 local function SetEnabled(value)
@@ -795,20 +799,26 @@ function ns.InitializeBagSort(rootCategory)
     transmogCheck = CreateTransmogCheck(body, "ArkannsQOLBagTransmog", 16, -140)
     ns.UI.Label(body, L("Bordures de rareté"), 20, -168, 15)
     qualityCheck = ns.UI.Check(body, "ArkannsQOLBagQualityBorders", L("Bordure selon la rareté"), 16, -191, SetQualityBorders)
+    local searchTargets = {["Trier à l’ouverture manuelle"] = check, ["Bordure selon la rareté"] = qualityCheck,
+        ["Transmos manquantes"] = transmogCheck}
+    local advanced, advancedButton, ShowAppearance
     if qualityListening then
-        local advanced = CreateFrame("Frame", nil, body)
+        advanced = CreateFrame("Frame", nil, body)
         advanced:SetPoint("TOPLEFT", 0, -264)
-        local footerY
-        refreshAppearance, footerY = BuildAppearance(advanced)
+        local footerY, appearanceTargets
+        refreshAppearance, footerY, appearanceTargets = BuildAppearance(advanced)
+        for key, target in pairs(appearanceTargets) do searchTargets[key] = target end
         advanced:SetSize(282, -footerY + 36)
         advanced:Hide()
-        ns.UI.Button(body, "ArkannsQOLBagAdvanced", L("Personnaliser les bordures"), 18, -228, 245, function(button)
-            local opened = not advanced:IsShown()
+        ShowAppearance = function(opened)
             advanced:SetShown(opened)
-            button:SetText(opened and L("Masquer les réglages de bordure") or L("Personnaliser les bordures"))
+            advancedButton:SetText(opened and L("Masquer les réglages de bordure") or L("Personnaliser les bordures"))
             body:SetHeight(opened and 264 + advanced:GetHeight() or 264)
             ns.UI.ClampScroll(scroll, body:GetHeight())
-        end)
+        end
+        advancedButton = ns.UI.Button(body, "ArkannsQOLBagAdvanced", L("Personnaliser les bordures"), 18, -228, 245,
+            function() ShowAppearance(not advanced:IsShown()) end)
+        searchTargets["Personnaliser les bordures"] = advancedButton
         body:SetHeight(264)
     else
         qualityCheck:Disable()
@@ -862,6 +872,15 @@ function ns.InitializeBagSort(rootCategory)
     ns.RegisterModule("bags", {
         label = L("Sacs"), icon = "Interface\\Icons\\INV_Misc_Bag_08", category = function() return category end,
         Refresh = Refresh,
+        SearchSettings = {"Trier à l’ouverture manuelle", "Bordure selon la rareté", "Transmos manquantes",
+            "Personnaliser les bordures", "Masquer gris et blancs", "Couleurs de rareté", "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
+        OpenSettings = function(source)
+            if not source then return end
+            local target = searchTargets[source]
+            if not target then target = qualityCheck end
+            if ShowAppearance and target ~= check and target ~= qualityCheck and target ~= transmogCheck then ShowAppearance(true) end
+            if ns.UI.RevealControl then ns.UI.RevealControl(scroll, target) end
+        end,
         Summary = function()
             local function State(value) return value and L("actif") or L("inactif") end
             return L("Tri : %s · Contours : %s\nTransmos : %s"):format(

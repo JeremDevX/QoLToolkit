@@ -884,6 +884,7 @@ function ns.InitializeTalentPlanner(parentCategory)
     own:SetFontString(ownLabel)
     own:SetScript("OnClick", function(self) ns.UI.SetOverride("talents", self:GetChecked() == true) end)
     updates[#updates + 1] = function() own:SetChecked(ns.UI.IsOverride("talents")) end
+    local appearanceLink = ns.UI.AddAppearanceLink and ns.UI.AddAppearanceLink(advanced, "talents", 0, 0, 280)
     local LayoutAppearance
     local advancedButton = OptionButton("AdvancedToggle", L("Personnalisation avancée"), 290, function()
         advanced:SetShown(not advanced:IsShown()); LayoutAppearance()
@@ -939,11 +940,13 @@ function ns.InitializeTalentPlanner(parentCategory)
         if advanced:IsShown() then
             local columns = width >= 455 and 3 or 1
             local size = math.min(145, math.max(1, width))
-            local height = 34 + math.ceil(#colors / columns) * 34
+            local colorsTop = appearanceLink and 68 or 34
+            local height = colorsTop + math.ceil(#colors / columns) * 34
             Place(advanced, 0, y); advanced:SetSize(width, height)
             Place(own, -4, 0); ownLabel:SetWidth(math.max(1, width - 34))
+            if appearanceLink then Place(appearanceLink, 0, 34, math.min(280, width)) end
             for index, button in ipairs(colors) do
-                Place(button, (index - 1) % columns * (size + 10), 34 + math.floor((index - 1) / columns) * 34, size)
+                Place(button, (index - 1) % columns * (size + 10), colorsTop + math.floor((index - 1) / columns) * 34, size)
             end
             y = y + height
         end
@@ -959,6 +962,10 @@ function ns.InitializeTalentPlanner(parentCategory)
     options:SetScript("OnHide", StopPreview)
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(options) end
     ns.talentCategory = Settings.RegisterCanvasLayoutSubcategory(parentCategory, options, L("Builds de talents"))
+    local searchTargets = {["Afficher avec les talents"] = check, ["Étapes visibles"] = steps,
+        ["Points suivants visibles"] = steps, ["Panneau compact"] = compact, ["Intensité du halo"] = glow,
+        ["Couleur du prochain point"] = colors[1], ["Couleur des points suivants"] = colors[2],
+        ["Couleur des erreurs"] = colors[3], ["Apparence propre à ce module"] = own, ["Déplacer"] = moveButton}
     if ns.RegisterModule then ns.RegisterModule("talents", {
         label = L("Builds de talents"), icon = "Interface\\Buttons\\UI-MicroButton-Talents-Up", iconAtlas = "UI-HUD-MicroMenu-SpecTalents-Up", category = function() return ns.talentCategory end,
         profileClassIndependent = true,
@@ -971,6 +978,15 @@ function ns.InitializeTalentPlanner(parentCategory)
             return L("%s · %d étapes"):format(mode, db.futureSteps)
         end,
         Preview = Preview, StopPreview = StopPreview, Refresh = SettingsChanged,
+        SearchSettings = {"Afficher avec les talents", "Étapes visibles", "Panneau compact", "Intensité du halo",
+            "Couleur du prochain point", "Couleur des points suivants", "Couleur des erreurs", "Apparence propre à ce module", "Déplacer"},
+        OpenSettings = function(source)
+            local target = searchTargets[source]
+            if not target then return end
+            if target == own or target == colors[1] or target == colors[2] or target == colors[3] then advanced:Show() end
+            LayoutAppearance(); options.OnRefresh()
+            if ns.UI.RevealControl then ns.UI.RevealControl(optionsScroll, target) end
+        end,
         ExportSettings = function()
             local result = {}; for key in pairs(defaults) do result[key] = Copy(db[key]) end
             result.x, result.y = db.x, db.y

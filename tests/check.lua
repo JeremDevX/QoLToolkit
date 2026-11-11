@@ -50,6 +50,8 @@ local function CheckLocale(locale, expected)
         chunks[catalogs[i]]("QoLToolkit", ns)
     end
     assert(ns.L("Infobulles") == expected, "Unexpected client language")
+    assert(ns.L("Infobulles et distance") == (locale == "frFR" and "Infobulles et distance" or "Tooltips and distance"))
+    assert(ns.L("Affichage") == (locale == "frFR" and "Affichage" or "Display"))
     assert(ns.L("Annuler", "talent.undo") == (locale == "frFR" and "Annuler" or "Undo"))
     assert(ns.L("Untranslated example") == "Untranslated example", "Missing translation should use source text")
 end
@@ -459,6 +461,15 @@ do
     scroll.offset = 200
     frames.ArkannsQOLBagAdvanced:OnClick()
     assert(not advanced.shown and body:GetHeight() == collapsedHeight and scroll.offset == 0)
+    local revealedScroll, revealedControl
+    bagNS.UI.RevealControl = function(viewport, control) revealedScroll, revealedControl = viewport, control end
+    bagModule.OpenSettings("Halo intérieur")
+    assert(advanced.shown and revealedScroll == scroll and revealedControl == frames.ArkannsQOLBag_qualityInnerGlow,
+        "Bag search opens the border section and reveals the exact control")
+    scroll.offset = 48
+    bagModule.OpenSettings(nil)
+    assert(advanced.shown and scroll.offset == 48, "Returning to bags preserves the section and scroll")
+    frames.ArkannsQOLBagAdvanced:OnClick()
     SetItemButtonQuality(slot, 4)
     local outline, glow = slot.textures[1], slot.textures[2]
     assert(outline.points.TOPLEFT[1] == slot.IconBorder and outline.points.BOTTOMRIGHT[2] == "BOTTOMRIGHT")

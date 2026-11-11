@@ -300,5 +300,13 @@ function ns.InitializeDiagnostics(root)
         panel:SetScript("OnShow", function() refreshPanel() end)
         panel:HookScript("OnSizeChanged", function() if panel:IsShown() then Layout() end end)
         ns.diagnosticsCategory = Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Diagnostics"))
+        if ns.UI.RegisterSettings then ns.UI.RegisterSettings("diagnostics", {
+            category = function() return ns.diagnosticsCategory end,
+            OpenSettings = function(source)
+                for index, label in ipairs({"Démarrer une capture", "Arrêter la capture", "Copier la dernière trace", "Inventaire du client"}) do
+                    if source == label then ns.UI.RevealControl(viewport, buttons[index]) end
+                end
+            end,
+        }) end
     end
 end

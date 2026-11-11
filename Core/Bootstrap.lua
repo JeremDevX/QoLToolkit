@@ -96,6 +96,7 @@ local function RegisterHome()
     ns.home = home
     local root = Settings.RegisterCanvasLayoutCategory(home, "QoL Toolkit")
     Settings.RegisterAddOnCategory(root)
+    if ns.UI.RegisterSettings then ns.UI.RegisterSettings("home", {category = function() return root end}) end
     SLASH_ARKANNSQOL1 = "/qt"
     SLASH_ARKANNSQOL2 = "/aqol"
     local function OpenHome()

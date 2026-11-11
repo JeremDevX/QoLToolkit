@@ -6,6 +6,35 @@ ns.UI = UI
 local config, previewBar, previewModule, layout, home, appearanceRefresh
 local styledPanels, styledButtons, styledLabels = {}, {}, {}
 local moduleOrder = {"tooltips", "reminders", "session", "talents", "ranks", "distance", "bags", "advanced"}
+local settingsPages, appearanceBack = {}, nil
+
+function UI.OpenSettings(id, source, back)
+    local module = ns.modules[id] or settingsPages[id]
+    local category = module and module.category and module.category()
+    category = category or ns[({profiles="profilesCategory",diagnostics="diagnosticsCategory"})[id] or ""]
+    if not category or not Settings then return false end
+    ns.StopAllPreviews()
+    if id == "appearance" then appearanceBack = back end
+    Settings.OpenToCategory(category:GetID())
+    if module and module.OpenSettings then module.OpenSettings(source) end
+    return true
+end
+
+function UI.RegisterSettings(id, descriptor)
+    settingsPages[id] = descriptor
+end
+
+-- Coordinates are measured after the destination page and its folds are laid out.
+function UI.RevealControl(scroll, control)
+    if not scroll or not control then return end
+    local child = scroll:GetScrollChild()
+    local top, target = child and child:GetTop(), control:GetTop()
+    if type(top) ~= "number" or type(target) ~= "number" then return end
+    local childScale = child:GetEffectiveScale()
+    local targetScale = control:GetEffectiveScale()
+    scroll:SetVerticalScroll(math.max(0, top - target * targetScale / childScale - 12))
+    UI.ClampScroll(scroll, child:GetHeight())
+end
 local solidTexture = "Interface\\Buttons\\WHITE8X8"
 local borders = {
     theme = {label = L("Selon le thème")},
@@ -198,6 +227,12 @@ local function Input(parent, name, x, y, width)
 end
 UI.Label, UI.Button, UI.Check, UI.Input = Label, Button, Check, Input
 
+function UI.AddAppearanceLink(parent, id, x, y, width)
+    return Button(parent, nil, L("Régler le thème commun"), x, y, width or 240, function()
+        UI.OpenSettings("appearance", nil, id)
+    end)
+end
+
 function UI.ClampScroll(scroll, contentHeight)
     local offset, height = scroll:GetVerticalScroll(), scroll:GetHeight()
     if not Number(offset) or not Number(height) or height <= 0 then return end
@@ -260,7 +295,7 @@ end
 
 -- Movers are owned frames. Never move or restyle Blizzard's protected action buttons.
 local movers, savedPositions, savedLayouts, changedPositions, selected = {}, {}, {}, {}, nil
-local endingLayout
+local endingLayout, layoutReturn
 local function PositionMover(mover, x, y)
     mover:ClearAllPoints(); mover:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x * UIParent:GetWidth(), y * UIParent:GetHeight())
 end
@@ -307,7 +342,7 @@ local function SaveMover(id)
     end
     UpdateCoordinates()
 end
-function UI.EndLayout(cancel)
+function UI.EndLayout(cancel, returnToSettings)
     if not UI.layoutActive or endingLayout then return end
     endingLayout = true
     for id, mover in pairs(movers) do
@@ -332,8 +367,12 @@ function UI.EndLayout(cancel)
             elseif changedPositions[id] then module.SetPosition(position[1], position[2]) end
         else module.SetPosition(positions[id][1], positions[id][2]) end
     end
-    endingLayout = nil
+    local destination = layoutReturn
+    layoutReturn, endingLayout = nil, nil
     if ns.Diagnostics then ns.Diagnostics.Note(cancel and "layout.cancel" or "layout.apply") end
+    if returnToSettings and destination and ns.WoW.ReadValue(InCombatLockdown) == false then
+        UI.OpenSettings(destination)
+    end
 end
 function UI.StartLayout(focusId)
     if ns.WoW.ReadValue(InCombatLockdown) ~= false then
@@ -342,6 +381,10 @@ function UI.StartLayout(focusId)
     end
     if type(focusId) ~= "string" then focusId = nil end
     ns.StopAllPreviews()
+    layoutReturn = focusId
+    if not layoutReturn then
+        layoutReturn = ns.appearancePanel and ns.appearancePanel:IsVisible() and "appearance" or "home"
+    end
     if SettingsPanel and SettingsPanel:IsShown() then HideUIPanel(SettingsPanel) end
     if not layout then
         layout = CreateFrame("Frame", "ArkannsQOLLayout", UIParent, "BackdropTemplate")
@@ -349,8 +392,8 @@ function UI.StartLayout(focusId)
         layout:SetFrameStrata("DIALOG"); layout:SetFrameLevel(30); layout:SetClampedToScreen(true)
         Label(layout, L("Disposition — glisse les cadres"), 16, -12, 16)
         Label(layout, L("Les positions restent en aperçu jusqu’à validation."), 16, -35)
-        Button(layout, "ArkannsQOLLayoutApply", L("Valider"), 16, -58, 110, function() UI.EndLayout(false) end)
-        Button(layout, "ArkannsQOLLayoutCancel", L("Annuler"), 136, -58, 110, function() UI.EndLayout(true) end)
+        Button(layout, "ArkannsQOLLayoutApply", L("Valider"), 16, -58, 110, function() UI.EndLayout(false, true) end)
+        Button(layout, "ArkannsQOLLayoutCancel", L("Annuler"), 136, -58, 110, function() UI.EndLayout(true, true) end)
         Button(layout, "ArkannsQOLLayoutCenter", L("Recentrer"), 256, -58, 110, function()
             if selected then changedPositions[selected] = true; ns.modules[selected].SetPosition(.5, .5); PositionMover(movers[selected], .5, .5); UpdateCoordinates() end
         end)
@@ -372,7 +415,7 @@ function UI.StartLayout(focusId)
         end
         Button(layout, "ArkannsQOLLayoutCoordinates", L("Déplacer"), 480, -96, 122, ApplyCoordinates)
         layout.x:SetScript("OnEnterPressed", ApplyCoordinates); layout.y:SetScript("OnEnterPressed", ApplyCoordinates)
-        layout:SetScript("OnHide", function() if not endingLayout then UI.EndLayout(true) end end)
+        layout:SetScript("OnHide", function() if not endingLayout then UI.EndLayout(true, true) end end)
         UISpecialFrames[#UISpecialFrames + 1] = "ArkannsQOLLayout"
         layout.guides = CreateFrame("Frame", nil, UIParent)
         layout.guides:SetAllPoints(); layout.guides:EnableMouse(false)
@@ -410,7 +453,7 @@ function UI.StartLayout(focusId)
                     mover:SetScript("OnDragStop", function() SaveMover(id) end)
                     mover:SetScript("OnMouseUp", function(_, button)
                         selected = id; UpdateCoordinates()
-                        if button == "RightButton" then UI.EndLayout(true) end
+                        if button == "RightButton" then UI.EndLayout(true, true) end
                     end)
                 end
                 UI.StyleFrame(mover)
@@ -451,11 +494,17 @@ end
 
 local function BuildAppearance(root)
     local panel = CreateFrame("Frame", "ArkannsQOLCommonAppearance", UIParent, "BackdropTemplate")
+    ns.appearancePanel = panel
     panel:Hide(); UI.StylePanel(panel)
     local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", 16, -16); scroll:SetPoint("BOTTOMRIGHT", -34, 16)
     local body = CreateFrame("Frame", nil, scroll); body:SetSize(1, 1); scroll:SetScrollChild(body)
     local heading=Label(body, L("Apparence générale"), 0, 0, 18)
+    local back=Button(body,"ArkannsQOLAppearanceBack",L("Retour au module"),0,0,240,function()
+        local id = appearanceBack
+        appearanceBack = nil
+        if id then UI.OpenSettings(id) end
+    end)
     local description=Label(body, L("Les modules qui suivent l’apparence commune changent immédiatement."), 0, 0)
     local previewHint=Label(body, L("Le journal utilise sa propre apparence."), 0, 0)
     local fields, syncing, advanced = {}, false, false
@@ -591,6 +640,11 @@ local function BuildAppearance(root)
 
         heading:SetWidth(width)
         local y = heading:GetStringHeight() + 8
+        back:SetShown(appearanceBack ~= nil)
+        if appearanceBack then
+            Place(back, 0, y, math.min(240, width))
+            y = y + 34
+        end
         Place(description, 0, y, width)
         y = y + description:GetStringHeight() + 14
         Place(themeButton, 0, y, controlWidth)
@@ -651,9 +705,19 @@ local function BuildAppearance(root)
     end
     panel:SetScript("OnShow", appearanceRefresh)
     panel:HookScript("OnSizeChanged",LayoutAppearance)
-    panel:SetScript("OnHide", ns.StopAllPreviews)
+    panel:SetScript("OnHide", function() appearanceBack = nil; ns.StopAllPreviews() end)
     ns.appearanceCategory = Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Apparence générale"))
     ns.RegisterModule("appearance", {label = L("Apparence générale"), category = function() return ns.appearanceCategory end,
+        OpenSettings = function(source)
+            if not source then return end
+            local targets = { ["Thème"] = themeButton, ["Type de bordure"] = borderButton, ["Police"] = fontButton,
+                ["Fond"] = pickers.bg, ["Texte"] = pickers.text, ["Bordure et accents"] = pickers.accent }
+            for _, field in pairs(fields) do targets[field.title] = field.slider end
+            local target = targets[L(source)] or targets[source]
+            if source ~= "Thème" and source ~= "Taille du texte des modules" then advanced = true end
+            LayoutAppearance()
+            UI.RevealControl(scroll, target)
+        end,
         ExportSettings = UI.ExportSettings, ImportSettings = UI.ImportSettings,
         profileMigrations = {
             function(value) value.theme = value.theme or defaults.theme end,
@@ -728,13 +792,11 @@ function UI.BuildHome(panel)
         for _,id in ipairs({"tooltips","reminders","session","talents","ranks","distance","bags","appearance"}) do
             local module=ns.modules[id]
             if module and module.category then
-                local function Open()
-                    local category=module.category()
-                    if category then Settings.OpenToCategory(category:GetID()) end
-                end
+                local function Open() UI.OpenSettings(id) end
                 Add(module.label,"",Open)
-                for _,source in ipairs(settingLabels[id] or {}) do
-                    Add(module.label.." · "..L(source),source.." "..((ns.English or {})[source] or ""),Open)
+                for _,source in ipairs(module.SearchSettings or settingLabels[id] or {}) do
+                    local target = source
+                    Add(module.label.." · "..L(source),source.." "..((ns.English or {})[source] or ""),function() UI.OpenSettings(id,target) end)
                 end
             end
         end
@@ -757,10 +819,13 @@ function UI.BuildHome(panel)
         }) do
             if ns[entry[2]] then
                 local key=entry[2]
-                local function Open() Settings.OpenToCategory(ns[key]:GetID()) end
+                local function Open() UI.OpenSettings(key == "profilesCategory" and "profiles" or "diagnostics") end
                 Add(L(entry[1]),"",Open)
                 for _,source in ipairs(entry[3]) do
-                    Add(L(entry[1]).." · "..L(source),source.." "..((ns.English or {})[source] or ""),Open)
+                    local target=source
+                    Add(L(entry[1]).." · "..L(source),source.." "..((ns.English or {})[source] or ""),function()
+                        UI.OpenSettings(key == "profilesCategory" and "profiles" or "diagnostics",target)
+                    end)
                 end
             end
         end
@@ -771,21 +836,28 @@ function UI.BuildHome(panel)
         search:ClearFocus(); ns.StopAllPreviews(); entry.Open()
     end
     local toolbar={}
-    toolbar[1]=Button(body,"ArkannsQOLHomeAppearance",L("Apparence"),0,0,130,function() ns.StopAllPreviews(); Settings.OpenToCategory(ns.appearanceCategory:GetID()) end)
+    toolbar[1]=Button(body,"ArkannsQOLHomeAppearance",L("Apparence"),0,0,130,function() UI.OpenSettings("appearance") end)
     toolbar[2]=Button(body,"ArkannsQOLHomeLayout",L("Disposition"),0,0,130,UI.StartLayout)
-    toolbar[3]=Button(body,"ArkannsQOLHomeProfiles",L("Profils"),0,0,130,function() ns.StopAllPreviews(); if ns.profilesCategory then Settings.OpenToCategory(ns.profilesCategory:GetID()) end end)
+    toolbar[3]=Button(body,"ArkannsQOLHomeProfiles",L("Profils"),0,0,130,function() UI.OpenSettings("profiles") end)
     toolbar[4]=Button(body,"ArkannsQOLHomeDiagnostics",L("Diagnostics"),0,0,130,function()
-        ns.StopAllPreviews()
-        if ns.diagnosticsCategory then Settings.OpenToCategory(ns.diagnosticsCategory:GetID()) end
+        UI.OpenSettings("diagnostics")
     end)
     local minimap = Check(body,"ArkannsQOLShowMinimap",L("Afficher le bouton de minicarte"),0,0,function(value)
         if ns.SetMinimapVisible then ns.SetMinimapVisible(value) end
     end)
+    local function IsPinned(id, module)
+        local distance=ns.modules.distance
+        local combined=id=="tooltips" and distance and distance.category and module.category
+            and distance.category()==module.category()
+        return config.pins[id] or (combined and config.pins.distance)
+    end
     local cards={}
     local names={tooltips="Tooltips",reminders="Reminders",session="Session",talents="Talents",ranks="Ranks",distance="Distance",bags="Bags",advanced="Advanced"}
     for _,id in ipairs(moduleOrder) do
         local module=ns.modules[id]
-        if module then
+        local combinedDistance = id == "distance" and ns.modules.tooltips and ns.modules.tooltips.category
+            and module and module.category and ns.modules.tooltips.category() == module.category()
+        if module and not combinedDistance then
             local card=CreateFrame("Frame",nil,body,"BackdropTemplate"); cards[#cards+1]=card; UI.StyleFrame(card)
             card.icon=card:CreateTexture(nil,"ARTWORK"); card.icon:SetSize(30,30); card.icon:SetPoint("TOPLEFT",12,-12)
             local atlas=module.iconAtlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(module.iconAtlas)
@@ -797,18 +869,24 @@ function UI.BuildHome(panel)
             card.title=Label(card,module.label,52,-12,14)
             card.summary=Label(card,"",12,0,12)
             card.configure=Button(card,"ArkannsQOLHome"..names[id],L("Configurer"),12,0,100,function()
-                ns.StopAllPreviews(); local category=module.category and module.category(); if category then Settings.OpenToCategory(category:GetID()) end
+                UI.OpenSettings(id)
             end)
             if module.Preview then card.preview=Button(card,nil,L("Aperçu"),120,0,80,function() UI.PreviewModule(id) end) end
             if module.IsEnabled and module.SetEnabled then
                 card.enabled=Check(card,"ArkannsQOLHomeEnabled_"..id,module.toggleLabel or L("Activer ce module"),8,-84,function(value) module.SetEnabled(value); home.Refresh() end)
             end
             local function PinHelp()
-                GameTooltip:SetText(config.pins[id] and L("Retirer des favoris") or L("Ajouter aux favoris"))
+                GameTooltip:SetText(IsPinned(id,module) and L("Retirer des favoris") or L("Ajouter aux favoris"))
                 GameTooltip:Show()
             end
             card.pin=Button(card,nil,"",0,0,34,function(self)
-                config.pins[id]=not config.pins[id]; home.Refresh()
+                local distance=ns.modules.distance
+                local combined=id=="tooltips" and distance and distance.category and module.category
+                    and distance.category()==module.category()
+                local active=IsPinned(id,module)
+                config.pins[id]=not active
+                if combined then config.pins.distance=nil end
+                home.Refresh()
                 if GameTooltip and GameTooltip:GetOwner()==self then PinHelp() end
             end)
             card.pin:SetScript("OnEnter",function(self)
@@ -824,17 +902,20 @@ function UI.BuildHome(panel)
         end
     end
     local favoritesTitle=Label(body,L("Favoris"),0,0,16)
-    local modulesTitle=Label(body,L("Modules"),0,0,16)
+    local groups = {
+        {label=L("Personnage"),ids={"talents","session","reminders","ranks"}},
+        {label=L("Interface"),ids={"tooltips","distance","bags"}},
+        {label=L("Personnalisation"),ids={},buttons={toolbar[1],toolbar[2]}},
+        {label=L("Outils"),ids={"advanced"},buttons={toolbar[3],toolbar[4]}},
+    }
+    for _,group in ipairs(groups) do group.title=Label(body,group.label,0,0,16) end
+    local function Pinned(card)
+        return IsPinned(card.id,card.module)
+    end
     local favoriteButtons={}
     home.Refresh=function()
         local width=math.max(1,home:GetWidth()-50)
         local y=heading:GetStringHeight()+10
-        local toolbarColumns=width>=520 and 4 or 2
-        local toolbarWidth=(width-(toolbarColumns-1)*10)/toolbarColumns
-        for index,button in ipairs(toolbar) do
-            Place(button, ((index-1)%toolbarColumns)*(toolbarWidth+10), y+math.floor((index-1)/toolbarColumns)*32, math.max(1,toolbarWidth))
-        end
-        y=y+math.ceil(#toolbar/toolbarColumns)*32
         Place(searchLabel,0,y,width)
         y=y+searchLabel:GetStringHeight()+6
         Place(search,6,y,math.max(1,width-110)); Place(clearSearch,width-90,y,90)
@@ -843,7 +924,9 @@ function UI.BuildHome(panel)
         for _,button in ipairs(resultButtons) do button:Hide() end
         searchStatus:SetShown(searching)
         if searching then
-            minimap:Hide(); favoritesTitle:Hide(); modulesTitle:Hide()
+            minimap:Hide(); favoritesTitle:Hide()
+            for _,group in ipairs(groups) do group.title:Hide() end
+            for _,button in ipairs(toolbar) do button:Hide() end
             for _,button in ipairs(favoriteButtons) do button:Hide() end
             for _,card in ipairs(cards) do card:Hide() end
             matches=UI.SearchSettings(search:GetText())
@@ -872,18 +955,16 @@ function UI.BuildHome(panel)
         local columns=width>=540 and 2 or 1
         local cardWidth=(width-12*(columns-1))/columns
         local entries={}
-        for _,id in ipairs(moduleOrder) do if config.pins[id] and ns.modules[id] then
-            local module=ns.modules[id]
-            entries[#entries+1]={label=module.label,Open=function() ns.StopAllPreviews(); Settings.OpenToCategory(module.category():GetID()) end}
-        end end
         local advanced=ns.modules.advanced
         if advanced and advanced.Favorites then
             local list=advanced.Favorites()
             for _,entry in ipairs(list or {}) do entries[#entries+1]=entry end
         end
-        favoritesTitle:SetShown(#entries>0)
+        local favoriteCards={}
+        for _,card in ipairs(cards) do if Pinned(card) then favoriteCards[#favoriteCards+1]=card end end
+        favoritesTitle:SetShown(#entries>0 or #favoriteCards>0)
         local favoriteColumns=columns
-        if #entries>0 then
+        if #entries>0 or #favoriteCards>0 then
             Place(favoritesTitle,0,y,width)
             y=y+favoritesTitle:GetStringHeight()+8
         end
@@ -905,35 +986,59 @@ function UI.BuildHome(panel)
         end
         for index=#entries+1,#favoriteButtons do favoriteButtons[index]:Hide() end
         if #entries>0 then y=y+8 end
-        modulesTitle:Show()
-        Place(modulesTitle,0,y,width)
-        y=y+modulesTitle:GetStringHeight()+8
-        local rowHeight=0
-        for index,card in ipairs(cards) do
-            Place(card,((index-1)%columns)*(cardWidth+12),y,cardWidth)
-            UI.StyleFrame(card)
-            UI.SetFavoriteIcon(card.pin,config.pins[card.id])
-            card.title:SetWidth(math.max(1,cardWidth-64))
-            card.summary:SetText(card.module.Summary and card.module.Summary() or L("Options et préférences."))
-            local cardY=math.max(44,card.title:GetStringHeight()+18)
-            Place(card.summary,12,cardY,math.max(1,cardWidth-24))
-            cardY=cardY+card.summary:GetStringHeight()+6
-            if card.enabled then
-                Place(card.enabled,8,cardY)
-                card.enabled:SetChecked(card.module.IsEnabled())
-                card.enabled.label:SetWidth(math.max(1,cardWidth-48))
-                cardY=cardY+math.max(32,card.enabled.label:GetStringHeight()+12)
+        local function DrawCards(list)
+            local rowHeight=0
+            for index,card in ipairs(list) do
+                Place(card,((index-1)%columns)*(cardWidth+12),y,cardWidth)
+                UI.StyleFrame(card)
+                UI.SetFavoriteIcon(card.pin,Pinned(card))
+                card.title:SetWidth(math.max(1,cardWidth-64))
+                card.summary:SetText(card.module.Summary and card.module.Summary() or L("Options et préférences."))
+                local cardY=math.max(44,card.title:GetStringHeight()+18)
+                Place(card.summary,12,cardY,math.max(1,cardWidth-24))
+                cardY=cardY+card.summary:GetStringHeight()+6
+                if card.enabled then
+                    Place(card.enabled,8,cardY)
+                    card.enabled:SetChecked(card.module.IsEnabled())
+                    card.enabled.label:SetWidth(math.max(1,cardWidth-48))
+                    cardY=cardY+math.max(32,card.enabled.label:GetStringHeight()+12)
+                end
+                Place(card.configure,12,cardY)
+                Place(card.pin,cardWidth-44,cardY)
+                if card.preview then
+                    local inline=cardWidth>=244
+                    Place(card.preview,inline and 120 or 12,inline and cardY or cardY+32)
+                    if not inline then cardY=cardY+32 end
+                end
+                card:SetHeight(cardY+36)
+                rowHeight=math.max(rowHeight,card:GetHeight())
+                if index%columns==0 or index==#list then y=y+rowHeight+12; rowHeight=0 end
             end
-            Place(card.configure,12,cardY)
-            Place(card.pin,cardWidth-44,cardY)
-            if card.preview then
-                local inline=cardWidth>=244
-                Place(card.preview,inline and 120 or 12,inline and cardY or cardY+32)
-                if not inline then cardY=cardY+32 end
+        end
+        DrawCards(favoriteCards)
+        for _,group in ipairs(groups) do
+            local list={}
+            for _,id in ipairs(group.ids) do
+                for _,card in ipairs(cards) do
+                    if card.id==id and not Pinned(card) then list[#list+1]=card end
+                end
             end
-            card:SetHeight(cardY+36)
-            rowHeight=math.max(rowHeight,card:GetHeight())
-            if index%columns==0 or index==#cards then y=y+rowHeight+12; rowHeight=0 end
+            local visible=#list>0 or group.buttons~=nil
+            group.title:SetShown(visible)
+            if visible then
+                Place(group.title,0,y,width); y=y+group.title:GetStringHeight()+8
+                DrawCards(list)
+                if group.buttons then
+                    local buttonColumns=width>=350 and 2 or 1
+                    local buttonWidth=(width-10*(buttonColumns-1))/buttonColumns
+                    for index,button in ipairs(group.buttons) do
+                        button:Show()
+                        Place(button,((index-1)%buttonColumns)*(buttonWidth+10),y+math.floor((index-1)/buttonColumns)*34,buttonWidth)
+                    end
+                    y=y+math.ceil(#group.buttons/buttonColumns)*34
+                end
+                y=y+12
+            end
         end
         body:SetSize(width,y)
         UI.ClampScroll(scroll,y)

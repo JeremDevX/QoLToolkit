@@ -124,6 +124,9 @@ ns.InitializeTooltips({})
 Load("Modules/TargetDistance.lua")
 ns.InitializeTargetDistance({})
 frames.ArkannsQOLTargetDistanceSettings.scripts.OnShow()
+assert(modules.tooltips.category() == modules.distance.category(), "Tooltips and distance share one settings category")
+assert(frames.ArkannsQOLTargetDistanceSettings.parent == frames.ForeverTooltipLibreSettings,
+    "Distance settings are embedded in the shared page")
 
 local settings = modules.distance.ExportSettings()
 settings.mouseoverDistance = false
@@ -275,6 +278,32 @@ colorReset.parent.parent:SetVerticalScroll(550)
 Click("ArkannsQOLDistanceAdvanced")
 assert(not colorReset.shown and colorReset.parent.parent:GetVerticalScroll() == 0)
 
+local revealed
+ui.RevealControl = function(_, control) revealed = control end
+modules.distance.OpenSettings("Couleur du texte")
+assert(colorReset.shown, "A color result opens the advanced distance controls")
+assert(revealed and revealed.parent == colorReset.parent, "A distance color result reveals its editable control")
+assert(panel.shown)
+modules.tooltips.OpenSettings(nil)
+assert(panel.shown, "Returning from placement preserves the Distance section")
+modules.tooltips.OpenSettings("Échelle")
+assert(not panel.shown and revealed == frames.ForeverTooltipLibreSize)
+modules.tooltips.OpenSettings("Objets")
+assert(revealed == frames.ArkannsQOLTooltipKind and frames.ArkannsQOLTooltipCustom.shown)
+modules.tooltips.OpenSettings("Décalage du curseur")
+assert(revealed == frames.ForeverTooltipLibreCursor, "An unavailable offset reveals its cursor prerequisite")
+cursor:SetChecked(true); Click("ForeverTooltipLibreCursor")
+modules.tooltips.OpenSettings("Décalage X / Y (0 à 100)")
+assert(revealed == frames.ArkannsQOLTooltipOffsetX and offsetBody.shown)
+local advancedPage = behavior.parent
+advancedPage:SetHeight(100)
+advancedPage:SetVerticalScroll(45)
+modules.tooltips.OpenSettings(nil)
+assert(advancedPage.shown and advancedPage:GetVerticalScroll() == 45,
+    "Returning from placement preserves the advanced section and its scroll")
+modules.tooltips.OpenSettings("Personnaliser les infobulles")
+assert(revealed == frames.ArkannsQOLTooltipGeneralEnabled and not advancedPage.shown)
+
 Load("Modules/RankGuard.lua")
 ns.InitializeRankGuard({})
 local rankPanel = frames.ArkannsQOLRankSettings
@@ -297,6 +326,12 @@ ended = nil
 assert(modules.ranks.Preview())
 frames.ArkannsQOLRankEvents.scripts.OnUpdate(nil, 12)
 assert(ended == "ranks", "Expiring a rank preview must clear its shared controls")
+modules.ranks.OpenSettings("Couleur")
+assert(frames.ArkannsQOLRankStyle.shown and revealed == frames.ArkannsQOLRankColor)
+modules.ranks.OpenSettings("Exceptions")
+assert(revealed == frames.ArkannsQOLRankExceptionID)
+modules.ranks.OpenSettings("Coin")
+assert(revealed == frames.ArkannsQOLRankStyle, "A hidden corner setting reveals the badge style prerequisite")
 print("PASS: utility settings, independent resets, shared placement, badge bounds, and narrow rank layout")
 
 -- Exercise profile migration through the actual tooltip and distance importers.

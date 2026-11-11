@@ -615,9 +615,10 @@ local function Preview(forLayout)
     return true
 end
 
-local function BuildAppearance(body, scroll)
+local function BuildAppearance(body, scroll, afterLayout)
     local appearanceBody = body
     local refreshers, syncing = {}, false
+    local anchors = {}
     local inherited = {font = true, fontSize = true, titleSize = true, gap = true, padding = true,
         border = true, borderSize = true, backgroundAlpha = true, background = true,
         borderColor = true, textColor = true, titleColor = true}
@@ -660,6 +661,7 @@ local function BuildAppearance(body, scroll)
                 end
             end)
         end)
+        anchors[key] = button
         Inherited(button, key)
         refreshers[#refreshers + 1] = function()
             for _, option in ipairs(choices[key]) do if option[1] == db.appearance[key] then button:SetText(option[2]) end end
@@ -673,6 +675,7 @@ local function BuildAppearance(body, scroll)
         local caption = Text("", x, y)
         caption:SetWidth(250)
         local slider = CreateFrame("Slider", "ArkannsQOLAppearance" .. key, body, "BackdropTemplate")
+        anchors[key] = slider
         slider:SetPoint("TOPLEFT", x, y - 26); slider:SetSize(250, 18)
         slider:SetOrientation("HORIZONTAL"); slider:SetMinMaxValues(ranges[key][1], ranges[key][2])
         slider:SetValueStep(1); slider:SetObeyStepOnDrag(true); slider:EnableMouse(true)
@@ -696,6 +699,7 @@ local function BuildAppearance(body, scroll)
     end
     local function Check(key, label, x, y)
         local check = CreateFrame("CheckButton", "ArkannsQOLAppearance" .. key, body, "UICheckButtonTemplate")
+        anchors[key] = check
         check:SetPoint("TOPLEFT", x - 4, y)
         local caption = check:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         caption:SetPoint("LEFT", check, "RIGHT", 2, 0); caption:SetText(label); check:SetFontString(caption)
@@ -709,6 +713,7 @@ local function BuildAppearance(body, scroll)
         end
         Text(label, x, y)
         local input = CreateFrame("EditBox", "ArkannsQOLAppearance" .. key, body, "InputBoxTemplate")
+        anchors[key] = input
         input:SetPoint("TOPLEFT", x + 6, y - 24); input:SetSize(color and 180 or 250, 26)
         Inherited(input, key)
         input:SetAutoFocus(false); input:SetMaxLetters(color and 7 or 48)
@@ -794,6 +799,7 @@ local function BuildAppearance(body, scroll)
         Preview()
         Changed()
     end)
+    local appearanceLink = ns.UI.AddAppearanceLink and ns.UI.AddAppearanceLink(appearanceBody, "reminders", 16, -426, 250)
     refreshers[#refreshers + 1] = function() previewButton:SetText(testMode and L("Arrêter l’aperçu") or L("Aperçu")) end
     local advanced = CreateFrame("Frame", nil, appearanceBody)
     advanced:Hide()
@@ -847,10 +853,11 @@ local function BuildAppearance(body, scroll)
     Layout = function()
         local width = math.max(1, appearanceBody:GetWidth() - 32)
         local wide = width >= 522
-        local height = wide and 366 or 466
+        local height = wide and 400 or 500
         Position(previewButton, wide and 282 or 16, wide and 48 or 386, wide and 210 or math.min(250, width))
         opacity(wide and 194 or 258, true, wide and 282 or 16)
         frameWidth(wide and 258 or 322, true)
+        if appearanceLink then Position(appearanceLink, 16, height - 72, math.min(250, width)) end
         Position(advancedButton, 16, height - 38, math.min(295, width))
         if advanced:IsShown() then
             local groupWidth = wide and (width - 20) / 2 or width
@@ -875,7 +882,7 @@ local function BuildAppearance(body, scroll)
             height = height + resetY + 38
         end
         appearanceBody:SetHeight(height)
-        ns.UI.ClampScroll(scroll, height)
+        if afterLayout then afterLayout() else ns.UI.ClampScroll(scroll, height) end
     end
     scroll:HookScript("OnSizeChanged", Layout)
     appearanceRefresh = function()
@@ -885,6 +892,22 @@ local function BuildAppearance(body, scroll)
         syncing = false
     end
     appearanceRefresh()
+    local keys = {
+        ["Taille du texte"] = "fontSize", ["Opacité du fond"] = "backgroundAlpha", ["Largeur"] = "width",
+        ["Disposition"] = "layout", ["Colonnes (grille)"] = "columns", ["Espacement"] = "gap", ["Marges"] = "padding",
+        ["Alignement"] = "align", ["Police"] = "font", ["Contour"] = "outline", ["Ombre du texte"] = "shadow",
+        ["Afficher le titre"] = "showTitle", ["Titre personnalisé"] = "title", ["Taille du titre"] = "titleSize",
+        ["Afficher les icônes"] = "showIcons", ["Taille des icônes"] = "iconSize", ["Fond"] = "background",
+        ["Texte"] = "textColor", ["Bordure"] = "borderColor", ["Épaisseur de bordure"] = "borderSize",
+    }
+    return function(source)
+        local key = keys[source]
+        local control = key and anchors[key] or override
+        if key and key ~= "fontSize" and key ~= "backgroundAlpha" and key ~= "width" then
+            advanced:Show(); advancedButton:SetText(L("Masquer la personnalisation avancée")); Layout()
+        end
+        if ns.UI.RevealControl then ns.UI.RevealControl(scroll, control) end
+    end
 end
 
 function ns.InitializeReminders(parentCategory)
@@ -932,39 +955,50 @@ function ns.InitializeReminders(parentCategory)
         return scroll, body
     end
     local effectsPage, panel = ScrollPage("ArkannsQOLEffectsPage", 700)
-    local appearancePage, appearanceBody = ScrollPage("ArkannsQOLAppearancePage", 1080)
-    local visibilityPage, visibilityBody = ScrollPage("ArkannsQOLReminderVisibility", 390)
-    visibilityPage:Hide()
+    local appearancePage, displayBody = ScrollPage("ArkannsQOLAppearancePage", 1080)
+    local visibilityBody = CreateFrame("Frame", "ArkannsQOLReminderVisibility", displayBody)
+    visibilityBody:SetPoint("TOPLEFT"); visibilityBody:SetPoint("TOPRIGHT"); visibilityBody:SetSize(620, 390)
+    local appearanceBody = CreateFrame("Frame", nil, displayBody)
+    appearanceBody:SetPoint("TOPLEFT", 0, -390); appearanceBody:SetPoint("TOPRIGHT", 0, -390); appearanceBody:SetSize(620, 1080)
+    local function SyncDisplay()
+        local y = visibilityBody:GetHeight()
+        appearanceBody:ClearAllPoints(); appearanceBody:SetPoint("TOPLEFT", 0, -y); appearanceBody:SetPoint("TOPRIGHT", 0, -y)
+        displayBody:SetHeight(y + appearanceBody:GetHeight())
+        ns.UI.ClampScroll(appearancePage, displayBody:GetHeight())
+    end
     appearancePage:Hide()
     local tabs, activePage = {}, effectsPage
+    local function SelectPage(page)
+        activePage = page
+        for _, tab in ipairs(tabs) do tab:SetEnabled(tab.page ~= page) end
+        EndTest()
+        effectsPage:SetShown(page == effectsPage); appearancePage:SetShown(page == appearancePage)
+        if page == appearancePage then Preview() end
+        if appearanceRefresh then appearanceRefresh() end
+    end
     local function Tab(name, text, x, page)
         local button = CreateFrame("Button", name, settingsPanel, "UIPanelButtonTemplate")
         button:SetPoint("TOPLEFT", x, -10); button:SetSize(190, 26); button:SetText(text)
         if ns.UI and ns.UI.StyleButton then ns.UI.StyleButton(button) end
         tabs[#tabs + 1] = button
+        button.page = page
         button:SetEnabled(page ~= activePage)
         button:SetScript("OnClick", function()
-            activePage = page
-            for _, tab in ipairs(tabs) do tab:SetEnabled(tab ~= button) end
-            EndTest()
-            effectsPage:SetShown(page == effectsPage); appearancePage:SetShown(page == appearancePage); visibilityPage:SetShown(page == visibilityPage)
-            if page == appearancePage then Preview() end
-            if appearanceRefresh then appearanceRefresh() end
+            SelectPage(page)
         end)
     end
-    Tab("ArkannsQOLEffectsTab", L("Fonctionnement"), 16, effectsPage)
-    Tab("ArkannsQOLAppearanceTab", L("Apparence"), 216, appearancePage)
-    Tab("ArkannsQOLReminderVisibilityTab", L("Visibilité"), 416, visibilityPage)
+    Tab("ArkannsQOLEffectsTab", L("Effets suivis"), 16, effectsPage)
+    Tab("ArkannsQOLAppearanceTab", L("Affichage"), 216, appearancePage)
     local function LayoutTabs()
         local width = math.max(280, settingsPanel:GetWidth() - 32)
-        local columns = width >= 450 and 3 or 1
+        local columns = width >= 450 and 2 or 1
         local size = (width - (columns - 1) * 8) / columns
         for index, button in ipairs(tabs) do
             button:ClearAllPoints(); button:SetPoint("TOPLEFT", 16 + ((index - 1) % columns) * (size + 8), -10 - math.floor((index - 1) / columns) * 34)
             button:SetWidth(size)
         end
-        for _, page in ipairs({effectsPage, appearancePage, visibilityPage}) do
-            page:ClearAllPoints(); page:SetPoint("TOPLEFT", 0, -16 - math.ceil(3 / columns) * 34); page:SetPoint("BOTTOMRIGHT", -28, 12)
+        for _, page in ipairs({effectsPage, appearancePage}) do
+            page:ClearAllPoints(); page:SetPoint("TOPLEFT", 0, -16 - math.ceil(2 / columns) * 34); page:SetPoint("BOTTOMRIGHT", -28, 12)
         end
     end
     settingsPanel:HookScript("OnSizeChanged", LayoutTabs)
@@ -1091,7 +1125,7 @@ function ns.InitializeReminders(parentCategory)
         if width ~= effectsBody.layoutWidth then effectsBody.layoutWidth = width; layoutEffects() end
     end)
     panel = visibilityBody
-    Text(L("Visibilité"), -16, "GameFontNormalLarge")
+    Text(L("Affichage"), -16, "GameFontNormalLarge")
     local visibilityHelp = Text(L("Masqué en combat et à la mort. Aucun rappel pour un effet inconnu."), -50)
     local LayoutVisibility
     local compact = BehaviorCheck("compact", L("Mode compact : 2 effets"), -116, function() LayoutVisibility() end)
@@ -1126,16 +1160,21 @@ function ns.InitializeReminders(parentCategory)
         Position(place, 16, y)
         Position(visibilityDefaults, 16, y + 36)
         visibilityBody:SetHeight(y + 74)
-        ns.UI.ClampScroll(visibilityPage, y + 74)
+        SyncDisplay()
     end
-    visibilityPage:HookScript("OnSizeChanged", LayoutVisibility)
+    appearancePage:HookScript("OnSizeChanged", function()
+        local width = math.max(1, displayBody:GetWidth())
+        visibilityBody:SetWidth(width); appearanceBody:SetWidth(width)
+        LayoutVisibility()
+    end)
     panel = effectsBody
-    BuildAppearance(appearanceBody, appearancePage)
+    local OpenAppearance = BuildAppearance(appearanceBody, appearancePage, SyncDisplay)
     settingsPanel:SetScript("OnShow", function()
         LayoutTabs()
         EndTest()
         panel:SetWidth(math.max(1, effectsPage:GetWidth()))
         appearanceBody:SetWidth(math.max(1, appearancePage:GetWidth()))
+        visibilityBody:SetWidth(math.max(1, appearancePage:GetWidth()))
         Refresh(); status:SetText("")
         appearanceRefresh()
         for _, sync in ipairs(behaviorControls) do sync() end
@@ -1158,6 +1197,28 @@ function ns.InitializeReminders(parentCategory)
         local configKeys = {"enabled", "grouped", "compact", "expandOnHover", "visibleLimit", "x", "y"}
         ns.RegisterModule("reminders", {
             label = L("Rappels d'effets"), icon = "Interface\\Icons\\Spell_Holy_SealOfWisdom", category = function() return category end,
+            OpenSettings = function(source)
+                if not source then return end
+                local effectControls = {
+                    ["Activer les rappels"] = enabled, ["Auras / postures"] = chooseButtons[1], ["Buffs"] = chooseButtons[2],
+                    ["Minicarte"] = chooseButtons[3], ["Ajouter par nom / ID"] = manualInput, ["Regrouper par type d'effet"] = grouped,
+                }
+                local displayControls = {
+                    ["Mode compact : 2 effets"] = compact, ["Développer au survol"] = expand,
+                    ["Limite"] = limitButton, ["Déplacer"] = place,
+                }
+                if effectControls[source] then
+                    SelectPage(effectsPage)
+                    if ns.UI.RevealControl then ns.UI.RevealControl(effectsPage, effectControls[source]) end
+                else
+                    SelectPage(appearancePage)
+                    if source == "Développer au survol" and not db.compact then
+                        if ns.UI.RevealControl then ns.UI.RevealControl(appearancePage, compact) end
+                    elseif displayControls[source] then
+                        if ns.UI.RevealControl then ns.UI.RevealControl(appearancePage, displayControls[source]) end
+                    else OpenAppearance(source) end
+                end
+            end,
             frame = reminder, IsEnabled = function() return db.enabled end,
             SetEnabled = function(value) db.enabled = value == true; EndTest(); RefreshAll() end,
             Summary = function() return L("Effets surveillés : %d"):format(#db.auras + #db.tracking) end,

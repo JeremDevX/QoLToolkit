@@ -341,6 +341,7 @@ local function RegisterSettings(rootCategory)
             local caption = tostring(db[key]); for _, item in ipairs(values) do if item[1] == db[key] then caption = item[2] end end
             button:SetText(string.format(L("%s : %s"), label, caption))
         end
+        return button
     end
     local activation = Check("Enabled", L("Avertissements de rang"), "enabled")
     if not C_SpellBook or not C_SpellBook.IsSpellBookItemLowRank then
@@ -352,8 +353,8 @@ local function RegisterSettings(rootCategory)
     Button("Preview", L("Aperçu · 12 s"), 185, function() UI.PreviewModule("ranks") end)
 
     Text(L("Visibilité"), 15)
-    Check("Combat", L("En combat"), "showCombat")
-    Check("Rest", L("Hors combat"), "showRest")
+    local combatCheck = Check("Combat", L("En combat"), "showCombat")
+    local restCheck = Check("Rest", L("Hors combat"), "showRest")
     items[#items].pair = true
 
     Text(L("Rangs inférieurs volontaires"), 15)
@@ -417,7 +418,7 @@ local function RegisterSettings(rootCategory)
             Changed()
         end)
     end)
-    Button("AppearanceToggle", L("Apparence du badge"), 280, function(self)
+    local appearanceToggle = Button("AppearanceToggle", L("Apparence du badge"), 280, function(self)
         advanced = not advanced
         self:SetText(advanced and L("Masquer l’apparence du badge") or L("Apparence du badge"))
         Layout()
@@ -428,11 +429,12 @@ local function RegisterSettings(rootCategory)
     end)
     Track(own, "check")
     updates[#updates + 1] = function() own:SetChecked(UI.IsOverride("ranks")) end
-    Choice("Style", L("Badge"), "style", {{"mark", "!"}, {"dot", L("Point")}, {"border", L("Bordure")}})
-    Choice("Corner", L("Coin"), "corner", {{"BOTTOMLEFT", L("Bas gauche")}, {"BOTTOMRIGHT", L("Bas droite")}, {"TOPLEFT", L("Haut gauche")}, {"TOPRIGHT", L("Haut droite")}})
+    if UI.AddAppearanceLink then Track(UI.AddAppearanceLink(panel, "ranks", 0, 0, 280), "button", 280) end
+    local style = Choice("Style", L("Badge"), "style", {{"mark", "!"}, {"dot", L("Point")}, {"border", L("Bordure")}})
+    local corner = Choice("Corner", L("Coin"), "corner", {{"BOTTOMLEFT", L("Bas gauche")}, {"BOTTOMRIGHT", L("Bas droite")}, {"TOPLEFT", L("Haut gauche")}, {"TOPRIGHT", L("Haut droite")}})
     items[#items].condition = function() return db.style ~= "border" end
-    Choice("Size", L("Taille"), "size", {{10, "10"}, {14, "14"}, {18, "18"}, {24, "24"}, {32, "32"}})
-    Choice("Opacity", L("Opacité"), "opacity", {{0.25, L("25 %")}, {0.5, L("50 %")}, {0.75, L("75 %")}, {1, L("100 %")}})
+    local size = Choice("Size", L("Taille"), "size", {{10, "10"}, {14, "14"}, {18, "18"}, {24, "24"}, {32, "32"}})
+    local opacity = Choice("Opacity", L("Opacité"), "opacity", {{0.25, L("25 %")}, {0.5, L("50 %")}, {0.75, L("75 %")}, {1, L("100 %")}})
     items[#items].pair = true
     local colorButton = Button("Color", L("Couleur"), 110, function()
         if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
@@ -496,6 +498,24 @@ local function RegisterSettings(rootCategory)
     canvas:SetScript("OnShow", canvas.OnRefresh)
     canvas:HookScript("OnSizeChanged", Layout)
     canvas:SetScript("OnHide", StopPreview)
+    local targets = {["Avertissements de rang"] = activation, ["Exceptions"] = input,
+        ["En combat"] = combatCheck, ["Hors combat"] = restCheck, ["Badge"] = style,
+        ["Coin"] = corner, ["Taille"] = size, ["Opacité"] = opacity, ["Couleur"] = colorButton,
+        ["Apparence propre à ce module"] = own}
+    canvas.OpenSetting = function(source)
+        local target = targets[source]
+        if not target then return end
+        for _, item in ipairs(items) do
+            if item.frame == target and item.advanced then
+                advanced = true
+                appearanceToggle:SetText(L("Masquer l’apparence du badge"))
+            end
+        end
+        Layout()
+        -- A border badge has no corner. Keep the controlling choice visible instead.
+        if source == "Coin" and db.style == "border" then target = style end
+        if UI.RevealControl then UI.RevealControl(scroll, target) end
+    end
     UI.StylePanel(canvas)
     ns.rankGuardCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, canvas, L("Rangs de sorts"))
     settingsPanel = canvas
@@ -523,6 +543,8 @@ function ns.InitializeRankGuard(rootCategory)
         IsEnabled = function() return enabled end, SetEnabled = SetEnabled,
         Summary = function() local count = 0; for _ in pairs(db.exceptions) do count = count + 1 end; return string.format(L("%d exception(s) · %s s"), count, tostring(db.interval)) end,
         Preview = Preview, StopPreview = StopPreview, Refresh = Changed,
+        OpenSettings = function(source) if settingsPanel and settingsPanel.OpenSetting then settingsPanel.OpenSetting(source) end end,
+        SearchSettings = {"Avertissements de rang", "Exceptions", "En combat", "Hors combat", "Badge", "Coin", "Taille", "Opacité", "Couleur", "Apparence propre à ce module"},
         ExportSettings = function() local result = {}; for key in pairs(defaults) do result[key] = Copy(db[key]) end; return result end,
         profileMigrations = {function(config) config.interval = REFRESH_INTERVAL end},
         ImportSettings = function(config)

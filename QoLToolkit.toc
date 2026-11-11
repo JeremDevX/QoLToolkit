@@ -4,7 +4,7 @@
 ## Notes: Tooltips, effect reminders, session journal, talents, spell ranks, target distance, bags, and advanced settings. /qt
 ## Notes-frFR: Infobulles, rappels, journal, talents, rangs de sorts, distance, sacs et réglages avancés. /qt
 ## Author: Arkann
-## Version: 0.1.2
+## Version: 0.1.3
 ## SavedVariables: ForeverTooltipLibreDB
 ## SavedVariablesPerCharacter: ArkannsQOLRemindersDB, ArkannsQOLSessionDB, ArkannsQOLTalentsDB
 

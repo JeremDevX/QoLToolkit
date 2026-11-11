@@ -392,20 +392,15 @@ do
     local colors = {MAGE = {r = .25, g = .78, b = .92}, DRUID = {r = 1, g = .49, b = .04}}
     local container = Widget("Frame", nil, env.TargetFrame)
     local portrait = Widget("Texture", nil, container)
-    local rim = Widget("Texture", nil, container)
-    local atlas = "UI-HUD-UnitFrame-Target-PortraitOn-c60"
-    local nativeAtlas = atlas
     portrait:Show()
     portrait.IsAnchoringSecret = function() return secretAnchor end
-    rim.GetAtlas = function() return nativeAtlas end
-    env.TargetFrame.TargetFrameContainer, container.Portrait, container.FrameTexture = container, portrait, rim
+    env.TargetFrame.TargetFrameContainer, container.Portrait = container, portrait
     container:SetFrameLevel(4)
     env.InCombatLockdown = function() return combat end
     env.UnitIsPlayer = function(unit) assert(unit == "target"); return player end
     env.UnitClassBase = function(unit) assert(unit == "target"); return class end
     env.UnitIsUnit = function(a, b) assert(a == "target" and b == "player"); return false end
     env.C_ClassColor = {GetClassColor = function(token) return colors[token] end}
-    env.C_Texture = {GetAtlasInfo = function(name) if name == atlas then return {} end end}
     env.C_CVar = {GetCVarBool = function(name)
         assert(name == "ReplaceOtherPlayerPortraits")
         return replacement
@@ -422,13 +417,16 @@ do
     function methods:CreateLine() error("Do not redraw the native portrait rim with line segments") end
     function methods:CreateMaskTexture() assert(not combat); return Widget("MaskTexture", nil, self) end
     function methods:AddMaskTexture(mask) self.mask = mask end
-    function methods:SetTexelSnappingBias(value) self.snappingBias = value end
-    function methods:SetSnapToPixelGrid(value) self.snapToGrid = value end
+    methods.SetTexelSnappingBias, methods.SetSnapToPixelGrid = noop, noop
+    function methods:SetAtlas() error("The trim must work without the live unit frame atlas") end
     function methods:SetDesaturated(value) self.desaturated = value end
-    function methods:SetAllPoints(region) assert(not combat); self.alignedTo = region end
-    function methods:SetAtlas(name, useAtlasSize) assert(useAtlasSize == false); self.atlas = name end
     function methods:SetVertexColor(...) self.color = {...} end
-    function methods:SetTexture(texture) self.texture = texture; return true end
+    local rimTexture = "Interface\\Minimap\\MiniMap-TrackingBorder"
+    local rimAvailable = true
+    function methods:SetTexture(texture)
+        self.texture = texture
+        return texture ~= rimTexture or rimAvailable
+    end
     function methods:SetTexCoord(...) self.coords = {...} end
 
     local nextWidget = #widgets + 1
@@ -439,7 +437,10 @@ do
     assert(toggle.checked and module.ExportSettings().enabled and driver.events.UNIT_PORTRAIT_UPDATE == "target")
     local function Event(event, name) driver.scripts.OnEvent(driver, event, name) end
     local function Overlay()
-        for _, widget in ipairs(widgets) do if widget.parent == container and widget.kind == "Frame" then return widget end end
+        for index = #widgets, 1, -1 do
+            local widget = widgets[index]
+            if widget.parent == container and widget.kind == "Frame" then return widget end
+        end
     end
     Event("PLAYER_TARGET_CHANGED")
     assert(not Overlay(), "Never create or anchor on a Blizzard frame in combat")
@@ -449,26 +450,24 @@ do
     secretAnchor = false
     Event("PLAYER_ENTERING_WORLD")
     local frame = assert(Overlay())
-    assert(frame.shown and not frame.mouse and frame.level == container.level and frame.points[1][2] == portrait)
-    assert(#frame.trims == 2 and frame.icon.width == 16 and frame.icon.points[1][4] == 24)
+    assert(#frame.trims == 2 and frame.trims[1].texture == rimTexture,
+        "Draw visible class trim even when the live unit frame atlas is unavailable")
+    assert(frame.shown and not frame.mouse and frame.level == container.level + 1 and frame.points[1][2] == portrait)
+    assert(frame.icon.width == 16 and frame.icon.points[1][4] == 24)
     assert(frame.icon.texture == "Interface\\WorldStateFrame\\Icons-Classes" and frame.icon.coords[1] > .25)
     for _, trim in ipairs(frame.trims) do
-        assert(trim.shown and trim.atlas == atlas and trim.alignedTo == rim and trim.desaturated)
+        assert(trim.texture == rimTexture and trim.desaturated and trim.points[1][2] == frame)
         assert(trim.mask.texture == "Interface\\CharacterFrame\\TempPortraitAlphaMask")
-        assert(trim.mask.width < 58 and trim.mask.height < 58, "Tint only a small section of the frame art")
+        assert(trim.mask.width < 29 and trim.mask.height < 29, "Keep each arc in a corner of the portrait")
     end
-    assert(frame.trims[1].mask.points[1][4] > 0 and frame.trims[2].mask.points[1][4] < 0)
+    local top, bottom = frame.trims[1], frame.trims[2]
+    assert(top.mask.points[1][4] > 0 and top.mask.points[1][5] > 0 and top.coords[1] > top.coords[2])
+    assert(bottom.mask.points[1][4] < 0 and bottom.mask.points[1][5] < 0 and bottom.coords[3] > bottom.coords[4])
+    assert(top.alpha >= .9 and top.alpha > bottom.alpha, "Keep the accent under the emblem clearly visible")
     local firstColor = frame.trims[1].color[1]
     combat, class = true, "DRUID"
     Event("PLAYER_TARGET_CHANGED")
     assert(frame.shown and frame.icon.coords[1] > .75 and frame.trims[1].color[1] > firstColor)
-    nativeAtlas = "unknown-atlas"
-    Event("UNIT_PORTRAIT_UPDATE", "target")
-    assert(frame.shown and not frame.trims[1].shown and not frame.trims[2].shown,
-        "An unavailable atlas must leave just the class emblem")
-    nativeAtlas = atlas
-    Event("UNIT_PORTRAIT_UPDATE", "target")
-    assert(frame.trims[1].shown and frame.trims[2].shown)
     class = "secret"
     Event("PLAYER_TARGET_CHANGED")
     assert(not frame.shown)
@@ -500,5 +499,13 @@ do
     assert(profiles.Apply(assert(profiles.Preview("With class trim", {targetPortrait = true}))))
     assert(toggle.checked and frame.shown)
     assert(profiles.Undo() and not toggle.checked and not frame.shown)
+
+    rimAvailable = false
+    env.ForeverTooltipLibreDB.targetPortrait = nil
+    Load("Modules/TargetPortrait.lua")
+    ns.InitializeTargetPortrait({})
+    local fallback = assert(Overlay())
+    assert(fallback ~= frame and fallback.shown and #fallback.trims == 0 and fallback.icon,
+        "If the native rim texture cannot load, keep the class emblem")
 end
 print("PASS: target class trim geometry, protected anchors, class changes, native portrait setting, and profiles")

@@ -4,6 +4,9 @@ WoW Forever 1.60.1 • Interface 16001
 L’addon utilise la langue du client. Français pour le client français, anglais par défaut.
 
 ACCUEIL
+La recherche retrouve les réglages de tous les modules et ouvre leur rubrique.
+Pour les réglages avancés, le résultat ouvre directement l'option correspondante.
+Effacer ou Échap réaffiche les cartes ; Entrée ouvre le premier résultat.
 /qt : huit cartes avec activation, résumé, Configurer et Aperçu selon le module.
 L’étoile épingle un module. Les favoris des réglages avancés apparaissent aussi ici.
 Les favoris apparaissent avant les cartes. Apparence, Disposition, Profils et Diagnostics
@@ -20,6 +23,8 @@ Les réglages hérités sont grisés. Tes réglages locaux et les modules désac
 Les couleurs d'alerte restent distinctes du texte normal.
 
 DISPOSITION
+Une déconnexion ou /reload annule les positions non validées. L'annulation conserve
+les autres réglages modifiés pendant l'aperçu, par exemple via /qttooltip off.
 Ouvre Disposition hors combat : les fenêtres de démonstration apparaissent.
 Glisse les cadres ; les exemples suivent le déplacement. Grille et accrochage facultatifs.
 Clique sur un cadre pour régler précisément son centre avec X % et Y %.
@@ -150,6 +155,11 @@ Tu peux désactiver « Afficher la distance au survol » dans Distance de la cib
 Si un autre addon déplace les tooltips, désactive son option de placement.
 
 BUILDS DE TALENTS
+Le menu du build propose Dupliquer, Exporter et Importer. La duplication conserve
+l'ordre des points et le niveau du premier point dans un build indépendant.
+Exporter affiche un texte à copier avec Ctrl+C ; Importer permet de le coller avec Ctrl+V.
+Le format est propre à QoL Toolkit. Classe, arbre, version, premier niveau et ordre
+des points sont vérifiés avant confirmation. L'import ajoute un build sans remplacer les autres.
 Ouvre tes talents (N) : le panneau apparaît à côté de l'arbre.
 La classe et les talents viennent du personnage connecté, avec les noms et icônes du jeu.
 Plans enregistrés par personnage et spécialisation primaire / secondaire.
@@ -188,11 +198,13 @@ Le panneau se masque en combat et pendant l'inspection d'un autre joueur.
 Options : afficher avec les talents et replacer le panneau.
 
 RANGS DE SORTS
-Par défaut, contrôle des actions toutes les 2 s ; fréquence réglable. Les événements de sorts et de barres sont regroupés sous 0,2 s.
+Les rangs et les nouveaux boutons sont vérifiés toutes les 30 s, immédiatement à
+l'ouverture d'un maître de classe et à l'apprentissage d'un sort. Les changements
+de sorts et de barres rafraîchissent les boutons connus sous 0,2 s.
 Seuls les avertissements déjà détectés suivent les mouvements des barres toutes les 0,2 s.
-Cache des rangs : 30 s. Recherche globale des nouveaux boutons : 60 s, hors combat.
-Un chargement d'addon ou une entrée dans le monde demande aussi une recherche de boutons.
-Une barre tierce sans événement peut attendre 2 s ; un nouveau bouton sans événement, 60 s.
+La recherche globale des boutons attend la fin du combat si nécessaire.
+Une entrée dans le monde demande aussi une recherche de boutons.
+Un nouveau bouton sans événement peut attendre jusqu'à 30 s.
 Module désactivé : aucun scan. Ces intervalles ne constituent pas une mesure de gain FPS.
 /qt > Rangs de sorts. Module intégré à QoL Toolkit, actif par défaut.
 Un petit ! orange en bas à gauche d'un bouton signale un rang supérieur déjà appris.

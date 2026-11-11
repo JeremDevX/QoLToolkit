@@ -164,6 +164,59 @@ function M.Undo(order)
     if type(order) == "table" and #order > 0 then return table.remove(order) end
 end
 
+function M.CopyPlan(plan)
+    local result = {name = plan.name, firstLevel = plan.firstLevel, order = {}}
+    for index, point in ipairs(plan.order) do
+        result.order[index] = {nodeID = point.nodeID, entryID = point.entryID}
+    end
+    return result
+end
+
+local function ValidName(name)
+    return type(name) == "string" and #name > 0 and #name <= 120 and not name:find("[%z\1-\31\127|]")
+end
+
+-- Plain versioned data, never Lua code. IDs and payload size stay bounded before replay.
+function M.ExportPlan(catalog, plan, firstLevel)
+    if type(plan) ~= "table" or not ValidName(plan.name) then return nil, "Nom du build invalide." end
+    local state = M.Replay(catalog, plan.order, firstLevel)
+    if state.error then return nil, state.error end
+    local points = {}
+    for _, point in ipairs(plan.order) do
+        if not Integer(point.nodeID, 1, 2147483647) or not Integer(point.entryID, 1, 2147483647) then return nil, "Point de talent invalide." end
+        points[#points + 1] = point.nodeID .. ":" .. point.entryID
+    end
+    local name = plan.name:gsub(".", function(byte) return ("%02X"):format(byte:byte()) end)
+    return table.concat({"QTB1", catalog.classToken, tostring(catalog.treeID), tostring(firstLevel), name, table.concat(points, ",")}, ";")
+end
+
+function M.ImportPlan(catalog, text)
+    if type(text) ~= "string" or #text > 4096 then return nil, "Texte du build invalide ou trop long." end
+    text = text:match("^%s*(.-)%s*$")
+    local class, tree, first, name, points = text:match("^QTB1;([A-Z_]+);(%d+);(%d+);(%x+);([%d:,]*)$")
+    if not class or #class > 20 or #tree > 10 or #first > 2 or #name > 240 or #name % 2 ~= 0 then
+        return nil, "Format ou version du build non pris en charge."
+    end
+    if type(catalog) ~= "table" or class ~= catalog.classToken or tonumber(tree) ~= catalog.treeID then
+        return nil, "Ce build appartient à une autre classe ou un autre arbre."
+    end
+    name = name:gsub("%x%x", function(byte) return string.char(tonumber(byte, 16)) end)
+    if not ValidName(name) then return nil, "Nom du build invalide." end
+    local plan = {name = name, firstLevel = tonumber(first), order = {}}
+    if points ~= "" then
+        for point in (points .. ","):gmatch("(.-),") do
+            local node, entry = point:match("^(%d+):(%d+)$")
+            if not node or #node > 10 or #entry > 10 or #plan.order >= 51 then return nil, "Point de talent invalide." end
+            node, entry = tonumber(node), tonumber(entry)
+            if not Integer(node, 1, 2147483647) or not Integer(entry, 1, 2147483647) then return nil, "Point de talent invalide." end
+            plan.order[#plan.order + 1] = {nodeID = node, entryID = entry}
+        end
+    end
+    local state = M.Replay(catalog, plan.order, plan.firstLevel)
+    if state.error then return nil, state.error end
+    return plan
+end
+
 function M.DeletePlan(bucket, plan)
     if type(bucket) ~= "table" or type(bucket.plans) ~= "table" then return false end
     for index, saved in ipairs(bucket.plans) do

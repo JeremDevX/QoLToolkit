@@ -1,6 +1,13 @@
 local _, ns = ...
 
 for source, translation in pairs({
+    ["Rechercher dans tous les réglages"] = "Search all settings",
+    ["Aucun réglage trouvé."] = "No settings found.",
+    ["%d résultat(s) — ouvre la rubrique correspondante."] = "%d result(s) — open the matching category.",
+    ["Effacer"] = "Clear",
+    ["Position fixe"] = "Fixed position",
+    ["Buffs"] = "Buffs",
+    ["Limite"] = "Limit",
     [" : absent du profil, conservé."] = ": Missing from profile. Current settings kept.",
     [" : configuration refusée."] = ": Settings rejected.",
     [" : module indisponible, ignoré."] = ": Module unavailable. Skipped.",

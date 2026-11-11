@@ -17,6 +17,14 @@ QoL Toolkit is a modular addon for **World of Warcraft Forever 1.60.1**. Build t
 
 Use the dashboard to pin modules, preview appearance changes, and position supported windows. Favorites appear first. Local Move buttons open the shared Layout editor; Apply keeps moved frames and Cancel restores their original placement. The minimap button can be dragged or hidden from the dashboard. Named profiles share selected module settings across characters on the same account. Talent builds and journal totals stay with their character. Partial profiles include each module’s shared/custom appearance choice. Profiles and talent builds can be deleted after confirmation.
 
+Search from the dashboard to find settings across modules. Results open the corresponding settings page; advanced settings results open the matching option. Clear the search to return to the dashboard.
+
+The talent build menu offers **Duplicate**, **Export**, and **Import**. Copy or paste the versioned text in the transfer window. Imports validate the class, tree, first-point level, and complete point order before adding a new build after confirmation. Existing builds are preserved. This format is specific to QoL Toolkit.
+
+Spell Rank Guard checks ranks and discovers action buttons every 30 seconds, immediately when opening a trainer, and immediately when learning a spell. Action-bar changes still refresh existing buttons promptly. Button discovery waits until combat ends when necessary.
+
+Layout changes require **Apply**. Cancelling or logging out restores the original placement while preserving other settings changed during the preview.
+
 ## Install
 
 1. Put the addon folder in `World of Warcraft/_forever_/Interface/AddOns/` and name it `QoLToolkit`. The `QoLToolkit.toc` file should sit directly inside that folder.

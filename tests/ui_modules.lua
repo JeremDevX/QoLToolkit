@@ -30,6 +30,10 @@ function methods:SetPoint(...) self.points[#self.points + 1] = {...} end
 function methods:ClearAllPoints() self.points = {} end
 function methods:SetText(value) self.text = value end
 function methods:GetText() return self.text end
+function methods:GetNumLines()
+    local _, newlines = self.text:gsub("\n", "\n")
+    return math.max(newlines + 1, math.ceil(#self.text / math.max(1, math.floor(self.width / 8))))
+end
 function methods:GetStringWidth() return #self.text * 6 end
 function methods:GetUnboundedStringWidth() return #self.text * 6 end
 function methods:GetStringHeight() return 14 * (1 + select(2, self.text:gsub("\n", ""))) end
@@ -76,6 +80,9 @@ ns.UI.IsOverride = function(id) return overrides[id] == true end
 ns.UI.SetOverride = function(id, value) overrides[id] = value; if modules[id] then modules[id].Refresh() end end
 ns.UI.GetStyle = function() return nil end
 ns.UI.StyleFrame, ns.UI.StylePanel, ns.UI.StyleButton = noop, noop, noop
+ns.UI.Label = function(parent, text, x, y)
+    local label = Frame(nil, parent); label:SetText(text); label:SetPoint("TOPLEFT", x, y); return label
+end
 ns.UI.ClampScroll = function(scroll, height)
     scroll:SetVerticalScroll(math.min(scroll:GetVerticalScroll(), math.max(0, height - scroll:GetHeight())))
 end
@@ -243,4 +250,57 @@ local replacement = {plans = {{name = "Replacement", order = {}}}, active = 1}
 env.ArkannsQOLTalentsDB.profiles["TEST:1:1"] = replacement
 modules.talents.Refresh(); confirmation()
 assert(#saved.plans == 1 and #replacement.plans == 1, "A changed profile invalidates pending deletion")
-print("PASS: passive module previews, inherited styles, theme preservation, layout shortcuts, narrow tabs, build deletion, and preview cleanup")
+-- Transfer and menu actions retain the exact bucket that the player reviewed.
+ns.TalentPlanData.Read = function()
+    return {classToken = "TEST", className = "Test", treeID = 1, configID = 1, maxPoints = 51, availablePoints = 0,
+        nodes = {[1] = {id = 1, groupID = 1, maxRanks = 2, entries = {[2] = {name = "Talent", maxRanks = 2}}}},
+        actualCounts = {}, actualChoices = {}}
+end
+local original = {name = "Original", firstLevel = 7, order = {{nodeID = 1, entryID = 2}}}
+local transferBucket = {plans = {original}, active = 1}
+env.ArkannsQOLTalentsDB.profiles["TEST:1:1"] = transferBucket
+modules.talents.Refresh()
+local function BuildMenu()
+    frames.ArkannsQOLTalentBuild.scripts.OnClick(frames.ArkannsQOLTalentBuild)
+end
+BuildMenu(); menuItems["Dupliquer ce build"]()
+assert(#transferBucket.plans == 2 and transferBucket.active == 2)
+local duplicate = transferBucket.plans[2]
+assert(duplicate.name == "Original (copie)" and duplicate.firstLevel == 7 and duplicate.order[1] ~= original.order[1])
+duplicate.order[1].entryID = 99; assert(original.order[1].entryID == 2)
+duplicate.order[1].entryID = 2
+BuildMenu(); menuItems["Exporter ce build"]()
+local dialog, input = frames.ArkannsQOLTalentTransfer, frames.ArkannsQOLTalentTransferInput
+local text = input:GetText()
+assert(dialog.shown and text:match("^QTB1;TEST;1;7;"))
+local transferScroll = frames.ArkannsQOLTalentTransferScroll
+transferScroll:SetHeight(100)
+input:SetText(string.rep("1234567890", 250)); input.scripts.OnTextChanged(input)
+assert(input:GetHeight() >= input:GetNumLines() * 16, "Long wrapped clipboard text expands the scroll child")
+input.scripts.OnCursorChanged(input, 0, -500, 1, 14)
+assert(transferScroll:GetVerticalScroll() == 414, "Cursor scrolls to the end of long text")
+input.scripts.OnCursorChanged(input, 0, 0, 1, 14)
+assert(transferScroll:GetVerticalScroll() == 0, "Cursor can return to the first character")
+BuildMenu(); menuItems["Importer un build"]()
+input:SetText(text)
+frames.ArkannsQOLTalentTransferApply.scripts.OnClick()
+assert(#transferBucket.plans == 2, "Import waits for confirmation")
+confirmation()
+assert(#transferBucket.plans == 3 and transferBucket.plans[1] == original and not dialog.shown)
+confirmation(); assert(#transferBucket.plans == 3, "Repeated acceptance cannot duplicate the import")
+BuildMenu(); menuItems["Importer un build"]()
+input:SetText("QTB9;invalid")
+frames.ArkannsQOLTalentTransferApply.scripts.OnClick()
+assert(#transferBucket.plans == 3 and dialog.shown, "Invalid text preserves all builds")
+input:SetText(text); frames.ArkannsQOLTalentTransferApply.scripts.OnClick()
+local importConfirmation = confirmation
+BuildMenu(); local oldSelection, oldDuplicate = menuItems.Original, menuItems["Dupliquer ce build"]
+local newBucket = {plans = {{name = "New context", order = {}}}, active = 1}
+env.ArkannsQOLTalentsDB.profiles["TEST:1:1"] = newBucket
+modules.talents.Refresh()
+oldSelection(); oldDuplicate(); importConfirmation()
+assert(#newBucket.plans == 1 and newBucket.active == 1 and #transferBucket.plans == 3, "Stale menus and imports cannot change a replacement bucket")
+BuildMenu(); menuItems["Importer un build"]()
+combat = true; frames.ArkannsQOLTalentEvents.scripts.OnEvent(nil, "PLAYER_REGEN_DISABLED"); combat = false
+assert(not dialog.shown, "Combat closes the transfer dialog")
+print("PASS: passive module previews, inherited styles, build deletion, talent copy/transfer, stale menus, and preview cleanup")

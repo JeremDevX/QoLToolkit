@@ -537,7 +537,7 @@ end
 print("PASS: bag border geometry, inner glow, native restoration, and backpack settings")
 
 -- Keep each simulation isolated from the globals used above.
-for _, path in ipairs({"tests/talent_plan.lua","tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/ui_utilities.lua","tests/ui_modules.lua"}) do
+for _, path in ipairs({"tests/talent_plan.lua","tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/advanced_bounds.lua","tests/ui_utilities.lua","tests/rank_events.lua","tests/ui_modules.lua"}) do
     local chunk = assert(loadfile(path))
     local environment = setmetatable({}, {__index = testGlobals})
     environment._G = environment

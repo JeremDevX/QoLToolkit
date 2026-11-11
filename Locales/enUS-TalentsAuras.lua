@@ -258,6 +258,19 @@ for source, translation in pairs({
     ["Élixir"] = "Elixir",
     ["Étapes visibles"] = "Visible Steps",
     ["à vérifier"] = "check",
+    ["Nom du build invalide."] = "Invalid build name.",
+    ["Texte du build invalide ou trop long."] = "Invalid or oversized build text.",
+    ["Format ou version du build non pris en charge."] = "Unsupported build format or version.",
+    ["Ce build appartient à une autre classe ou un autre arbre."] = "This build belongs to another class or tree.",
+    ["Dupliquer ce build"] = "Duplicate This Build",
+    ["%s (copie)"] = "%s (copy)",
+    ["Copie du build"] = "Build Copy",
+    ["Exporter ce build"] = "Export This Build",
+    ["Importer un build"] = "Import a Build",
+    ["Importer comme nouveau build"] = "Import as New Build",
+    ["Importer le build « %s » ? Les builds existants seront conservés."] = "Import build '%s'? Existing builds will be preserved.",
+    ["Colle le texte du build avec Ctrl+V. L’import crée un nouveau build après confirmation."] = "Paste build text with Ctrl+V. Import creates a new build after confirmation.",
+    ["Copie ce texte avec Ctrl+C. Il contient la classe, l’arbre et le niveau du premier point."] = "Copy this text with Ctrl+C. It includes the class, tree and first talent level.",
 }) do
     ns.English[source] = translation
 end

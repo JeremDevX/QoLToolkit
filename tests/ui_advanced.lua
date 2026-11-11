@@ -104,4 +104,11 @@ assert(frames.ArkannsQOLAdvancedSearch.shown and row.select.shown and row.input.
 review.scripts.OnClick()
 frames.ArkannsQOLAdvancedConfirmReset.scripts.OnClick()
 assert(writes == 2 and values.cameraZoomSpeed == "0")
+ns.OpenAdvancedInventory()
+assert(ns.AdvancedSettings.OpenSetting("CMAA2Quality"))
+assert(row.option.name == "CMAA2Quality" and expert.checked and row.choice.enabled,
+    "Global search opens a non-favorite graphics setting from inventory")
+assert(ns.AdvancedSettings.OpenSetting("cameraZoomSpeed"))
+assert(row.option.name == "cameraZoomSpeed" and frames.ArkannsQOLAdvancedSearch.text == "cameraZoomSpeed")
+assert(not ns.AdvancedSettings.OpenSetting("unknown") and writes == 2, "Search navigation never writes CVars")
 print("PASS: expert opt-in, explicit choices, favorites navigation, diagnostic inventory, and focused reset review")

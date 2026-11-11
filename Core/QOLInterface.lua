@@ -324,7 +324,11 @@ function UI.EndLayout(cancel)
     for id, position in pairs(savedPositions) do
         local module = ns.modules[id]
         if cancel or not changedPositions[id] then
-            if savedLayouts[id] and module.ImportSettings then module.ImportSettings(savedLayouts[id])
+            if savedLayouts[id] and module.ExportSettings and module.ImportSettings then
+                -- Restore placement only; commands may have changed other settings during the preview.
+                local current = module.ExportSettings()
+                current.x, current.y = savedLayouts[id].x, savedLayouts[id].y
+                module.ImportSettings(current)
             elseif changedPositions[id] then module.SetPosition(position[1], position[2]) end
         else module.SetPosition(positions[id][1], positions[id][2]) end
     end
@@ -668,6 +672,103 @@ function UI.BuildHome(panel)
     scroll:SetPoint("TOPLEFT",16,-16); scroll:SetPoint("BOTTOMRIGHT",-34,18)
     local body=CreateFrame("Frame",nil,scroll); body:SetSize(1,1); scroll:SetScrollChild(body)
     local heading=Label(body, "QoL Toolkit",0,0,20)
+    local searchLabel=Label(body,L("Rechercher dans tous les réglages"),0,0)
+    local search=Input(body,"ArkannsQOLHomeSearch",6,0)
+    search:SetMaxLetters(80)
+    local clearSearch=Button(body,"ArkannsQOLHomeSearchClear",L("Effacer"),0,0,90,function()
+        search:SetText(""); search:ClearFocus(); home.Refresh()
+    end)
+    local searchStatus=Label(body,"",0,0)
+    local resultButtons, matches = {}, {}
+    -- Index settings, never session values, player names, or generated preview labels.
+    local settingLabels = {
+        tooltips = {"Personnaliser les infobulles", "Suivre le curseur", "Position fixe", "Échelle", "Réglages propres à ce type", "Décalage du curseur",
+            "Décalage X / Y (0 à 100)", "Masquer en combat", "Types d’infobulle", "Unités", "Objets", "Sorts", "Apparence propre à ce module"},
+        reminders = {"Activer les rappels", "Auras / postures", "Buffs", "Minicarte", "Ajouter par nom / ID", "Regrouper par type d'effet",
+            "Mode compact : 2 effets", "Développer au survol", "Limite", "Taille du texte", "Opacité du fond", "Largeur", "Disposition",
+            "Colonnes (grille)", "Espacement", "Marges", "Alignement", "Police", "Contour", "Ombre du texte", "Afficher le titre",
+            "Titre personnalisé", "Taille du titre", "Afficher les icônes", "Taille des icônes", "Fond", "Texte", "Bordure", "Épaisseur de bordure"},
+        session = {"Afficher la fenêtre", "Démarrer le suivi", "Arrêter le suivi", "Mettre en pause pendant l’AFK", "Masquer les valeurs nulles",
+            "Mode compact (3 statistiques)", "Développer au survol", "Réinitialiser les stats", "Taille du texte", "Opacité du fond (%)",
+            "Afficher le titre", "Afficher la bordure", "Largeur min.", "Masquer en combat", "Durée", "XP gagnée", "Prochain niveau",
+            "Or reçu", "Or dépensé", "Solde", "Morts", "Niveaux gagnés"},
+        talents = {"Modifier le build", "Retirer le dernier point", "Nouveau", "Dupliquer ce build", "Exporter ce build", "Importer un build", "1er point", "Couleur du prochain point",
+            "Couleur des points suivants", "Couleur des erreurs", "Points suivants visibles", "Déplacer"},
+        ranks = {"Avertissements de rang", "Exceptions", "Badge", "Coin", "Taille", "Opacité", "Couleur", "En combat", "Hors combat"},
+        distance = {"Afficher le badge de la cible", "Afficher la distance au survol", "Arrondir les estimations par pas de 5 m",
+            "Ancrer au portrait plutôt qu’au nom", "Placement et couleurs", "Décalage X / Y", "Réinitialiser le placement",
+            "Fond et bordure", "Fond seul", "Texte seul", "Couleur du texte"},
+        bags = {"Trier à l’ouverture manuelle", "Bordure selon la rareté", "Personnaliser les bordures", "Transmos manquantes",
+            "Masquer gris et blancs", "Couleurs de rareté", "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
+        appearance = {"Thème", "Taille du texte des modules", "Type de bordure", "Épaisseur de bordure", "Police", "Échelle (%)",
+            "Opacité du fond (%)", "Marge intérieure", "Espacement", "Fond", "Texte", "Bordure et accents"},
+    }
+    local accents = { ["à"]="a", ["â"]="a", ["ä"]="a", ["À"]="a", ["Â"]="a", ["Ä"]="a",
+        ["é"]="e", ["è"]="e", ["ê"]="e", ["ë"]="e", ["É"]="e", ["È"]="e", ["Ê"]="e", ["Ë"]="e",
+        ["î"]="i", ["ï"]="i", ["Î"]="i", ["Ï"]="i", ["ô"]="o", ["ö"]="o", ["Ô"]="o", ["Ö"]="o",
+        ["ù"]="u", ["û"]="u", ["ü"]="u", ["Ù"]="u", ["Û"]="u", ["Ü"]="u", ["ç"]="c", ["Ç"]="c", ["œ"]="oe", ["Œ"]="oe" }
+    local function SearchText(value)
+        local text=tostring(value or ""):lower()
+        for accented, plain in pairs(accents) do text=text:gsub(accented,plain) end
+        return text
+    end
+    function UI.SearchSettings(query)
+        local words, result = {}, {}
+        for word in SearchText(query):gmatch("%S+") do words[#words+1]=word end
+        if #words==0 then return result end
+        local function Add(label, detail, open)
+            local text=SearchText(label.." "..(detail or ""))
+            for _,word in ipairs(words) do if not text:find(word,1,true) then return end end
+            result[#result+1]={label=label,Open=open}
+        end
+        if ns.IsMinimapVisible then
+            Add(L("Afficher le bouton de minicarte"),"",function() search:SetText(""); home.Refresh() end)
+        end
+        for _,id in ipairs({"tooltips","reminders","session","talents","ranks","distance","bags","appearance"}) do
+            local module=ns.modules[id]
+            if module and module.category then
+                local function Open()
+                    local category=module.category()
+                    if category then Settings.OpenToCategory(category:GetID()) end
+                end
+                Add(module.label,"",Open)
+                for _,source in ipairs(settingLabels[id] or {}) do
+                    Add(module.label.." · "..L(source),source.." "..((ns.English or {})[source] or ""),Open)
+                end
+            end
+        end
+        local advanced=ns.modules.advanced
+        if advanced and advanced.category then
+            Add(advanced.label,"",function() local category=advanced.category(); if category then Settings.OpenToCategory(category:GetID()) end end)
+            for _,option in ipairs(ns.AdvancedSettingsCatalog or {}) do
+                if not ns.AdvancedSettings or not ns.AdvancedSettings.IsNative(option.name) then
+                    local name=option.name
+                    Add(advanced.label.." · "..option.label,name.." "..(option.help or ""),function()
+                        if ns.AdvancedSettings and ns.AdvancedSettings.OpenSetting then ns.AdvancedSettings.OpenSetting(name)
+                        else local category=advanced.category(); if category then Settings.OpenToCategory(category:GetID()) end end
+                    end)
+                end
+            end
+        end
+        for _,entry in ipairs({
+            {"Profils","profilesCategory",{"Enregistrer les réglages actuels","Restaurer un profil","Annuler l’application"}},
+            {"Diagnostics","diagnosticsCategory",{"Démarrer une capture","Arrêter la capture","Copier la dernière trace","Inventaire du client"}},
+        }) do
+            if ns[entry[2]] then
+                local key=entry[2]
+                local function Open() Settings.OpenToCategory(ns[key]:GetID()) end
+                Add(L(entry[1]),"",Open)
+                for _,source in ipairs(entry[3]) do
+                    Add(L(entry[1]).." · "..L(source),source.." "..((ns.English or {})[source] or ""),Open)
+                end
+            end
+        end
+        table.sort(result,function(a,b) return a.label<b.label end)
+        return result
+    end
+    local function OpenResult(entry)
+        search:ClearFocus(); ns.StopAllPreviews(); entry.Open()
+    end
     local toolbar={}
     toolbar[1]=Button(body,"ArkannsQOLHomeAppearance",L("Apparence"),0,0,130,function() ns.StopAllPreviews(); Settings.OpenToCategory(ns.appearanceCategory:GetID()) end)
     toolbar[2]=Button(body,"ArkannsQOLHomeLayout",L("Disposition"),0,0,130,UI.StartLayout)
@@ -733,6 +834,32 @@ function UI.BuildHome(panel)
             Place(button, ((index-1)%toolbarColumns)*(toolbarWidth+10), y+math.floor((index-1)/toolbarColumns)*32, math.max(1,toolbarWidth))
         end
         y=y+math.ceil(#toolbar/toolbarColumns)*32
+        Place(searchLabel,0,y,width)
+        y=y+searchLabel:GetStringHeight()+6
+        Place(search,6,y,math.max(1,width-110)); Place(clearSearch,width-90,y,90)
+        y=y+36
+        local searching=search:GetText():find("%S")~=nil
+        for _,button in ipairs(resultButtons) do button:Hide() end
+        searchStatus:SetShown(searching)
+        if searching then
+            minimap:Hide(); favoritesTitle:Hide(); modulesTitle:Hide()
+            for _,button in ipairs(favoriteButtons) do button:Hide() end
+            for _,card in ipairs(cards) do card:Hide() end
+            matches=UI.SearchSettings(search:GetText())
+            searchStatus:SetText(#matches==0 and L("Aucun réglage trouvé.") or L("%d résultat(s) — ouvre la rubrique correspondante."):format(#matches))
+            Place(searchStatus,0,y,width); y=y+searchStatus:GetStringHeight()+10
+            for index,entry in ipairs(matches) do
+                local button=resultButtons[index]
+                if not button then button=Button(body,"ArkannsQOLHomeSearchResult"..index,"",0,0,width,function() end); resultButtons[index]=button end
+                button:SetText(entry.label); button:SetScript("OnClick",function() OpenResult(entry) end)
+                local caption=button:GetFontString(); caption:SetWidth(math.max(1,width-20)); caption:SetWordWrap(true)
+                Place(button,0,y,width); button:SetHeight(math.max(28,caption:GetStringHeight()+10)); button:Show()
+                y=y+button:GetHeight()+6
+            end
+            body:SetSize(width,y); UI.ClampScroll(scroll,y); return
+        end
+        matches={}
+        for _,card in ipairs(cards) do card:Show() end
         minimap:SetShown(ns.IsMinimapVisible ~= nil)
         if ns.IsMinimapVisible then
             Place(minimap, 0, y)
@@ -811,7 +938,10 @@ function UI.BuildHome(panel)
     end
     home:SetScript("OnShow",home.Refresh)
     home:HookScript("OnSizeChanged",home.Refresh)
-    home:SetScript("OnHide",ns.StopAllPreviews)
+    search:SetScript("OnTextChanged",function() if home.Refresh then home.Refresh(); scroll:SetVerticalScroll(0) end end)
+    search:SetScript("OnEnterPressed",function() if matches[1] then OpenResult(matches[1]) end end)
+    search:SetScript("OnEscapePressed",function() search:SetText(""); search:ClearFocus(); home.Refresh() end)
+    home:SetScript("OnHide",function() search:ClearFocus(); ns.StopAllPreviews() end)
     home.Refresh()
 end
 
@@ -822,6 +952,6 @@ function ns.InitializeInterface(root)
     local events=CreateFrame("Frame","ArkannsQOLInterfaceEvents")
     for _,event in ipairs({"PLAYER_REGEN_DISABLED","PLAYER_LOGOUT","DISPLAY_SIZE_CHANGED","UI_SCALE_CHANGED"}) do events:RegisterEvent(event) end
     events:SetScript("OnEvent",function(_,event)
-        if UI.layoutActive then UI.EndLayout(event~="PLAYER_LOGOUT") else ns.StopAllPreviews() end
+        if UI.layoutActive then UI.EndLayout(true) else ns.StopAllPreviews() end
     end)
 end

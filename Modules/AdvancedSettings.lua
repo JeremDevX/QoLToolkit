@@ -59,6 +59,19 @@ local function Equal(a, b)
     return a == b or (tonumber(a) ~= nil and tonumber(a) == tonumber(b))
 end
 
+local boundPairs = {{"nameplateMinScale", "nameplateMaxScale"}, {"nameplateMinAlpha", "nameplateMaxAlpha"}}
+local function BoundsValid(name, value, projected)
+    for _, pair in ipairs(boundPairs) do
+        if name == pair[1] or name == pair[2] then
+            local other = name == pair[1] and pair[2] or pair[1]
+            local number = tonumber(value)
+            local limit = tonumber(projected and projected[other] or api.Read(other).value)
+            return number and limit and ((name == pair[1] and number <= limit) or (name == pair[2] and number >= limit))
+        end
+    end
+    return true
+end
+
 local function Preferences()
     ForeverTooltipLibreDB = ForeverTooltipLibreDB or {}
     if type(ForeverTooltipLibreDB.advanced) ~= "table" then ForeverTooltipLibreDB.advanced = {} end
@@ -139,8 +152,28 @@ function api.ApplyReset(review)
             return false, L("Les valeurs ont changé. Revois la sélection avant de confirmer.")
         end
     end
+    local ordered, projected, indices = {}, {}, {}
+    for index, change in ipairs(review) do
+        ordered[index], projected[change.name], indices[change.name] = change, change.after, index
+    end
+    for _, change in ipairs(ordered) do
+        if not BoundsValid(change.name, change.after, projected) then
+            return false, L("Le minimum doit rester inférieur ou égal au maximum.")
+        end
+    end
+    for _, pair in ipairs(boundPairs) do
+        local low, high = indices[pair[1]], indices[pair[2]]
+        -- Raise the maximum before raising the minimum past the current maximum.
+        if low and high then
+            local first, last = math.min(low, high), math.max(low, high)
+            local minimum, maximum = ordered[low], ordered[high]
+            if tonumber(minimum.after) > tonumber(maximum.before) then
+                ordered[first], ordered[last] = maximum, minimum
+            else ordered[first], ordered[last] = minimum, maximum end
+        end
+    end
     local applied = 0
-    for _, change in ipairs(review) do
+    for _, change in ipairs(ordered) do
         -- A previous write can update another CVar or its default synchronously.
         if not Current(change) then return false, L("%d réinitialisation(s) effectuée(s). Les valeurs ont changé : revois la sélection."):format(applied) end
         local ok, message = api.Write(change.name, nil, true)
@@ -176,14 +209,9 @@ function api.Write(name, input, reset)
             return false, (option.integer and L("Saisis un entier entre %s et %s.") or L("Saisis un nombre entre %s et %s.")):format(option.min, option.max)
         end
         value = tostring(number)
-        -- Keep paired bounds coherent without silently changing the other option.
-        local pairs = {nameplateMinScale = {"nameplateMaxScale", true}, nameplateMaxScale = {"nameplateMinScale", false},
-            nameplateMinAlpha = {"nameplateMaxAlpha", true}, nameplateMaxAlpha = {"nameplateMinAlpha", false}}
-        local pair = pairs[option.name]
-        local other = pair and tonumber(api.Read(pair[1]).value)
-        if other and ((pair[2] and number > other) or (not pair[2] and number < other)) then
-            return false, L("Le minimum doit rester inférieur ou égal au maximum.")
-        end
+    end
+    if not BoundsValid(option.name, value) then
+        return false, L("Le minimum doit rester inférieur ou égal au maximum.")
     end
     local ok, result = pcall(C_CVar.SetCVar, option.name, value)
     if not ok or not Public(result) or result ~= true then return false, L("Modification refusée par le client.") end
@@ -745,6 +773,18 @@ function ns.InitializeAdvancedSettings(rootCategory)
         if option and option.category == "graphics" then expert = true end
         api.OpenFavorites()
         search:SetText(name); query = SearchText(name); refresh(true)
+    end
+    api.OpenSetting = function(name)
+        local option = byName[type(name) == "string" and name:lower() or ""]
+        if not option or api.IsNative(option.name) then return false end
+        favoritesOnly, modifiedOnly, resetReview = false, false, nil
+        tab, graphicsFilter, drafts = option.category, 1, {}
+        if tab == "graphics" then expert = true end
+        query = SearchText(option.name)
+        search:SetText(option.name); search:ClearFocus()
+        if Settings.OpenToCategory then Settings.OpenToCategory(ns.advancedCategory:GetID()) end
+        Instructions(); refresh(true)
+        return true
     end
     ns.OpenAdvancedInventory = function()
         favoritesOnly, modifiedOnly, resetReview = false, false, nil

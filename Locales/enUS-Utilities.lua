@@ -86,6 +86,8 @@ for source, translation in pairs({
     ["Actualisation"] = "Refresh interval",
     ["0,5 s"] = "0.5 s",
     ["Rang supérieur appris uniquement. Macros ignorées. Aucun sort remplacé."] = "Flags spells with a learned higher rank. Warnings only. Skips macros.",
+    ["Vérification toutes les 30 s, à l’ouverture d’un maître et à l’apprentissage d’un sort."] = "Checks every 30 seconds, when a trainer opens, and when a spell is learned.",
+    ["Réactiver les avertissements de rang ?"] = "Enable rank warnings again?",
     ["Badge"] = "Badge",
     ["Point"] = "Dot",
     ["Coin"] = "Corner",

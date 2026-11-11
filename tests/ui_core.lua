@@ -84,7 +84,9 @@ env.InCombatLockdown=function() return combat end
 env.print=function(value) message=value end
 env.StaticPopup_ShowGenericConfirmation=function(text,callback) popup={text=text,callback=callback} end
 env.issecretvalue=function() return false end
-local ns={L=function(text) return text end}
+local useEnglish=false
+local ns={English={}}
+ns.L=function(text) return useEnglish and ns.English[text] or text end
 local function Load(path)
     local chunk = path=="Core/QOLInterface.lua" and QOL_UI_SOURCE and assert(loadstring(QOL_UI_SOURCE)) or assert(loadfile(path))
     setfenv(chunk,env)("QoLToolkit",ns)
@@ -261,3 +263,66 @@ assert(afterReset.border == "theme" and afterReset.scale == 1)
 assert(not afterReset.grid and not afterReset.snap and afterReset.pins.talents and afterReset.overrides.talents)
 assert(ns.home.Refresh)
 print("PASS: shared layout, responsive home and appearance, scoped reset, previews, and profiles")
+
+-- Layout owns position only; commands remain effective while it is open.
+settings.x, settings.y, settings.enabled = .75, .65, true
+assert(UI.StartLayout("talents"))
+frames.ArkannsQOLLayoutCenter.scripts.OnClick()
+settings.enabled = false
+UI.EndLayout(true)
+assert(settings.x == .75 and settings.y == .65 and settings.enabled == false,
+    "Cancelling layout preserves unrelated changes")
+assert(UI.StartLayout("talents"))
+frames.ArkannsQOLLayoutCenter.scripts.OnClick()
+frames.ArkannsQOLInterfaceEvents.scripts.OnEvent(nil, "PLAYER_LOGOUT")
+assert(settings.x == .75 and settings.y == .65, "Logout cancels unconfirmed layout positions")
+assert(UI.StartLayout("talents"))
+settings.enabled = true
+UI.EndLayout(false)
+assert(settings.enabled == true, "Applying untouched layout preserves unrelated changes")
+
+-- Search uses settings labels, supports accents, and opens the owning category.
+local function Category(id) return {GetID=function() return id end} end
+ns.RegisterModule("tooltips",{label="Infobulles",category=function() return Category(3) end})
+ns.RegisterModule("bags",{label="Sacs",category=function() return Category(4) end})
+ns.RegisterModule("advanced",{label="Réglages avancés",category=function() return Category(5) end})
+local advancedName
+ns.AdvancedSettings={IsNative=function(name) return name=="nativeSetting" end,
+    OpenSetting=function(name) advancedName=name end}
+ns.AdvancedSettingsCatalog={
+    {name="cameraZoomSpeed",label="Vitesse du zoom",help="Vitesse du zoom à la molette."},
+    {name="nativeSetting",label="Option native"},
+}
+ns.profilesCategory,ns.diagnosticsCategory=Category(6),Category(7)
+assert(#UI.SearchSettings("  ")==0)
+local results=UI.SearchSettings("ÉCHELLE infobulles")
+assert(#results==1 and results[1].label:find("Échelle",1,true))
+results[1].Open(); assert(opened==3)
+results=UI.SearchSettings("talents erreurs")
+assert(#results==1); results[1].Open(); assert(opened==2)
+assert(#UI.SearchSettings("nativeSetting")==0, "Native-only options stay in the game's menus")
+results=UI.SearchSettings("cameraZoomSpeed")
+assert(#results==1); results[1].Open(); assert(advancedName=="cameraZoomSpeed")
+results=UI.SearchSettings("profils enregistrer")
+assert(#results==1); results[1].Open(); assert(opened==6)
+results=UI.SearchSettings("diagnostics trace")
+assert(#results==1); results[1].Open(); assert(opened==7)
+local search=frames.ArkannsQOLHomeSearch
+ns.home:SetWidth(320)
+search:SetText("talents erreurs"); search.scripts.OnTextChanged()
+local result=frames.ArkannsQOLHomeSearchResult1
+assert(result:IsShown() and result:GetWidth()==270 and not card.parent:IsShown())
+search.scripts.OnEnterPressed(); assert(opened==2)
+search:SetText("zz-no-match"); search.scripts.OnTextChanged()
+assert(not result:IsShown() and not card.parent:IsShown())
+search.scripts.OnEscapePressed()
+assert(search:GetText()=="" and card.parent:IsShown() and not result:IsShown())
+for _,path in ipairs({"Locales/enUS-Core.lua","Locales/enUS-Advanced.lua","Locales/enUS-TalentsAuras.lua","Locales/enUS-Utilities.lua"}) do Load(path) end
+useEnglish=true
+results=UI.SearchSettings("talents error")
+assert(#results==1 and results[1].label:find("Error",1,true))
+search:SetText("talents error"); search.scripts.OnTextChanged()
+assert(result:GetText():find("Error",1,true))
+frames.ArkannsQOLHomeSearchClear.scripts.OnClick()
+assert(search:GetText()=="" and card.parent:IsShown())
+print("PASS: global settings search, accent folding, English labels, advanced navigation, and narrow results")

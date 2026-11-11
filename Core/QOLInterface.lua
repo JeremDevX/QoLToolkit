@@ -5,7 +5,7 @@ local UI = {}
 ns.UI = UI
 local config, previewBar, previewModule, layout, home, appearanceRefresh
 local styledPanels, styledButtons, styledLabels = {}, {}, {}
-local moduleOrder = {"tooltips", "reminders", "session", "talents", "ranks", "distance", "bags", "flights", "advanced"}
+local moduleOrder = {"tooltips", "reminders", "session", "talents", "ranks", "distance", "targetPortrait", "bags", "flights", "advanced"}
 local settingsPages, appearanceBack = {}, nil
 
 function UI.OpenSettings(id, source, back)
@@ -790,7 +790,7 @@ function UI.BuildHome(panel)
         if ns.IsMinimapVisible then
             Add(L("Afficher le bouton de minicarte"),"",function() search:SetText(""); home.Refresh() end)
         end
-        for _,id in ipairs({"tooltips","reminders","session","talents","ranks","distance","bags","appearance"}) do
+        for _,id in ipairs({"tooltips","reminders","session","talents","ranks","distance","targetPortrait","bags","appearance"}) do
             local module=ns.modules[id]
             if module and module.category then
                 local function Open() UI.OpenSettings(id) end
@@ -853,7 +853,7 @@ function UI.BuildHome(panel)
         return config.pins[id] or (combined and config.pins.distance)
     end
     local cards={}
-    local names={tooltips="Tooltips",reminders="Reminders",session="Session",talents="Talents",ranks="Ranks",distance="Distance",bags="Bags",flights="Flights",advanced="Advanced"}
+    local names={tooltips="Tooltips",reminders="Reminders",session="Session",talents="Talents",ranks="Ranks",distance="Distance",targetPortrait="TargetPortrait",bags="Bags",flights="Flights",advanced="Advanced"}
     for _,id in ipairs(moduleOrder) do
         local module=ns.modules[id]
         local combinedDistance = id == "distance" and ns.modules.tooltips and ns.modules.tooltips.category
@@ -905,7 +905,7 @@ function UI.BuildHome(panel)
     local favoritesTitle=Label(body,L("Favoris"),0,0,16)
     local groups = {
         {label=L("Personnage"),ids={"talents","session","reminders","ranks"}},
-        {label=L("Interface"),ids={"tooltips","distance","bags"}},
+        {label=L("Interface"),ids={"tooltips","distance","targetPortrait","bags"}},
         {label=L("Personnalisation"),ids={},buttons={toolbar[1],toolbar[2]}},
         {label=L("Outils"),ids={"flights","advanced"},buttons={toolbar[3],toolbar[4]}},
     }

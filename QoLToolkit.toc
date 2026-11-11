@@ -31,6 +31,7 @@ Modules\AdvancedSettingsData.lua
 Modules\AdvancedSettings.lua
 Modules\RankGuard.lua
 Modules\TargetDistance.lua
+Modules\TargetPortrait.lua
 Modules\BagSort.lua
 Modules\FlightTimesData.lua
 Modules\FlightTimes.lua

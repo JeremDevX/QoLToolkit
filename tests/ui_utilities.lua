@@ -386,3 +386,106 @@ assert(profiles.Apply(assert(profiles.Preview("LegacyUtilities", {distance = tru
 assert(not ns.GetMouseoverDistanceSetting(), "An old profile without tooltip data keeps the current mouseover choice")
 assert(profiles.Undo())
 print("PASS: real tooltip/distance profile migrations, partial/full apply, saved-data preservation, and undo")
+
+do
+    local combat, player, class, replacement, secretAnchor = true, true, "MAGE", false, false
+    local colors = {MAGE = {r = .25, g = .78, b = .92}, DRUID = {r = 1, g = .49, b = .04}}
+    local container = Widget("Frame", nil, env.TargetFrame)
+    local portrait = Widget("Texture", nil, container)
+    portrait:Show()
+    portrait.IsAnchoringSecret = function() return secretAnchor end
+    env.TargetFrame.TargetFrameContainer, container.Portrait = container, portrait
+    container:SetFrameLevel(4)
+    env.InCombatLockdown = function() return combat end
+    env.UnitIsPlayer = function(unit) assert(unit == "target"); return player end
+    env.UnitClassBase = function(unit) assert(unit == "target"); return class end
+    env.UnitIsUnit = function(a, b) assert(a == "target" and b == "player"); return false end
+    env.C_ClassColor = {GetClassColor = function(token) return colors[token] end}
+    env.C_CVar = {GetCVarBool = function(name)
+        assert(name == "ReplaceOtherPlayerPortraits")
+        return replacement
+    end}
+    function methods:SetParent(parent) assert(not combat); self.parent = parent end
+    function methods:RegisterEvent(event)
+        self.events = self.events or {}; self.events[event] = true
+    end
+    function methods:RegisterUnitEvent(event, unit)
+        self.events[event] = unit
+    end
+    function methods:IsEventRegistered(event) return self.events and self.events[event] ~= nil end
+    function methods:UnregisterAllEvents() self.events = {} end
+    function methods:CreateLine(_, layer)
+        assert(not combat and layer == "ARTWORK")
+        local line = Widget("Line", nil, self)
+        line.SetStartPoint = function(widget, _, owner, x, y) assert(owner == self); widget.start = {x, y} end
+        line.SetEndPoint = function(widget, _, owner, x, y) assert(owner == self); widget.finish = {x, y} end
+        line.SetThickness = function(widget, thickness) widget.thickness = thickness end
+        line.SetColorTexture = function(widget, ...) widget.color = {...} end
+        return line
+    end
+    function methods:SetTexture(texture) self.texture = texture; return true end
+    function methods:SetTexCoord(...) self.coords = {...} end
+
+    local nextWidget = #widgets + 1
+    Load("Modules/TargetPortrait.lua")
+    ns.InitializeTargetPortrait({})
+    local module, driver = modules.targetPortrait, widgets[nextWidget]
+    local toggle = frames.ArkannsQOLTargetPortraitEnabled
+    assert(toggle.checked and module.ExportSettings().enabled and driver.events.UNIT_PORTRAIT_UPDATE == "target")
+    local function Event(event, name) driver.scripts.OnEvent(driver, event, name) end
+    local function Overlay()
+        for _, widget in ipairs(widgets) do if widget.parent == container and widget.kind == "Frame" then return widget end end
+    end
+    Event("PLAYER_TARGET_CHANGED")
+    assert(not Overlay(), "Never create or anchor on a Blizzard frame in combat")
+    combat, secretAnchor = false, true
+    Event("PLAYER_REGEN_ENABLED")
+    assert(not Overlay(), "Leave secret anchors alone")
+    secretAnchor = false
+    Event("PLAYER_ENTERING_WORLD")
+    local frame = assert(Overlay())
+    assert(frame.shown and not frame.mouse and frame.level == container.level and frame.points[1][2] == portrait)
+    assert(#frame.arcs == 16 and frame.icon.width == 19 and frame.icon.points[1][4] > 22)
+    assert(frame.icon.texture == "Interface\\WorldStateFrame\\Icons-Classes" and frame.icon.coords[1] > .25)
+    for _, segment in ipairs(frame.arcs) do
+        local line = segment.line
+        local x, y = (line.start[1] + line.finish[1]) / 2, (line.start[2] + line.finish[2]) / 2
+        assert(math.sqrt(x * x + y * y) - line.thickness / 2 > 29, "Every stroke stays outside the face")
+    end
+    local firstColor = frame.arcs[1].line.color[1]
+    combat, class = true, "DRUID"
+    Event("PLAYER_TARGET_CHANGED")
+    assert(frame.shown and frame.icon.coords[1] > .75 and frame.arcs[1].line.color[1] > firstColor)
+    class = "secret"
+    Event("PLAYER_TARGET_CHANGED")
+    assert(not frame.shown)
+    class, player = "MAGE", false
+    Event("PLAYER_TARGET_CHANGED")
+    assert(not frame.shown)
+    player, replacement = true, true
+    Event("CVAR_UPDATE", "ReplaceOtherPlayerPortraits")
+    assert(not frame.shown, "Avoid duplicating the native class portrait")
+    replacement = false
+    Event("CVAR_UPDATE", "ReplaceOtherPlayerPortraits")
+    assert(frame.shown)
+    portrait:Hide()
+    Event("UNIT_PORTRAIT_UPDATE", "target")
+    assert(not frame.shown)
+    portrait:Show()
+    local readClass = env.UnitClassBase
+    env.UnitClassBase = nil
+    Event("PLAYER_TARGET_CHANGED")
+    assert(not frame.shown)
+    env.UnitClassBase = readClass
+
+    combat = false
+    Event("PLAYER_REGEN_ENABLED")
+    ns.modules.targetPortrait = module
+    assert(profiles.Save("With class trim"))
+    toggle:SetChecked(false); Click("ArkannsQOLTargetPortraitEnabled")
+    assert(not frame.shown and not module.IsEnabled() and not driver:IsEventRegistered("PLAYER_TARGET_CHANGED"))
+    assert(profiles.Apply(assert(profiles.Preview("With class trim", {targetPortrait = true}))))
+    assert(toggle.checked and frame.shown)
+    assert(profiles.Undo() and not toggle.checked and not frame.shown)
+end
+print("PASS: target class trim geometry, protected anchors, class changes, native portrait setting, and profiles")

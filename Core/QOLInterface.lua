@@ -5,7 +5,7 @@ local UI = {}
 ns.UI = UI
 local config, previewBar, previewModule, layout, home, appearanceRefresh
 local styledPanels, styledButtons, styledLabels = {}, {}, {}
-local moduleOrder = {"tooltips", "reminders", "session", "talents", "ranks", "distance", "bags", "advanced"}
+local moduleOrder = {"tooltips", "reminders", "session", "talents", "ranks", "distance", "bags", "flights", "advanced"}
 local settingsPages, appearanceBack = {}, nil
 
 function UI.OpenSettings(id, source, back)
@@ -763,6 +763,7 @@ function UI.BuildHome(panel)
         distance = {"Afficher le badge de la cible", "Afficher la distance au survol", "Arrondir les estimations par pas de 5 m",
             "Ancrer au portrait plutôt qu’au nom", "Placement et couleurs", "Décalage X / Y", "Réinitialiser le placement",
             "Fond et bordure", "Fond seul", "Texte seul", "Couleur du texte"},
+        flights = {"Chronométrer les vols", "Exporter mes temps de vol"},
         bags = {"Trier à l’ouverture manuelle", "Bordure selon la rareté", "Personnaliser les bordures", "Transmos manquantes",
             "Masquer gris et blancs", "Couleurs de rareté", "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
         appearance = {"Thème", "Taille du texte des modules", "Type de bordure", "Épaisseur de bordure", "Police", "Échelle (%)",
@@ -852,7 +853,7 @@ function UI.BuildHome(panel)
         return config.pins[id] or (combined and config.pins.distance)
     end
     local cards={}
-    local names={tooltips="Tooltips",reminders="Reminders",session="Session",talents="Talents",ranks="Ranks",distance="Distance",bags="Bags",advanced="Advanced"}
+    local names={tooltips="Tooltips",reminders="Reminders",session="Session",talents="Talents",ranks="Ranks",distance="Distance",bags="Bags",flights="Flights",advanced="Advanced"}
     for _,id in ipairs(moduleOrder) do
         local module=ns.modules[id]
         local combinedDistance = id == "distance" and ns.modules.tooltips and ns.modules.tooltips.category
@@ -906,7 +907,7 @@ function UI.BuildHome(panel)
         {label=L("Personnage"),ids={"talents","session","reminders","ranks"}},
         {label=L("Interface"),ids={"tooltips","distance","bags"}},
         {label=L("Personnalisation"),ids={},buttons={toolbar[1],toolbar[2]}},
-        {label=L("Outils"),ids={"advanced"},buttons={toolbar[3],toolbar[4]}},
+        {label=L("Outils"),ids={"flights","advanced"},buttons={toolbar[3],toolbar[4]}},
     }
     for _,group in ipairs(groups) do group.title=Label(body,group.label,0,0,16) end
     local function Pinned(card)

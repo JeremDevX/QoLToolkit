@@ -13,6 +13,7 @@ QoL Toolkit is a modular addon for **World of Warcraft Forever 1.60.1**. Build t
 | Spell Rank Guard | Flag spells on supported action bars when a higher rank is already in your spellbook. Add exceptions for ranks you keep on purpose. |
 | Target Distance | Show a measured distance or range estimate on the target frame. Customize placement, badge style, and colors for the badge and unit tooltip. |
 | Bags | Customize rarity colors, border thickness, and inner glow. Mark uncollected appearances and optionally sort on manual bag opening, outside combat and away from the bank. |
+| Flight Times | Time flight master routes, see known durations on the taxi map, and export local measurements. |
 | Advanced Settings | Browse available client settings and graphics options, check defaults, and reset individual or selected settings. |
 
 The dashboard groups tools under Character, Interface, Customization, and Tools. Pinning moves a module card to Favorites without duplicating it. Tooltip and distance settings share one page, while their displays remain independently controlled. Local Move buttons open the shared Layout editor; Apply keeps moved frames and Cancel restores their original placement. Both actions return to the original settings section. The minimap button can be dragged or hidden from the dashboard. Named profiles share selected module settings across characters on the same account. Talent builds and journal totals stay with their character. Partial profiles include each module’s shared/custom appearance choice. Profiles and talent builds can be deleted after confirmation.
@@ -68,6 +69,7 @@ The addon samples frame geometry and selected events twice per second for up to 
 - [QoLToolkit.toc](QoLToolkit.toc) defines the WoW interface version, saved variables, and Lua load order. [Core/](Core/) contains startup, shared UI, and settings. [Modules/](Modules/) contains the gameplay features.
 - [Locales/](Locales/) contains English translations. Wrap player-facing text in `L("French source text")` and add its English translation to the matching catalog. Use `L(text, key)` when the same French label needs different translations by context. Keep IDs, saved values, and text supplied by WoW or players independent of the locale.
 - [docs/](docs/) contains the [French user guide](docs/LISEZ-MOI.fr.txt) and advanced settings inventory.
+- [Flight contributions](docs/CONTRIBUTIONS-VOLS.md) explains how to export, validate, and publish measured flight times.
 - Run `lua tests/check.lua` from the repository root with Lua 5.1 to check the manifest, syntax, locale selection, and reminder matching offline.
 - See [AGENTS.md](AGENTS.md) for WoW Forever API, asset, and testing rules.
 

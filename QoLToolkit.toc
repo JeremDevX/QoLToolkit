@@ -5,7 +5,7 @@
 ## Notes-frFR: Infobulles, rappels, journal, talents, rangs de sorts, distance, sacs et réglages avancés. /qt
 ## Author: Arkann
 ## Version: 0.1.3
-## SavedVariables: ForeverTooltipLibreDB
+## SavedVariables: ForeverTooltipLibreDB, ArkannsQOLFlightsDB
 ## SavedVariablesPerCharacter: ArkannsQOLRemindersDB, ArkannsQOLSessionDB, ArkannsQOLTalentsDB
 
 Locales\Locale.lua
@@ -14,6 +14,7 @@ Locales\enUS-Advanced.lua
 Locales\enUS-TalentsAuras.lua
 Locales\enUS-Utilities.lua
 Locales\enUS-SessionHistory.lua
+Locales\enUS-Flights.lua
 Core\WoWRuntime.lua
 Core\SettingsState.lua
 Core\QOLInterface.lua
@@ -31,6 +32,8 @@ Modules\AdvancedSettings.lua
 Modules\RankGuard.lua
 Modules\TargetDistance.lua
 Modules\BagSort.lua
+Modules\FlightTimesData.lua
+Modules\FlightTimes.lua
 Core\Profiles.lua
 Core\Diagnostics.lua
 Core\Bootstrap.lua

@@ -117,6 +117,7 @@ local initializers = {
     "InitializeRankGuard",
     "InitializeTargetDistance",
     "InitializeBagSort",
+    "InitializeFlightTimes",
     "InitializeInterface",
     "InitializeProfiles",
     "InitializeDiagnostics",

@@ -448,11 +448,11 @@ Draw = function()
     -- Movement help is an independent overlay: unlocking never reserves space
     -- inside the journal or changes its screen-clamping rectangle.
     window:SetHeight(top + contentHeight + padding + 2)
-    -- Keep the watermark inside the body, below every label, even in compact/horizontal layouts.
-    local emblemSize = math.max(1, math.min(128, contentHeight, (width - padding * 2) * 0.42))
+    -- Fill 88% of the journal height, preserving the logo's square ratio within narrow layouts.
+    local emblemSize = math.max(1, math.min(window:GetHeight() * 0.88, width - padding * 2))
     factionEmblem:SetSize(emblemSize, emblemSize)
     factionEmblem:ClearAllPoints()
-    factionEmblem:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -padding, padding + 2)
+    factionEmblem:SetPoint("RIGHT", window, "RIGHT", -padding, 0)
     factionEmblem:SetAlpha(0.10 * (style and style.opacity or db.opacity / 100))
     window:Show()
     RefreshRateTooltip()

@@ -258,14 +258,17 @@ assert(emblem.texture == "Interface\\Timer\\Alliance-Logo")
 for _, layout in ipairs({"vertical", "horizontal"}) do
     for _, theme in ipairs({"warm", "dark", "light"}) do
         assert(modules.session.ImportSettings({layout = layout, theme = theme, compact = true, width = 240, opacity = 85}))
-        assert(emblem.width == emblem.height and emblem.width <= 128)
-        assert(emblem.height <= journalWindow.height - 26, "Compact watermark stays within the body")
+        assert(emblem.width == emblem.height)
+        assert(math.abs(emblem.height - math.min(journalWindow.height * .88, journalWindow.width - 24)) < .0001,
+            "Watermark fills 88% of the journal height, bounded only by available width")
         assert(math.abs(emblem.alpha - .085) < .0001)
         local anchor = emblem.points[1]
-        assert(#emblem.points == 1 and anchor[1] == "BOTTOMRIGHT" and anchor[2] == journalWindow and anchor[4] == -12 and anchor[5] == 14)
+        assert(#emblem.points == 1 and anchor[1] == "RIGHT" and anchor[2] == journalWindow and anchor[4] == -12 and anchor[5] == 0)
     end
 end
 assert(modules.session.ImportSettings({layout = "vertical", theme = "warm", compact = false, width = 300, opacity = 0}))
+assert(math.abs(emblem.height - journalWindow.height * .88) < .0001 and emblem.height > 128,
+    "Expanded journal uses its height without the old 128-unit cap")
 assert(emblem.alpha == 0, "Transparent journal also hides its watermark")
 assert(modules.session.ImportSettings({opacity = 85}))
 for _, unavailable in ipairs({"Neutral", "unknown", {}}) do

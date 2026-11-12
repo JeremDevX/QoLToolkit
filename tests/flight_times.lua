@@ -140,6 +140,17 @@ assert(badges[2].text == "Elapsed time · 0:25")
 PollAt(start + 26, false)
 assert(#ArkannsQOLFlightsDB[route] == 1)
 
+-- A landing request can arrive before the first periodic taxi-state check.
+onTaxi = false
+Event("TAXIMAP_OPENED")
+hooks.TakeTaxiNode(3)
+now, onTaxi = now + .1, true
+hooks.TaxiRequestEarlyLanding()
+PollAt(now + .1, true)
+assert(badges[2].text == "Elapsed time · 0:00", "An interrupted pending flight must discard its estimate")
+PollAt(now + 30, false)
+assert(#ArkannsQOLFlightsDB[route] == 1, "An interrupted pending flight must not add a complete-route sample")
+
 rank = 1
 start = Begin()
 assert(badges[2].text == "Elapsed time · 0:00")

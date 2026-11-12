@@ -226,8 +226,9 @@ local function InstallHooks()
     end
     if not earlyLandingHook and type(TaxiRequestEarlyLanding) == "function" then
         earlyLandingHook = WoW.Read(hooksecurefunc, "TaxiRequestEarlyLanding", function()
-            if not flight then return end
-            flight.interrupted, flight.estimate, flight.lastSecond = true, nil, nil
+            local current = flight or pending
+            if not current then return end
+            current.interrupted, current.estimate, current.lastSecond = true, nil, nil
         end) == "ok"
     end
     if not taxiTooltipHook and type(TaxiNodeOnButtonEnter) == "function" then

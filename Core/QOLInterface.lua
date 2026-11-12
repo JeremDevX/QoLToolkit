@@ -791,7 +791,7 @@ function UI.BuildHome(panel)
         if ns.IsMinimapVisible then
             Add(L("Afficher le bouton de minicarte"),"",function() search:SetText(""); home.Refresh() end)
         end
-        for _,id in ipairs({"tooltips","reminders","session","talents","ranks","distance","targetPortrait","bags","appearance"}) do
+        for _,id in ipairs({"tooltips","reminders","session","talents","ranks","distance","targetPortrait","bags","flights","appearance"}) do
             local module=ns.modules[id]
             if module and module.category then
                 local function Open() UI.OpenSettings(id) end

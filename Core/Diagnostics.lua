@@ -299,7 +299,7 @@ function ns.InitializeDiagnostics(root)
         end
         panel:SetScript("OnShow", function() refreshPanel() end)
         panel:HookScript("OnSizeChanged", function() if panel:IsShown() then Layout() end end)
-        ns.diagnosticsCategory = Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Diagnostics"))
+        ns.diagnosticsCategory = ns.UI.RegisterSettingsPanel(root,panel,L("Diagnostics"),"diagnostics")
         if ns.UI.RegisterSettings then ns.UI.RegisterSettings("diagnostics", {
             category = function() return ns.diagnosticsCategory end,
             OpenSettings = function(source)

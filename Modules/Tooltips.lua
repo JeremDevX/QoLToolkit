@@ -353,7 +353,7 @@ SlashCmdList.FOREVERTOOLTIPLIBRE = function(message)
         HideTooltip()
         Say(db.cursor and L("Suivi du curseur activé.") or L("Position fixe restaurée."))
     elseif command == "options" or command == "parametres" then
-        if settingsCategory then Settings.OpenToCategory(settingsCategory:GetID()) end
+        if settingsCategory then ns.UI.OpenCategory(settingsCategory) end
     else
         Say(L("/qttooltip options : paramètres ; /qttooltip : placer ; /qttooltip taille 120 : taille ; /qttooltip curseur on ou off : suivi ; /qttooltip reset : recentrer ; /qttooltip off ou on : désactiver ou activer."))
     end
@@ -613,7 +613,7 @@ local function CreateModernSettings(root)
     panel:SetScript("OnShow",function() ns.StopAllPreviews(); RefreshSettings() end)
     panel:HookScript("OnSizeChanged",LayoutSettings)
     panel:SetScript("OnHide",ns.StopAllPreviews)
-    settingsCategory=Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Infobulles et distance"))
+    settingsCategory=ns.UI.RegisterSettingsPanel(root,panel,L("Infobulles et distance"),"tooltips")
     ns.TooltipSettingsHost = {panel=panel, category=settingsCategory, Select=Select}
     function ns.TooltipSettingsHost.AddDistancePage(page)
         pages.distance=page
@@ -622,7 +622,7 @@ local function CreateModernSettings(root)
         Select(activePage); LayoutSettings()
     end
     function ns.OpenTooltipSettings(source)
-        Settings.OpenToCategory(settingsCategory:GetID())
+        ns.UI.OpenCategory(settingsCategory)
         if not source then RefreshSettings(); return end
         local advancedSources={
             ["Réglages propres à ce type"]=custom,["Types d’infobulle"]=kindButton,

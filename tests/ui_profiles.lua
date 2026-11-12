@@ -115,6 +115,7 @@ local function Frame(kind, name, parent)
 end
 function methods:CreateFontString() return Frame() end
 env.CreateFrame, env.Settings = Frame, {RegisterCanvasLayoutSubcategory = Noop}
+ns.UI.RegisterSettingsPanel = Noop
 ns.UI.StyleButton = Noop
 ns.InitializeProfiles({})
 local panel, scroll = frames.ArkannsQOLProfilesPanel, frames.ArkannsQOLProfilePreviewScroll

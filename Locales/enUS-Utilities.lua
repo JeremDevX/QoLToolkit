@@ -1,7 +1,13 @@
 local _, ns = ...
 
 for source, translation in pairs({
+    ["Portrait de cible"] = "Target portrait",
+    ["Afficher le médaillon de classe"] = "Show the class medallion",
+    ["Médaillon de classe à bordure colorée sur le portrait de la cible."] = "Class medallion with a colored border on the target portrait.",
+    ["Si WoW remplace le portrait par l’icône de classe, désactive ce réglage dans les options de WoW pour retrouver le visage."] =
+        "If WoW replaces the portrait with a class icon, turn off that option in WoW settings to see the face.",
     ["Objets de quête"] = "Quest items",
+    ["Composants d’artisanat"] = "Crafting reagents",
     ["Sélection : %d"] = "Selected: %d",
     ["Thème : %s"] = "Theme: %s",
     ["Durée"] = "Duration",
@@ -56,14 +62,13 @@ for source, translation in pairs({
     ["Rare"] = "Rare",
     ["Épique"] = "Epic",
     ["Légendaire"] = "Legendary",
-    ["Masquer gris et blancs"] = "Hide gray and white",
-    ["Masquer les contours gris et blancs"] = "Hide gray and white borders",
+    ["Couleurs désactivées"] = "Disabled colors",
+    ["Cochez pour appliquer la couleur."] = "Check to apply the color.",
     ["Opacité du contour"] = "Border opacity",
     ["Épaisseur du contour"] = "Border thickness",
     ["Halo intérieur"] = "Inner glow",
     ["Couleurs et aperçu"] = "Colors and preview",
-    ["Clic gauche · Couleur\nClic droit · Couleur WoW"] = "Left-click · Color\nRight-click · WoW color",
-    ["Clic droit · Couleur WoW"] = "Right-click · WoW color",
+    ["Clic gauche · Couleur\nClic droit · Couleur par défaut"] = "Left-click · Color\nRight-click · Default color",
     ["Apparence par défaut"] = "Reset appearance",
     ["Réglages des sacs"] = "Bag settings",
     ["Tri à l’ouverture"] = "Sort on open",

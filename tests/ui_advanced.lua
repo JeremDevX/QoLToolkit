@@ -61,6 +61,7 @@ local ns = {
     },
 }
 local chunk = assert(loadfile("Modules/AdvancedSettings.lua")); setfenv(chunk, env); chunk("QoLToolkit", ns)
+ns.UI = {RegisterSettingsPanel = env.Settings.RegisterCanvasLayoutSubcategory, OpenCategory = env.Settings.OpenToCategory}
 ns.InitializeAdvancedSettings({})
 local panel = frames.ArkannsQOLAdvancedPanel
 panel:Show()

@@ -517,7 +517,7 @@ local function RegisterSettings(rootCategory)
         if UI.RevealControl then UI.RevealControl(scroll, target) end
     end
     UI.StylePanel(canvas)
-    ns.rankGuardCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, canvas, L("Rangs de sorts"))
+    ns.rankGuardCategory = UI.RegisterSettingsPanel(rootCategory, canvas, L("Rangs de sorts"), "ranks")
     settingsPanel = canvas
 end
 

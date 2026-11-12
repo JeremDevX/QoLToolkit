@@ -4,6 +4,11 @@ WoW Forever 1.60.1 • Interface 16001
 L’addon utilise la langue du client. Français pour le client français, anglais par défaut.
 
 ACCUEIL
+Clique sur l’icône de minicarte ou saisis /qt pour ouvrir la fenêtre de réglages.
+Les onglets regroupent Personnage, Interface, Personnalisation et Outils.
+Les sous-onglets donnent accès aux réglages de chaque module.
+Glisse le titre pour déplacer la fenêtre, utilise Taille pour la redimensionner.
+Fermer ou Échap ferme la fenêtre et ses aperçus. Les catégories Blizzard y donnent aussi accès.
 La recherche ouvre la section concernée, développe ses options si nécessaire
 et fait défiler jusqu’au contrôle. Un réglage dépendant conduit à son prérequis.
 Effacer ou Échap réaffiche les cartes ; Entrée ouvre le premier résultat.

@@ -87,6 +87,8 @@ local ns = {L = function(text) return text end, RegisterModule = function(id, mo
 local ui = {Copy = Copy, StylePanel = noop, StyleFrame = noop, StyleButton = noop, Refresh = noop,
     GetStyle = function() return nil end, IsOverride = function() return false end, SetOverride = noop}
 ns.UI = ui
+ui.RegisterSettingsPanel = env.Settings.RegisterCanvasLayoutSubcategory
+ui.OpenCategory = env.Settings.OpenToCategory
 function ui.ClampScroll(scroll, height)
     scroll:SetVerticalScroll(math.min(scroll:GetVerticalScroll(), math.max(0, height - scroll:GetHeight())))
 end
@@ -386,3 +388,170 @@ assert(profiles.Apply(assert(profiles.Preview("LegacyUtilities", {distance = tru
 assert(not ns.GetMouseoverDistanceSetting(), "An old profile without tooltip data keeps the current mouseover choice")
 assert(profiles.Undo())
 print("PASS: real tooltip/distance profile migrations, partial/full apply, saved-data preservation, and undo")
+
+do
+    local combat, player, class, replacement, secretAnchor = true, true, "MAGE", false, false
+    local atlasAvailable, maskAvailable, iconAvailable = true, true, true
+    local colors = {MAGE = {r = .25, g = .78, b = .92}, DRUID = {r = 1, g = .49, b = .04}}
+    local container = Widget("Frame", nil, env.TargetFrame)
+    local portrait = Widget("Texture", nil, container)
+    portrait:Show()
+    portrait.IsAnchoringSecret = function() return secretAnchor end
+    env.TargetFrame.TargetFrameContainer, container.Portrait = container, portrait
+    container:SetFrameLevel(4)
+    env.InCombatLockdown = function() return combat end
+    env.UnitIsPlayer = function(unit) assert(unit == "target"); return player end
+    env.UnitClassBase = function(unit) assert(unit == "target"); return class end
+    env.UnitIsUnit = function(a, b) assert(a == "target" and b == "player"); return false end
+    env.C_ClassColor = {GetClassColor = function(token) return colors[token] end}
+    env.C_CVar = {GetCVarBool = function(name)
+        assert(name == "ReplaceOtherPlayerPortraits")
+        return replacement
+    end}
+    function methods:SetParent(parent) assert(not combat); self.parent = parent end
+    function methods:RegisterEvent(event)
+        self.events = self.events or {}; self.events[event] = true
+    end
+    function methods:RegisterUnitEvent(event, unit)
+        self.events[event] = unit
+    end
+    function methods:IsEventRegistered(event) return self.events and self.events[event] ~= nil end
+    function methods:UnregisterAllEvents() self.events = {} end
+    function methods:CreateLine() error("Do not redraw the native portrait rim with line segments") end
+    function methods:CreateMaskTexture() assert(not combat); return Widget("MaskTexture", nil, self) end
+    function methods:AddMaskTexture(mask) self.mask = mask end
+    methods.SetTexelSnappingBias, methods.SetSnapToPixelGrid = noop, noop
+    env.C_Texture = {GetAtlasInfo = function(atlas)
+        assert(atlas == "CircleMask")
+        if atlasAvailable then return {width = 64, height = 64} end
+    end}
+    function methods:SetAtlas(atlas, useAtlasSize, filter, resetCoords, wrapH, wrapV)
+        assert(self.kind == "MaskTexture" and atlasAvailable and atlas == "CircleMask")
+        assert(not useAtlasSize and filter == "LINEAR" and resetCoords)
+        assert(wrapH == "CLAMPTOBLACKADDITIVE" and wrapV == "CLAMPTOBLACKADDITIVE")
+        self.atlas = atlas
+    end
+    function methods:SetDesaturated(value) self.desaturated = value end
+    function methods:SetVertexColor(...) self.color = {...} end
+    local maskTexture = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+    function methods:SetTexture(texture, wrapH, wrapV)
+        self.texture = texture
+        if texture == maskTexture then
+            assert(wrapH == "CLAMPTOBLACKADDITIVE" and wrapV == "CLAMPTOBLACKADDITIVE")
+            return maskAvailable
+        end
+        assert(texture == "Interface\\WorldStateFrame\\Icons-Classes")
+        return iconAvailable
+    end
+    function methods:SetColorTexture(...) self.fill = {...} end
+    function methods:CreateTexture(_, layer)
+        local texture = Widget("Texture", nil, self)
+        texture.layer = layer
+        return texture
+    end
+    env.CreateColor = function(...) return {...} end
+    function methods:SetGradient(orientation, bottom, top)
+        assert(orientation == "VERTICAL" and bottom[4] == 1 and top[4] == 1)
+        self.gradient = {bottom, top}
+    end
+    function methods:SetTexCoord(...) self.coords = {...} end
+
+    local nextWidget = #widgets + 1
+    Load("Modules/TargetPortrait.lua")
+    ns.InitializeTargetPortrait({})
+    local module, driver = modules.targetPortrait, widgets[nextWidget]
+    local toggle = frames.ArkannsQOLTargetPortraitEnabled
+    assert(toggle.checked and module.ExportSettings().enabled and driver.events.UNIT_PORTRAIT_UPDATE == "target")
+    local function Event(event, name) driver.scripts.OnEvent(driver, event, name) end
+    local function Overlay()
+        for index = #widgets, 1, -1 do
+            local widget = widgets[index]
+            if widget.parent == container and widget.kind == "Frame" then return widget end
+        end
+    end
+    Event("PLAYER_TARGET_CHANGED")
+    assert(not Overlay(), "Never create or anchor on a Blizzard frame in combat")
+    combat, secretAnchor = false, true
+    Event("PLAYER_REGEN_ENABLED")
+    assert(not Overlay(), "Leave secret anchors alone")
+    secretAnchor = false
+    Event("PLAYER_ENTERING_WORLD")
+    local frame = assert(Overlay())
+    assert(frame.shown and not frame.mouse and frame.level == container.level + 1 and frame.points[1][2] == portrait)
+    assert(frame.width == 28 and frame.height == 28 and frame.points[1][4] == 25 and frame.points[1][5] == 24,
+        "Seat the medallion on the upper-right rim, clear of the central marker and lower level/PvP badges")
+    assert(frame.icon.width == 20 and frame.icon.height == 20 and frame.icon.points[1][2] == frame)
+    assert(frame.icon.texture == "Interface\\WorldStateFrame\\Icons-Classes" and frame.icon.coords[1] > .25)
+    local discs = {}
+    for _, widget in ipairs(widgets) do
+        if widget.parent == frame and widget.kind == "Texture" then
+            discs[#discs + 1] = widget
+            assert(widget.width == widget.height and widget.mask.atlas == "CircleMask")
+            assert(widget.mask.width == widget.width and widget.mask.height == widget.height)
+            assert(widget.points[1][2] == frame and widget.mask.points[1][2] == frame)
+        end
+    end
+    assert(#discs == 4 and discs[1].width == 28 and discs[2] == frame.rim and frame.rim.width == 26)
+    assert(discs[1].layer == "BACKGROUND" and frame.rim.layer == "BORDER"
+        and discs[3].layer == "ARTWORK" and frame.icon.layer == "OVERLAY")
+    assert(discs[3].width == 23 and discs[3].fill[4] == 1 and discs[3].fill[1] < .1,
+        "Keep an opaque dark well behind the glyph and a thin class-colored rim")
+    assert(frame.rim.gradient[1][1] < frame.rim.gradient[2][1] and discs[3].gradient,
+        "Use a shaded rim and recessed well to integrate the badge with the native frame")
+    local firstColor = frame.rim.color[1]
+    local widgetCount = #widgets
+    combat, class = true, "DRUID"
+    Event("PLAYER_TARGET_CHANGED")
+    assert(frame.shown and frame.icon.coords[1] > .75 and frame.rim.color[1] > firstColor)
+    assert(#widgets == widgetCount, "Changing class in combat only repaints existing regions")
+    class = "secret"
+    Event("PLAYER_TARGET_CHANGED")
+    assert(not frame.shown)
+    class, player = "MAGE", false
+    Event("PLAYER_TARGET_CHANGED")
+    assert(not frame.shown)
+    player, replacement = true, true
+    Event("CVAR_UPDATE", "ReplaceOtherPlayerPortraits")
+    assert(not frame.shown, "Avoid duplicating the native class portrait")
+    replacement = false
+    Event("CVAR_UPDATE", "ReplaceOtherPlayerPortraits")
+    assert(frame.shown)
+    portrait:Hide()
+    Event("UNIT_PORTRAIT_UPDATE", "target")
+    assert(not frame.shown)
+    portrait:Show()
+    local readClass = env.UnitClassBase
+    env.UnitClassBase = nil
+    Event("PLAYER_TARGET_CHANGED")
+    assert(not frame.shown)
+    env.UnitClassBase = readClass
+
+    combat = false
+    Event("PLAYER_REGEN_ENABLED")
+    ns.modules.targetPortrait = module
+    assert(profiles.Save("With class trim"))
+    toggle:SetChecked(false); Click("ArkannsQOLTargetPortraitEnabled")
+    assert(not frame.shown and not module.IsEnabled() and not driver:IsEventRegistered("PLAYER_TARGET_CHANGED"))
+    assert(profiles.Apply(assert(profiles.Preview("With class trim", {targetPortrait = true}))))
+    assert(toggle.checked and frame.shown)
+    assert(profiles.Undo() and not toggle.checked and not frame.shown)
+
+    atlasAvailable = false
+    env.ForeverTooltipLibreDB.targetPortrait = nil
+    Load("Modules/TargetPortrait.lua")
+    ns.InitializeTargetPortrait({})
+    local fallback = assert(Overlay())
+    assert(fallback ~= frame and fallback.shown and fallback.icon.mask.texture == maskTexture
+        and fallback.rim.mask.texture == maskTexture, "Use the native texture when CircleMask is unavailable")
+    maskAvailable = false
+    env.ForeverTooltipLibreDB.targetPortrait = nil
+    Load("Modules/TargetPortrait.lua")
+    ns.InitializeTargetPortrait({})
+    assert(not Overlay().shown, "Hide the medallion if its circular mask cannot load")
+    atlasAvailable, maskAvailable, iconAvailable = true, true, false
+    env.ForeverTooltipLibreDB.targetPortrait = nil
+    Load("Modules/TargetPortrait.lua")
+    ns.InitializeTargetPortrait({})
+    assert(not Overlay().shown, "Hide the medallion if the class icon cannot load")
+end
+print("PASS: target class medallion geometry, circular masks, protected anchors, class changes, native portrait setting, and profiles")

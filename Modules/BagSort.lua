@@ -4,7 +4,7 @@ local WoW = ns.WoW
 local db, panel, check, qualityCheck, transmogCheck, status, category, homeCategory, refreshAppearance
 local quick, quickBag, refreshQuick, ToggleQuickSettings
 local listening, bankOpen, failed, scheduled
-local qualityListening, getQualityColor, appearanceQueued
+local qualityListening, getQualityColor, appearanceQueued, reagentEvents, waitingForReagents
 local transmogEvents, transmogQueued
 local pending = {}
 local qualityBorders, samples, shortcuts = {}, {}, {}
@@ -12,10 +12,11 @@ local transmogIcons = {}
 local shortcutMargins = {}
 local defaults = {
     enabled = false, qualityBorders = true, qualityOpacity = 100, qualityThickness = 1,
-    qualityInnerGlow = 0, qualityUncommonOnly = false, transmogIcons = true,
+    qualityInnerGlow = 0, transmogIcons = true,
 }
 local borderTexture = "Interface\\Common\\WhiteIconFrame"
 local glowTexture = "Interface\\Buttons\\WHITE8X8"
+local newItemGlowAtlas = "bags-glow-white"
 local maxThickness = 4
 local glowDepth = 11
 local borderQuarters = {
@@ -38,9 +39,13 @@ local function ValidSetting(key, value, default)
     return value >= 0 and value <= 100
 end
 
+local function IsBorderCategory(quality, maximum)
+    return quality == "quest" or quality == "reagent"
+        or type(quality) == "number" and quality >= 0 and quality <= maximum and quality % 1 == 0
+end
+
 local function ValidColor(quality, hex)
-    return (quality == "quest" or type(quality) == "number" and quality >= 0 and quality <= 8 and quality % 1 == 0)
-        and type(hex) == "string" and hex:match("^%x%x%x%x%x%x$")
+    return IsBorderCategory(quality, 8) and type(hex) == "string" and hex:match("^%x%x%x%x%x%x$")
 end
 
 local function CopyColors(source)
@@ -51,12 +56,36 @@ local function CopyColors(source)
     return colors
 end
 
+local function CopyHidden(source)
+    local hidden = {}
+    if type(source) == "table" then
+        for quality, value in pairs(source) do
+            if IsBorderCategory(quality, 5) and value == true then hidden[quality] = true end
+        end
+    end
+    return hidden
+end
+
+local function LegacyHidden(uncommonOnly, hidden)
+    if uncommonOnly == true then
+        hidden[0], hidden[1] = true, true
+    else
+        hidden[0], hidden[1] = nil, nil
+    end
+    return hidden
+end
+
 local function NormalizeSettings(value)
     if type(value) ~= "table" then value = {} end
     for key, default in pairs(defaults) do
         if not ValidSetting(key, value[key], default) then value[key] = default end
     end
     value.qualityGlow = nil
+    if type(value.qualityHidden) ~= "table" then
+        value.qualityHidden = LegacyHidden(value.qualityUncommonOnly, {})
+    end
+    value.qualityHidden = CopyHidden(value.qualityHidden)
+    value.qualityUncommonOnly = nil
     value.qualityColors = CopyColors(type(value.qualityColors) == "table" and value.qualityColors or {})
     return value
 end
@@ -68,6 +97,7 @@ if ns.SettingsState then
     ns.SettingsState.RegisterMigration("ForeverTooltipLibreDB", 1, Migrate)
     ns.SettingsState.RegisterMigration("ForeverTooltipLibreDB", 2, Migrate)
     ns.SettingsState.RegisterMigration("ForeverTooltipLibreDB", 3, Migrate)
+    ns.SettingsState.RegisterMigration("ForeverTooltipLibreDB", 4, Migrate)
 end
 
 local function Secret(value)
@@ -85,7 +115,7 @@ local function IsPersonalBag(frame)
 end
 
 local function QualityColor(quality)
-    local hex = db.qualityColors[quality]
+    local hex = db.qualityColors[quality] or (quality == "reagent" and "36D9CA")
     if hex then return tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255 end
     if quality == "quest" then return 1, .82, 0 end
     local ok, r, g, b = pcall(getQualityColor, quality)
@@ -93,19 +123,56 @@ local function QualityColor(quality)
         and type(r) == "number" and type(g) == "number" and type(b) == "number" then return r, g, b end
 end
 
-local function RestoreNativeBorder(regions)
-    local native = regions.nativeBorder
+local function RestoreNativeBorder(regions, key)
+    local native = regions[key]
     if not native then return end
     local alpha = native:GetAlpha()
-    if not Secret(alpha) and alpha == 0 then native:SetAlpha(regions.nativeAlpha) end
-    regions.nativeBorder, regions.nativeAlpha = nil, nil
+    if not Secret(alpha) and alpha == 0 then native:SetAlpha(regions[key .. "Alpha"]) end
+    regions[key], regions[key .. "Alpha"] = nil, nil
+end
+
+local function SuppressNativeBorder(regions, key, native)
+    if regions[key] ~= native then RestoreNativeBorder(regions, key) end
+    if not native or not native.GetAlpha or not native.SetAlpha then return end
+    local alpha = native:GetAlpha()
+    if WoW.IsFiniteNumber(alpha) and alpha ~= 0 then
+        regions[key], regions[key .. "Alpha"] = native, alpha
+        native:SetAlpha(0)
+    end
+end
+
+local function RestoreNewItemGlow(regions)
+    local glow = regions.newItemGlow
+    if not glow then return end
+    if WoW.ReadValue(glow.GetAtlas, glow) == newItemGlowAtlas then glow:SetAtlas(regions.newItemAtlas) end
+    glow:SetVertexColor(1, 1, 1)
+    regions.newItemGlow, regions.newItemAtlas = nil, nil
+end
+
+local function PaintNewItemGlow(button, regions, nativeUpdated)
+    if not regions or not regions.r then return end
+    local glow = button.NewItemTexture
+    if Secret(glow) or not glow or WoW.ReadValue(glow.IsShown, glow) ~= true then
+        return RestoreNewItemGlow(regions)
+    end
+    local atlas = WoW.ReadValue(glow.GetAtlas, glow)
+    if type(atlas) ~= "string" or atlas == "" then return end
+    if nativeUpdated or not regions.newItemGlow or atlas ~= newItemGlowAtlas then
+        regions.newItemGlow, regions.newItemAtlas = glow, atlas
+    end
+    -- The native glow is already colored in the atlas. Tint the white artwork instead.
+    if atlas ~= newItemGlowAtlas then glow:SetAtlas(newItemGlowAtlas) end
+    glow:SetVertexColor(regions.r, regions.g, regions.b)
 end
 
 local function HideBorder(regions)
     if not regions then return end
     for _, outline in ipairs(regions.outlines) do outline:Hide() end
     if regions.glow then for _, strip in ipairs(regions.glow) do strip:Hide() end end
-    RestoreNativeBorder(regions)
+    RestoreNativeBorder(regions, "nativeBorder")
+    RestoreNativeBorder(regions, "questBorder")
+    RestoreNewItemGlow(regions)
+    regions.r = nil
 end
 
 local function PaintBorder(button, regions, native, icon, r, g, b)
@@ -216,24 +283,37 @@ local function PaintInnerGlow(button, regions, icon, r, g, b)
     regions.glowMask = mask
 end
 
-local function BagBorderCategory(button, quality)
-    if Secret(quality) or type(quality) ~= "number" then return nil end
+local function GetCraftingReagent(item)
+    -- The Forever API returns isCraftingReagent in position 17.
+    return (select(17, C_Item.GetItemInfo(item)))
+end
+
+local function BagBorderCategory(button, quality, item)
+    if not WoW.IsFiniteNumber(quality) then return nil end
     local bagID = WoW.ReadValue(button.GetBagID, button)
     local slot = WoW.ReadValue(button.GetID, button)
     if IsPersonalBagID(bagID) and WoW.IsFiniteNumber(slot) and slot > 0 then
         local info = WoW.ReadValue(C_Container.GetContainerItemQuestInfo, bagID, slot)
-        if type(info) == "table" and (not Secret(info.isQuestItem) and info.isQuestItem == true
-            or WoW.IsFiniteNumber(info.questID) and info.questID > 0) then return "quest" end
+        if type(info) == "table" then
+            local hasQuestID = WoW.IsFiniteNumber(info.questID) and info.questID > 0
+            if hasQuestID or WoW.IsPublic(info.isQuestItem) and info.isQuestItem == true then
+                return "quest", not hasQuestID or WoW.IsPublic(info.isActive) and info.isActive == true
+            end
+        end
+    end
+    if C_Item and C_Item.GetItemInfo and WoW.IsPublic(item)
+        and (type(item) == "string" and item ~= "" or WoW.IsFiniteNumber(item) and item > 0) then
+        local state, reagent = WoW.Read(GetCraftingReagent, item)
+        if state == "ok" and reagent == true then return "reagent" end
+        if state == "ok" and reagent == nil then waitingForReagents = true end
     end
     return quality
 end
 
-local function PaintQualityBorder(button, quality)
+local function PaintQualityBorder(button, quality, hasQuestBorder)
     if button.IsForbidden and button:IsForbidden() then return end
     local regions = qualityBorders[button]
-    local minimum = db.qualityUncommonOnly and 2 or 0
-    if not db.qualityBorders or Secret(quality) or (quality ~= "quest"
-        and (type(quality) ~= "number" or not (quality >= minimum and quality <= 5))) then
+    if not db.qualityBorders or Secret(quality) or not IsBorderCategory(quality, 5) or db.qualityHidden[quality] then
         return HideBorder(regions)
     end
     local r, g, b = QualityColor(quality)
@@ -241,6 +321,11 @@ local function PaintQualityBorder(button, quality)
     if not regions then
         regions = {outlines = {}}
         qualityBorders[button] = regions
+        if type(button.UpdateNewItem) == "function" then
+            hooksecurefunc(button, "UpdateNewItem", function(self)
+                PaintNewItemGlow(self, regions, true)
+            end)
+        end
     end
     local native = button.IconBorder
     if Secret(native) then native = nil end
@@ -248,16 +333,14 @@ local function PaintQualityBorder(button, quality)
     if Secret(icon) or not icon then icon = button.Icon end
     if Secret(icon) or not icon then icon = WoW.ReadValue(button.GetNormalTexture, button) end
     if Secret(icon) or not icon then icon = button end
-    if regions.nativeBorder ~= native then RestoreNativeBorder(regions) end
-    if native and native.GetAlpha and native.SetAlpha then
-        local alpha = native:GetAlpha()
-        if not Secret(alpha) and type(alpha) == "number" and alpha ~= 0 then
-            regions.nativeBorder, regions.nativeAlpha = native, alpha
-            native:SetAlpha(0)
-        end
-    end
+    local questBorder = hasQuestBorder and button.IconQuestTexture or nil
+    if Secret(questBorder) then questBorder = nil end
+    SuppressNativeBorder(regions, "nativeBorder", native)
+    SuppressNativeBorder(regions, "questBorder", questBorder)
     PaintBorder(button, regions, native, icon, r, g, b)
     PaintInnerGlow(button, regions, icon, r, g, b)
+    regions.r, regions.g, regions.b = r, g, b
+    PaintNewItemGlow(button, regions)
 end
 
 local function HasUncollectedAppearance(item)
@@ -342,14 +425,14 @@ local function RefreshTransmogSetting()
     RefreshTransmogIcons()
 end
 
-local function OnItemQuality(button, quality)
+local function OnItemQuality(button, quality, item)
     local showQuality = qualityListening and db.qualityBorders
     local showTransmog = transmogEvents and db.transmogIcons
     if not (showQuality or showTransmog) or Secret(button) or not button or not button.GetParent or not button.CreateTexture then return end
     local frame = button.containerFrame or button:GetParent()
     if IsPersonalBag(frame) and (frame == ContainerFrameCombinedBags
         or ContainerFrameUtil_GetShownFrameForID(frame:GetBagID()) == frame) then
-        if showQuality then PaintQualityBorder(button, BagBorderCategory(button, quality)) end
+        if showQuality then PaintQualityBorder(button, BagBorderCategory(button, quality, item)) end
         if showTransmog then PaintTransmogIcon(button) end
     else
         HideBorder(qualityBorders[button])
@@ -359,15 +442,21 @@ end
 
 local function RefreshQualityBorders()
     if not qualityListening then return end
+    waitingForReagents = false
     if not db.qualityBorders then
         for _, regions in pairs(qualityBorders) do HideBorder(regions) end
         return
     end
     for _, frame in ContainerFrameUtil_EnumerateContainerFrames() do
-        if IsPersonalBag(frame) and frame:IsVisible() and frame.EnumerateValidItems then
+        if (not frame.IsForbidden or not frame:IsForbidden()) and IsPersonalBag(frame)
+            and WoW.ReadValue(frame.IsVisible, frame) == true and frame.EnumerateValidItems then
             for _, button in frame:EnumerateValidItems() do
-                local info = C_Container.GetContainerItemInfo(button:GetBagID(), button:GetID())
-                PaintQualityBorder(button, BagBorderCategory(button, not Secret(info) and info and info.quality))
+                local info = WoW.ReadValue(C_Container.GetContainerItemInfo, button:GetBagID(), button:GetID())
+                if type(info) == "table" then
+                    PaintQualityBorder(button, BagBorderCategory(button, info.quality, info.itemID))
+                else
+                    PaintQualityBorder(button)
+                end
             end
         end
     end
@@ -377,8 +466,7 @@ local function RefreshSamples()
     for button, quality in pairs(samples) do PaintQualityBorder(button, quality) end
 end
 
-local function PreviewAppearance()
-    RefreshSamples()
+local function QueueQualityRefresh()
     if appearanceQueued then return end
     if not C_Timer or not C_Timer.After then return RefreshQualityBorders() end
     appearanceQueued = true
@@ -386,6 +474,11 @@ local function PreviewAppearance()
         appearanceQueued = false
         RefreshQualityBorders()
     end)
+end
+
+local function PreviewAppearance()
+    RefreshSamples()
+    QueueQualityRefresh()
 end
 
 local function IsBankOpen()
@@ -408,6 +501,10 @@ local function Refresh()
     qualityCheck:SetChecked(db.qualityBorders)
     transmogCheck:SetChecked(db.transmogIcons)
     status:SetText(Unavailable() or "")
+    if reagentEvents then
+        if db.qualityBorders then reagentEvents:RegisterEvent("ITEM_DATA_LOAD_RESULT")
+        else reagentEvents:UnregisterEvent("ITEM_DATA_LOAD_RESULT") end
+    end
     if refreshAppearance then refreshAppearance() end
     if refreshQuick and quick:IsShown() then refreshQuick() end
 end
@@ -431,7 +528,7 @@ end
 local function OpenSettings(destination)
     CloseQuickSettings()
     if ns.StopAllPreviews then ns.StopAllPreviews() end
-    if destination and Settings.OpenToCategory then Settings.OpenToCategory(destination:GetID()) end
+    if destination then ns.UI.OpenCategory(destination) end
 end
 
 local function ReadTitleRight(title, frame)
@@ -542,14 +639,7 @@ local function BuildAppearance(body, compact)
     local UI = ns.UI
     local prefix = compact and "ArkannsQOLBagQuick" or "ArkannsQOLBag"
     local syncing
-    local targets = {}
-    local filterLabel = compact and L("Masquer gris et blancs") or L("Masquer les contours gris et blancs")
-    local filter = UI.Check(body, prefix .. "UncommonOnly", filterLabel, 16, compact and -113 or 0, function(value)
-        db.qualityUncommonOnly = value
-        RefreshSamples()
-        RefreshQualityBorders()
-    end)
-    targets["Masquer gris et blancs"] = filter
+    local targets, checks = {}, {}
     local function Slider(key, name, y)
         local isThickness = key == "qualityThickness"
         local label = UI.Label(body, "", 20, y)
@@ -575,53 +665,64 @@ local function BuildAppearance(body, compact)
         targets[source] = slider
         return function() slider:SetValue(db[key]); Caption() end
     end
-    local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -149 or -40)
-    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and -195 or -96)
-    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -241 or -152)
-    targets["Couleurs de rareté"] = UI.Label(body, L("Couleurs et aperçu"), 20, compact and -287 or -202, 15)
-    if not compact then UI.Label(body, L("Clic gauche · Couleur\nClic droit · Couleur WoW"), 20, -228) end
-    local size, spacing, top = compact and 26 or 32, compact and 36 or 43, compact and -311 or -266
-    local count = 0
-    for _, quality in ipairs({0, 1, 2, 3, 4, 5, "quest"}) do
-        local name = quality == "quest" and L("Objets de quête")
-            or _G["ITEM_QUALITY" .. quality .. "_DESC"] or qualityLabels[quality + 1]
-        if name then
-            local sample = CreateFrame("Button", prefix .. "Color" .. quality, body)
-            sample:SetSize(size, size)
-            sample:SetPoint("TOPLEFT", 22 + (count % 6) * spacing, top - math.floor(count / 6) * (size + 9))
-            sample:SetNormalTexture(sampleIcons[type(quality) == "number" and quality + 1 or 2])
-            sample:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-            sample:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-            sample:SetScript("OnClick", function(_, button)
-                if button == "RightButton" then
-                    db.qualityColors[quality] = nil
-                    PreviewAppearance()
-                else
-                    ChooseColor(quality)
-                end
-            end)
-            sample:SetScript("OnEnter", function(self)
-                if not GameTooltip or GameTooltip:IsForbidden() then return end
-                GameTooltip:SetOwner(self, "ANCHOR_TOP")
-                GameTooltip:SetText(name)
-                if compact then GameTooltip:AddLine(L("Clic droit · Couleur WoW"), 1, 1, 1) end
-                GameTooltip:Show()
-            end)
-            sample:SetScript("OnLeave", function(self)
-                if GameTooltip and not GameTooltip:IsForbidden() and GameTooltip:GetOwner() == self then GameTooltip:Hide() end
-            end)
-            samples[sample] = quality
-            count = count + 1
+    local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -119 or 0)
+    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and -165 or -56)
+    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -211 or -112)
+    targets["Couleurs de rareté"] = UI.Label(body, L("Couleurs et aperçu"), 20, compact and -256 or -162, 15)
+    local toggleHelp = L("Cochez pour appliquer la couleur.")
+    UI.Label(body, toggleHelp, 20, compact and -278 or -186)
+    local size, top = 28, compact and -300 or -210
+    local categories = {0, 1, 2, 3, 4, 5, "quest", "reagent"}
+    for index, quality in ipairs(categories) do
+        local source = quality == "quest" and "Objets de quête" or quality == "reagent" and "Composants d’artisanat"
+        local name = source and L(source) or _G["ITEM_QUALITY" .. quality .. "_DESC"] or qualityLabels[quality + 1]
+        local x, y = 19 + ((index - 1) % 4) * 58, top - math.floor((index - 1) / 4) * 38
+        local sample = CreateFrame("Button", prefix .. "Color" .. quality, body)
+        sample:SetSize(size, size)
+        sample:SetPoint("TOPLEFT", x, y)
+        sample:SetNormalTexture(quality == "reagent" and "Interface\\Icons\\INV_Ore_Copper_01"
+            or sampleIcons[type(quality) == "number" and quality + 1 or 2])
+        sample:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+        sample:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        sample:SetScript("OnClick", function(_, button)
+            if button == "RightButton" then
+                db.qualityColors[quality] = nil
+                PreviewAppearance()
+            else
+                ChooseColor(quality)
+            end
+        end)
+        local control = UI.Check(body, prefix .. "ShowColor" .. quality, "", x + size + 1, y - 2, function(value)
+            db.qualityHidden[quality] = not value and true or nil
+            Refresh()
+            RefreshQualityBorders()
+        end)
+        control:SetSize(24, 24)
+        local function Tooltip(self)
+            if not GameTooltip or GameTooltip:IsForbidden() then return end
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText(name)
+            GameTooltip:AddLine(self == control and toggleHelp or L("Clic gauche · Couleur\nClic droit · Couleur par défaut"), 1, 1, 1)
+            GameTooltip:Show()
         end
+        local function HideTooltip(self)
+            if GameTooltip and not GameTooltip:IsForbidden() and GameTooltip:GetOwner() == self then GameTooltip:Hide() end
+        end
+        for _, widget in ipairs({sample, control}) do
+            widget:SetScript("OnEnter", Tooltip)
+            widget:SetScript("OnLeave", HideTooltip)
+        end
+        if source then targets[source] = sample end
+        checks[quality], samples[sample] = control, quality
     end
-    local footerY = top - math.ceil(count / 6) * (size + 9) - 4
+    local footerY = top - 76
     if not compact then
         UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
             UI.Confirm(L("Rétablir les bordures de rareté et leurs couleurs par défaut ?"), function()
                 for key, value in pairs(defaults) do
                     if key ~= "enabled" and key ~= "transmogIcons" then db[key] = value end
                 end
-                db.qualityColors = {}
+                db.qualityColors, db.qualityHidden = {}, {}
                 Refresh()
                 RefreshQualityBorders()
             end)
@@ -629,7 +730,7 @@ local function BuildAppearance(body, compact)
     end
     return function()
         syncing = true
-        filter:SetChecked(db.qualityUncommonOnly)
+        for quality, control in pairs(checks) do control:SetChecked(not db.qualityHidden[quality]) end
         opacity()
         thickness()
         innerGlow()
@@ -770,6 +871,13 @@ function ns.InitializeBagSort(rootCategory)
         and hooksecurefunc and SetItemButtonQuality and NUM_TOTAL_BAG_FRAMES
         and ContainerFrameUtil_EnumerateContainerFrames and ContainerFrameUtil_GetShownFrameForID then
         qualityListening = type(getQualityColor) == "function"
+        if qualityListening and C_Item and type(C_Item.GetItemInfo) == "function" then
+            reagentEvents = CreateFrame("Frame", "ArkannsQOLBagQualityEvents")
+            reagentEvents:SetScript("OnEvent", function(_, _, _, success)
+                if waitingForReagents and WoW.IsPublic(success) and success == true
+                    and ContainerFrameUtil_GetShownFrameForID() then QueueQualityRefresh() end
+            end)
+        end
         local collection = C_TransmogCollection
         if collection and type(collection.GetItemInfo) == "function"
             and type(collection.PlayerCanCollectSource) == "function"
@@ -825,7 +933,7 @@ function ns.InitializeBagSort(rootCategory)
         ns.UI.Label(body, L("Bordures indisponibles sur ce client."), 20, -224)
     end
     panel:SetScript("OnShow", function() CloseQuickSettings(); Refresh() end)
-    category = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Sacs"))
+    category = ns.UI.RegisterSettingsPanel(rootCategory, panel, L("Sacs"), "bags")
     AttachShortcut(ContainerFrameCombinedBags)
     if hooksecurefunc and type(ContainerFrame_GenerateFrame) == "function" then
         hooksecurefunc("ContainerFrame_GenerateFrame", AttachShortcut)
@@ -873,7 +981,8 @@ function ns.InitializeBagSort(rootCategory)
         label = L("Sacs"), icon = "Interface\\Icons\\INV_Misc_Bag_08", category = function() return category end,
         Refresh = Refresh,
         SearchSettings = {"Trier à l’ouverture manuelle", "Bordure selon la rareté", "Transmos manquantes",
-            "Personnaliser les bordures", "Masquer gris et blancs", "Couleurs de rareté", "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
+            "Personnaliser les bordures", "Couleurs de rareté", "Objets de quête", "Composants d’artisanat",
+            "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
         OpenSettings = function(source)
             if not source then return end
             local target = searchTargets[source]
@@ -889,7 +998,7 @@ function ns.InitializeBagSort(rootCategory)
                 transmogEvents and State(db.transmogIcons) or L("indisponible"))
         end,
         ExportSettings = function()
-            local config = {qualityColors = CopyColors(db.qualityColors)}
+            local config = {qualityColors = CopyColors(db.qualityColors), qualityHidden = CopyHidden(db.qualityHidden)}
             for key in pairs(defaults) do config[key] = db[key] end
             return config
         end,
@@ -898,7 +1007,7 @@ function ns.InitializeBagSort(rootCategory)
                 if config.qualityBorders == nil then config.qualityBorders = current.qualityBorders end
             end,
             function(config, current)
-                for _, key in ipairs({"qualityOpacity", "qualityUncommonOnly", "qualityColors"}) do
+                for _, key in ipairs({"qualityOpacity", "qualityColors"}) do
                     if config[key] == nil then config[key] = current[key] end
                 end
             end,
@@ -914,11 +1023,27 @@ function ns.InitializeBagSort(rootCategory)
             function(config)
                 config.qualityGlow = nil
             end,
+            function(config, current)
+                if config.qualityUncommonOnly == nil then
+                    config.qualityHidden = CopyHidden(current.qualityHidden)
+                else
+                    config.qualityHidden = LegacyHidden(config.qualityUncommonOnly, {})
+                end
+                config.qualityUncommonOnly = nil
+            end,
         },
         ImportSettings = function(config)
             if type(config) ~= "table" or type(config.enabled) ~= "boolean" then return false end
             for key, default in pairs(defaults) do
                 if config[key] ~= nil and not ValidSetting(key, config[key], default) then return false end
+            end
+            if config.qualityHidden ~= nil then
+                if type(config.qualityHidden) ~= "table" then return false end
+                for quality, hidden in pairs(config.qualityHidden) do
+                    if not IsBorderCategory(quality, 5) or hidden ~= true then return false end
+                end
+            elseif config.qualityUncommonOnly ~= nil and type(config.qualityUncommonOnly) ~= "boolean" then
+                return false
             end
             if config.qualityColors ~= nil then
                 if type(config.qualityColors) ~= "table" then return false end
@@ -926,6 +1051,11 @@ function ns.InitializeBagSort(rootCategory)
                     if not ValidColor(quality, hex) then return false end
                 end
                 db.qualityColors = CopyColors(config.qualityColors)
+            end
+            if config.qualityHidden ~= nil then
+                db.qualityHidden = CopyHidden(config.qualityHidden)
+            elseif config.qualityUncommonOnly ~= nil then
+                LegacyHidden(config.qualityUncommonOnly, db.qualityHidden)
             end
             for key in pairs(defaults) do
                 if key ~= "enabled" and config[key] ~= nil then db[key] = config[key] end

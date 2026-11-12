@@ -5,17 +5,17 @@ local UI = {}
 ns.UI = UI
 local config, previewBar, previewModule, layout, home, appearanceRefresh
 local styledPanels, styledButtons, styledLabels = {}, {}, {}
-local moduleOrder = {"tooltips", "reminders", "session", "talents", "ranks", "distance", "bags", "advanced"}
+local moduleOrder = {"tooltips", "reminders", "session", "talents", "ranks", "distance", "targetPortrait", "bags", "flights", "advanced"}
 local settingsPages, appearanceBack = {}, nil
 
 function UI.OpenSettings(id, source, back)
     local module = ns.modules[id] or settingsPages[id]
     local category = module and module.category and module.category()
     category = category or ns[({profiles="profilesCategory",diagnostics="diagnosticsCategory"})[id] or ""]
-    if not category or not Settings then return false end
+    if not category then return false end
     ns.StopAllPreviews()
     if id == "appearance" then appearanceBack = back end
-    Settings.OpenToCategory(category:GetID())
+    if not UI.OpenCategory(category) then return false end
     if module and module.OpenSettings then module.OpenSettings(source) end
     return true
 end
@@ -181,6 +181,7 @@ function UI.Refresh()
     for _, module in pairs(ns.modules) do if module.Refresh then pcall(module.Refresh) end end
     if home and home.Refresh then home.Refresh() end
     if appearanceRefresh then appearanceRefresh() end
+    if UI.RefreshSettingsWindow then UI.RefreshSettingsWindow() end
 end
 function UI.ImportSettings(value)
     if type(value) ~= "table" then return false, L("Apparence invalide.") end
@@ -385,7 +386,7 @@ function UI.StartLayout(focusId)
     if not layoutReturn then
         layoutReturn = ns.appearancePanel and ns.appearancePanel:IsVisible() and "appearance" or "home"
     end
-    if SettingsPanel and SettingsPanel:IsShown() then HideUIPanel(SettingsPanel) end
+    if UI.HideSettingsWindow then UI.HideSettingsWindow() end
     if not layout then
         layout = CreateFrame("Frame", "ArkannsQOLLayout", UIParent, "BackdropTemplate")
         layout:SetSize(620, 164); layout:SetPoint("TOP", UIParent, "TOP", 0, -28)
@@ -706,7 +707,7 @@ local function BuildAppearance(root)
     panel:SetScript("OnShow", appearanceRefresh)
     panel:HookScript("OnSizeChanged",LayoutAppearance)
     panel:SetScript("OnHide", function() appearanceBack = nil; ns.StopAllPreviews() end)
-    ns.appearanceCategory = Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Apparence générale"))
+    ns.appearanceCategory = UI.RegisterSettingsPanel(root,panel,L("Apparence générale"),"appearance")
     ns.RegisterModule("appearance", {label = L("Apparence générale"), category = function() return ns.appearanceCategory end,
         OpenSettings = function(source)
             if not source then return end
@@ -763,8 +764,9 @@ function UI.BuildHome(panel)
         distance = {"Afficher le badge de la cible", "Afficher la distance au survol", "Arrondir les estimations par pas de 5 m",
             "Ancrer au portrait plutôt qu’au nom", "Placement et couleurs", "Décalage X / Y", "Réinitialiser le placement",
             "Fond et bordure", "Fond seul", "Texte seul", "Couleur du texte"},
+        flights = {"Chronométrer les vols", "Exporter mes temps de vol"},
         bags = {"Trier à l’ouverture manuelle", "Bordure selon la rareté", "Personnaliser les bordures", "Transmos manquantes",
-            "Masquer gris et blancs", "Couleurs de rareté", "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
+            "Couleurs de rareté", "Objets de quête", "Composants d’artisanat", "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
         appearance = {"Thème", "Taille du texte des modules", "Type de bordure", "Épaisseur de bordure", "Police", "Échelle (%)",
             "Opacité du fond (%)", "Marge intérieure", "Espacement", "Fond", "Texte", "Bordure et accents"},
     }
@@ -789,7 +791,7 @@ function UI.BuildHome(panel)
         if ns.IsMinimapVisible then
             Add(L("Afficher le bouton de minicarte"),"",function() search:SetText(""); home.Refresh() end)
         end
-        for _,id in ipairs({"tooltips","reminders","session","talents","ranks","distance","bags","appearance"}) do
+        for _,id in ipairs({"tooltips","reminders","session","talents","ranks","distance","targetPortrait","bags","flights","appearance"}) do
             local module=ns.modules[id]
             if module and module.category then
                 local function Open() UI.OpenSettings(id) end
@@ -802,13 +804,13 @@ function UI.BuildHome(panel)
         end
         local advanced=ns.modules.advanced
         if advanced and advanced.category then
-            Add(advanced.label,"",function() local category=advanced.category(); if category then Settings.OpenToCategory(category:GetID()) end end)
+            Add(advanced.label,"",function() UI.OpenSettings("advanced") end)
             for _,option in ipairs(ns.AdvancedSettingsCatalog or {}) do
                 if not ns.AdvancedSettings or not ns.AdvancedSettings.IsNative(option.name) then
                     local name=option.name
                     Add(advanced.label.." · "..option.label,name.." "..(option.help or ""),function()
                         if ns.AdvancedSettings and ns.AdvancedSettings.OpenSetting then ns.AdvancedSettings.OpenSetting(name)
-                        else local category=advanced.category(); if category then Settings.OpenToCategory(category:GetID()) end end
+                        else UI.OpenSettings("advanced") end
                     end)
                 end
             end
@@ -852,7 +854,7 @@ function UI.BuildHome(panel)
         return config.pins[id] or (combined and config.pins.distance)
     end
     local cards={}
-    local names={tooltips="Tooltips",reminders="Reminders",session="Session",talents="Talents",ranks="Ranks",distance="Distance",bags="Bags",advanced="Advanced"}
+    local names={tooltips="Tooltips",reminders="Reminders",session="Session",talents="Talents",ranks="Ranks",distance="Distance",targetPortrait="TargetPortrait",bags="Bags",flights="Flights",advanced="Advanced"}
     for _,id in ipairs(moduleOrder) do
         local module=ns.modules[id]
         local combinedDistance = id == "distance" and ns.modules.tooltips and ns.modules.tooltips.category
@@ -904,9 +906,9 @@ function UI.BuildHome(panel)
     local favoritesTitle=Label(body,L("Favoris"),0,0,16)
     local groups = {
         {label=L("Personnage"),ids={"talents","session","reminders","ranks"}},
-        {label=L("Interface"),ids={"tooltips","distance","bags"}},
+        {label=L("Interface"),ids={"tooltips","distance","targetPortrait","bags"}},
         {label=L("Personnalisation"),ids={},buttons={toolbar[1],toolbar[2]}},
-        {label=L("Outils"),ids={"advanced"},buttons={toolbar[3],toolbar[4]}},
+        {label=L("Outils"),ids={"flights","advanced"},buttons={toolbar[3],toolbar[4]}},
     }
     for _,group in ipairs(groups) do group.title=Label(body,group.label,0,0,16) end
     local function Pinned(card)
@@ -1055,10 +1057,10 @@ end
 function ns.InitializeInterface(root)
     BuildAppearance(root)
     UI.BuildHome(ns.home)
-    if SettingsPanel and SettingsPanel.HookScript then SettingsPanel:HookScript("OnHide",ns.StopAllPreviews) end
     local events=CreateFrame("Frame","ArkannsQOLInterfaceEvents")
     for _,event in ipairs({"PLAYER_REGEN_DISABLED","PLAYER_LOGOUT","DISPLAY_SIZE_CHANGED","UI_SCALE_CHANGED"}) do events:RegisterEvent(event) end
     events:SetScript("OnEvent",function(_,event)
         if UI.layoutActive then UI.EndLayout(true) else ns.StopAllPreviews() end
+        if (event == "DISPLAY_SIZE_CHANGED" or event == "UI_SCALE_CHANGED") and UI.FitSettingsWindow then UI.FitSettingsWindow() end
     end)
 end

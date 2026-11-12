@@ -1183,7 +1183,7 @@ function ns.InitializeReminders(parentCategory)
         if appearancePage:IsShown() then Preview() end
     end)
     settingsPanel:SetScript("OnHide", EndTest)
-    category = Settings.RegisterCanvasLayoutSubcategory(parentCategory, settingsPanel, L("Rappels d'effets"))
+    category = ns.UI.RegisterSettingsPanel(parentCategory, settingsPanel, L("Rappels d'effets"), "reminders")
     ns.reminderCategory = category
     Refresh()
 

@@ -1,6 +1,10 @@
 local _, ns = ...
 
 for source, translation in pairs({
+    ["Accueil"] = "Home",
+    ["Fermer"] = "Close",
+    ["Ouvrir les réglages"] = "Open settings",
+    ["Glisse le titre pour déplacer la fenêtre."] = "Drag the title to move the window.",
     ["Rechercher dans tous les réglages"] = "Search all settings",
     ["Aucun réglage trouvé."] = "No settings found.",
     ["%d résultat(s) — ouvre la rubrique correspondante."] = "%d result(s) — open the matching category.",

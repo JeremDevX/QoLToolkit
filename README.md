@@ -2,6 +2,8 @@
 
 QoL Toolkit is a modular addon for **World of Warcraft Forever 1.60.1**. Build talent plans, track your session, and customize your interface from one dashboard.
 
+Click the minimap icon or type `/qt` to open the standalone settings window. Tabs group Character, Interface, Customization, and Tools; subtabs select each module. Drag the title to move the window, use Size to resize it, and close it with Escape or Close. The Blizzard Add-ons categories also link to this window.
+
 ## Modules
 
 | Module | What it does |
@@ -12,7 +14,9 @@ QoL Toolkit is a modular addon for **World of Warcraft Forever 1.60.1**. Build t
 | Tooltips | Move or scale supported tooltips, or have them follow the cursor. Unit tooltips can also show a measured or estimated distance. WoW quest details and tooltip content are preserved. |
 | Spell Rank Guard | Flag spells on supported action bars when a higher rank is already in your spellbook. Add exceptions for ranks you keep on purpose. |
 | Target Distance | Show a measured distance or range estimate on the target frame. Customize placement, badge style, and colors for the badge and unit tooltip. |
-| Bags | Customize rarity colors, border thickness, and inner glow. Mark uncollected appearances and optionally sort on manual bag opening, outside combat and away from the bank. |
+| Target Portrait | Show a circular class medallion with a class-colored border beside the native target portrait. |
+| Bags | Customize colors by rarity, quest items, and crafting reagents, with matching item glows. Mark uncollected appearances and optionally sort on manual bag opening, outside combat and away from the bank. |
+| Flight Times | Time flight master routes, see known durations on the taxi map, and export local measurements. |
 | Advanced Settings | Browse available client settings and graphics options, check defaults, and reset individual or selected settings. |
 
 The dashboard groups tools under Character, Interface, Customization, and Tools. Pinning moves a module card to Favorites without duplicating it. Tooltip and distance settings share one page, while their displays remain independently controlled. Local Move buttons open the shared Layout editor; Apply keeps moved frames and Cancel restores their original placement. Both actions return to the original settings section. The minimap button can be dragged or hidden from the dashboard. Named profiles share selected module settings across characters on the same account. Talent builds and journal totals stay with their character. Partial profiles include each module’s shared/custom appearance choice. Profiles and talent builds can be deleted after confirmation.
@@ -32,7 +36,7 @@ Layout changes require **Apply**. Cancelling or logging out restores the origina
 ## Install
 
 1. Put the addon folder in `World of Warcraft/_forever_/Interface/AddOns/` and name it `QoLToolkit`. The `QoLToolkit.toc` file should sit directly inside that folder.
-2. Restart WoW after installing. Open **Settings > Add-ons > QoL Toolkit** or type `/qt`.
+2. Restart WoW after installing. Click the minimap icon or type `/qt` to open settings.
 3. Open the default talent window with `N` to use the planner. Click **QoL** in the Blizzard bag header for quick bag settings.
 
 The addon follows the game client language. A French client uses French. English is used on English clients and as the default on other clients.
@@ -68,6 +72,7 @@ The addon samples frame geometry and selected events twice per second for up to 
 - [QoLToolkit.toc](QoLToolkit.toc) defines the WoW interface version, saved variables, and Lua load order. [Core/](Core/) contains startup, shared UI, and settings. [Modules/](Modules/) contains the gameplay features.
 - [Locales/](Locales/) contains English translations. Wrap player-facing text in `L("French source text")` and add its English translation to the matching catalog. Use `L(text, key)` when the same French label needs different translations by context. Keep IDs, saved values, and text supplied by WoW or players independent of the locale.
 - [docs/](docs/) contains the [French user guide](docs/LISEZ-MOI.fr.txt) and advanced settings inventory.
+- [Flight contributions](docs/CONTRIBUTIONS-VOLS.md) explains how to export, validate, and publish measured flight times.
 - Run `lua tests/check.lua` from the repository root with Lua 5.1 to check the manifest, syntax, locale selection, and reminder matching offline.
 - See [AGENTS.md](AGENTS.md) for WoW Forever API, asset, and testing rules.
 

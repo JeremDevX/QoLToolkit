@@ -665,9 +665,9 @@ local function RegisterSettings(root)
     if host then
         host.AddDistancePage(panel)
         category=host.category
-    else category=Settings.RegisterCanvasLayoutSubcategory(root, panel, title) end
+    else category=UI.RegisterSettingsPanel(root, panel, title, "distance") end
     function ns.OpenDistanceSettings(source)
-        Settings.OpenToCategory(category:GetID())
+        UI.OpenCategory(category)
         if host then host.Select("distance") end
         local targets={
             ["Afficher le badge de la cible"]=toggle,["Afficher la distance au survol"]=mouseover,

@@ -756,7 +756,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         end
         if C_Timer and C_Timer.After then C_Timer.After(0, Update) else Update() end
     end)
-    ns.advancedCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Réglages avancés"))
+    ns.advancedCategory = ns.UI.RegisterSettingsPanel(rootCategory, panel, L("Réglages avancés"), "advanced")
     api.Refresh = function()
         if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel, "advanced") end
         if panel:IsShown() then refresh() end
@@ -765,7 +765,7 @@ function ns.InitializeAdvancedSettings(rootCategory)
         favoritesOnly, modifiedOnly, resetReview = true, false, nil
         if tab == "inventory" then tab = categories[1].id end
         query = ""; search:SetText("")
-        if Settings.OpenToCategory then Settings.OpenToCategory(ns.advancedCategory:GetID()) end
+        ns.UI.OpenCategory(ns.advancedCategory)
         refresh(true)
     end
     api.OpenFavorite = function(name)
@@ -782,13 +782,13 @@ function ns.InitializeAdvancedSettings(rootCategory)
         if tab == "graphics" then expert = true end
         query = SearchText(option.name)
         search:SetText(option.name); search:ClearFocus()
-        if Settings.OpenToCategory then Settings.OpenToCategory(ns.advancedCategory:GetID()) end
+        ns.UI.OpenCategory(ns.advancedCategory)
         Instructions(); refresh(true)
         return true
     end
     ns.OpenAdvancedInventory = function()
         favoritesOnly, modifiedOnly, resetReview = false, false, nil
-        if Settings.OpenToCategory then Settings.OpenToCategory(ns.advancedCategory:GetID()) end
+        ns.UI.OpenCategory(ns.advancedCategory)
         SelectTab("inventory")
     end
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(panel, "advanced") end

@@ -1,26 +1,16 @@
-QoL Toolkit 0.1.3 for WoW Forever 1.60.1
+QoL Toolkit 0.1.4 for WoW Forever 1.60.1
 
 Added
 
 - Standalone settings window. Open every module from the minimap icon or /qt, with grouped tabs and subtabs, a draggable title, resizing, and Escape to close.
 - Flight Times. Measure complete taxi routes, show personal durations and available community estimates, and export measurements without character names.
 - Target Portrait. Show a circular class medallion with a class-colored border beside the native target portrait.
-- Session Journal. Save up to 100 recent sessions per character. Review all-time, 7-day, and 30-day totals, plot XP and net gold over a session, and compare hourly rates across sessions.
-- Settings search. Find controls from the dashboard and jump to the matching setting, including controls inside collapsed sections.
-- Talent Planner. Duplicate builds and share them through a copy-and-paste import and export format. Imports validate the full plan before saving a new build.
-- Bags. Customize colors for each rarity, quest items, and crafting reagents. Enable each category separately and match item glows to its color.
 
 Improved
 
-- Dashboard. Find tools under Character, Interface, Customization, and Tools. Tooltips and distance share a settings page. Journal tracking and reminder selection each have their own section separate from display options.
-- Spell Rank Guard. Refresh warnings when you learn a spell or open a trainer, with a 30-second background scan.
-- Restored the QoL Toolkit minimap artwork.
+- Bags. Customize colors for each rarity, quest items, and crafting reagents. Enable each category separately and match item glows to its color.
 
 Fixed
 
 - Flight Times. Discard interrupted routes even when early landing is requested before the first periodic taxi-state check.
 - Settings search. Include Flight Times and its recording and export controls.
-- Target Distance. Keep range estimates when a direct measurement is unavailable and use consistent estimates when the target is also under the cursor.
-- Session Journal. Restore search results for all journal stats and display options.
-- Advanced Settings. Keep minimum and maximum nameplate scale and opacity consistent when resetting settings.
-- Diagnostics. Include the Blizzard API name in captures when an addon action is blocked or forbidden and the client supplies the name.

@@ -14,7 +14,8 @@ Click the minimap icon or type `/qt` to open the standalone settings window. Tab
 | Tooltips | Move or scale supported tooltips, or have them follow the cursor. Unit tooltips can also show a measured or estimated distance. WoW quest details and tooltip content are preserved. |
 | Spell Rank Guard | Flag spells on supported action bars when a higher rank is already in your spellbook. Add exceptions for ranks you keep on purpose. |
 | Target Distance | Show a measured distance or range estimate on the target frame. Customize placement, badge style, and colors for the badge and unit tooltip. |
-| Bags | Customize rarity colors, border thickness, and inner glow. Mark uncollected appearances and optionally sort on manual bag opening, outside combat and away from the bank. |
+| Target Portrait | Show a circular class medallion with a class-colored border beside the native target portrait. |
+| Bags | Customize colors by rarity, quest items, and crafting reagents, with matching item glows. Mark uncollected appearances and optionally sort on manual bag opening, outside combat and away from the bank. |
 | Flight Times | Time flight master routes, see known durations on the taxi map, and export local measurements. |
 | Advanced Settings | Browse available client settings and graphics options, check defaults, and reset individual or selected settings. |
 

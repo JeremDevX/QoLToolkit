@@ -14,9 +14,9 @@ Click the minimap icon or type `/qt` to open the standalone settings window. On 
 | Tooltips | Move or scale supported tooltips, or have them follow the cursor. Unit tooltips can also show a measured or estimated distance. WoW quest details and tooltip content are preserved. |
 | Spell Rank Guard | Flag spells on supported action bars when a higher rank is already in your spellbook. Add exceptions for ranks you keep on purpose. |
 | Target Distance | Show a measured distance or range estimate on the target frame. Customize placement, badge style, and colors for the badge and unit tooltip. |
-| Target Portrait | Show a circular class medallion with a class-colored border beside the native target portrait. |
+| Class Portraits | Decorate the native player and target portraits with class-themed ornaments, adjustable glow, colors, size, and placement. Preview each class and optionally add a target class medallion. |
 | Bags | Customize colors by rarity, quest items, and crafting reagents, with matching item glows. Mark uncollected appearances and optionally sort on manual bag opening, outside combat and away from the bank. |
-| Flight Times | Time flight master routes, see known durations on the taxi map, and export local measurements. |
+| Flight Times | Time flight master routes, see known durations on the taxi map, and display a faction-themed flight timer with an estimated arrival when available. Export local measurements. |
 | Advanced Settings | Browse available client settings and graphics options, check defaults, and reset individual or selected settings. |
 
 The dashboard groups tools under Character, Interface, Customization, and Tools. Pinning moves a module card to Favorites without duplicating it. Tooltip and distance settings share one page, while their displays remain independently controlled. Local Move buttons open the shared Layout editor; Apply keeps moved frames and Cancel restores their original placement. Both actions return to the original settings section. The minimap button can be dragged or hidden from the dashboard. Named profiles share selected module settings across characters on the same account. Talent builds and journal totals stay with their character. Partial profiles include each module’s shared/custom appearance choice. Profiles and talent builds can be deleted after confirmation.

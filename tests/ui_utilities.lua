@@ -208,6 +208,32 @@ for _, widget in ipairs(widgets) do
 end
 assert(badge and badge.clamped and not badge.mouse and badge.scale == .8 and badge.alpha == .6)
 assert(badge.strata == "LOW" and badge.level == 5, "The badge must follow the target frame's presentation")
+-- Dungeon names can have secret geometry while the portrait and target frame stay public.
+do
+    local frame, driver = env.TargetFrame, frames.ArkannsQOLTargetDistanceEvents
+    local name, portrait = frame.name, Widget("Texture")
+    portrait:Show(); frame.portrait = portrait
+    local nameSecret, portraitSecret, frameSecret = true, false, false
+    name.IsAnchoringSecret = function() return nameSecret end
+    portrait.IsAnchoringSecret = function() return portraitSecret end
+    frame.IsAnchoringSecret = function() return frameSecret end
+    local function Tick() driver.scripts.OnUpdate(nil, .2) end
+    Tick()
+    assert(badge.shown and badge.points[1][2] == portrait,
+        "A secret target name must fall back to the public portrait")
+    portraitSecret = true
+    Tick()
+    assert(badge.shown and badge.points[1][2] == frame,
+        "A public target frame remains usable when both child anchors are restricted")
+    frameSecret = true
+    Tick()
+    assert(not badge.shown, "Never anchor a badge when all target anchors are secret")
+    nameSecret = false
+    Tick()
+    assert(badge.shown and badge.points[1][2] == name,
+        "Restore the selected name anchor when it becomes public again")
+    name.IsAnchoringSecret, frame.IsAnchoringSecret, frame.portrait = nil, nil, nil
+end
 -- The same hostile unit must use the target's permitted probes in both displays.
 do
     local combat, same, instance, player, calls = true, true, false, false, 0

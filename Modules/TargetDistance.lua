@@ -300,6 +300,11 @@ local function SetBadgeText(frame, label, text)
     frame:SetWidth(math.max(48, math.ceil(label:GetStringWidth()) + 16))
 end
 
+local function CanAnchor(region)
+    return IsPublic(region) and region and region ~= rejectedAnchor and Read(region.IsVisible, region) == true
+        and (not region.IsAnchoringSecret or Read(region.IsAnchoringSecret, region) == false)
+end
+
 local function UpdateDistance()
     local frame = TargetFrame
     refreshInterval = hiddenInterval
@@ -309,9 +314,13 @@ local function UpdateDistance()
     local name = frame.name or (content and content.Name) or TargetFrameName
     local portrait = frame.portrait or (frame.TargetFrameContainer and frame.TargetFrameContainer.Portrait) or TargetFramePortrait
     local appearance = db.appearance
-    local relativeTo = (appearance.portrait and portrait) or name or portrait
-    if not IsPublic(relativeTo) or not relativeTo or relativeTo == rejectedAnchor or Read(relativeTo.IsVisible, relativeTo) ~= true
-        or (relativeTo.IsAnchoringSecret and Read(relativeTo.IsAnchoringSecret, relativeTo) ~= false) then return HideDistance() end
+    -- Instance names may have secret geometry even when target range checks remain public.
+    local relativeTo
+    if appearance.portrait and CanAnchor(portrait) then relativeTo = portrait
+    elseif CanAnchor(name) then relativeTo = name
+    elseif CanAnchor(portrait) then relativeTo = portrait
+    elseif CanAnchor(frame) then relativeTo = frame
+    else return HideDistance() end
     local text, lower, upper, interval = GetDistance("target")
     refreshInterval = interval or hiddenInterval
     if not text then return HideDistance() end

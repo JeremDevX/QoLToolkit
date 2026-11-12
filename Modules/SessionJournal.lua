@@ -10,6 +10,12 @@ local refreshHistory
 local rateTooltip, hovered
 local moveHint
 local trackingToggle, trackingTooltip
+local factionEmblem
+-- Native logos used by InspectPaperDollFrame.lua, Forever 1.60.1 (70888), 4cd0ab7.
+local factionTextures = {
+    Alliance = "Interface\\Timer\\Alliance-Logo",
+    Horde = "Interface\\Timer\\Horde-Logo",
+}
 local trackingToggleSize = 20
 local hoverRows = {}
 local horizontalTexts = {}
@@ -71,6 +77,13 @@ end
 
 local function SharedStyle()
     return ns.UI and ns.UI.GetStyle and ns.UI.GetStyle("session")
+end
+
+local function RefreshFactionEmblem()
+    local status, faction = WoW.Read(UnitFactionGroup, "player")
+    local texture = status == "ok" and type(faction) == "string" and factionTextures[faction] or nil
+    factionEmblem:SetTexture(texture)
+    factionEmblem:SetShown(texture ~= nil)
 end
 
 local function Elapsed()
@@ -435,6 +448,12 @@ Draw = function()
     -- Movement help is an independent overlay: unlocking never reserves space
     -- inside the journal or changes its screen-clamping rectangle.
     window:SetHeight(top + contentHeight + padding + 2)
+    -- Keep the watermark inside the body, below every label, even in compact/horizontal layouts.
+    local emblemSize = math.max(1, math.min(128, contentHeight, (width - padding * 2) * 0.42))
+    factionEmblem:SetSize(emblemSize, emblemSize)
+    factionEmblem:ClearAllPoints()
+    factionEmblem:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -padding, padding + 2)
+    factionEmblem:SetAlpha(0.10 * (style and style.opacity or db.opacity / 100))
     window:Show()
     RefreshRateTooltip()
     SyncTicker()
@@ -485,6 +504,9 @@ function ns.InitializeSessionJournal(parentCategory)
     window:SetFrameStrata("MEDIUM"); window:SetMovable(true); window:SetClampedToScreen(true)
     window:RegisterForDrag("LeftButton")
     window:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 12, insets = {left = 3, right = 3, top = 3, bottom = 3}})
+    factionEmblem = window:CreateTexture("ArkannsQOLSessionFactionEmblem", "ARTWORK", nil, -1)
+    factionEmblem:SetBlendMode("BLEND")
+    RefreshFactionEmblem()
     title = window:CreateFontString("ArkannsQOLSessionTitle", "OVERLAY", "GameFontNormal")
     title:SetJustifyH("LEFT"); title:SetWordWrap(false)
     trackingToggle = CreateFrame("Button", "ArkannsQOLSessionTrackingToggle", window)
@@ -1005,15 +1027,19 @@ function ns.InitializeSessionJournal(parentCategory)
     end
 
     local events = CreateFrame("Frame", "ArkannsQOLSessionEvents")
-    for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_FLAGS_CHANGED", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_MONEY", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST", "PLAYER_LOGOUT", "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}) do events:RegisterEvent(event) end
+    for _, event in ipairs({"PLAYER_ENTERING_WORLD", "UNIT_FACTION", "PLAYER_FLAGS_CHANGED", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_MONEY", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST", "PLAYER_LOGOUT", "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}) do events:RegisterEvent(event) end
     events:SetScript("OnEvent", function(_, event, first, reloading)
         if event == "PLAYER_ENTERING_WORLD" then
+            RefreshFactionEmblem()
             if not ready or (WoW.IsPublic(first) and first) then
                 BeginSession(WoW.IsPublic(reloading) and reloading == true and db.session)
             else
                 SyncAFK()
             end
             refreshSettings()
+        elseif event == "UNIT_FACTION" then
+            if not WoW.IsPublic(first) or first ~= "player" then return end
+            RefreshFactionEmblem()
         elseif event == "PLAYER_FLAGS_CHANGED" then
             if not db.pauseAFK or not ready or session.pause == "manual" or not WoW.IsPublic(first) or first ~= "player" then return end
             SyncAFK(); refreshSettings()

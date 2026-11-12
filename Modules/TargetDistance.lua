@@ -315,9 +315,11 @@ local function UpdateDistance()
     local portrait = frame.portrait or (frame.TargetFrameContainer and frame.TargetFrameContainer.Portrait) or TargetFramePortrait
     local appearance = db.appearance
     -- Instance names may have secret geometry even when target range checks remain public.
+    local nativeNameAnchor = content and IsPublic(name) and name == content.Name and CanAnchor(frame)
     local relativeTo
     if appearance.portrait and CanAnchor(portrait) then relativeTo = portrait
     elseif CanAnchor(name) then relativeTo = name
+    elseif nativeNameAnchor then relativeTo = frame
     elseif CanAnchor(portrait) then relativeTo = portrait
     elseif CanAnchor(frame) then relativeTo = frame
     else return HideDistance() end
@@ -343,8 +345,14 @@ local function UpdateDistance()
     end
     if anchor ~= relativeTo then
         badge:ClearAllPoints()
+        local point, x = "TOP", appearance.x
         local y = (IsPublic(name) and relativeTo == name and 8 or 15) + appearance.y
-        if not pcall(badge.SetPoint, badge, "BOTTOM", relativeTo, "TOP", appearance.x, y) then
+        if relativeTo == frame and nativeNameAnchor then
+            -- Forever 70888 TargetFrame.xml: name TOPLEFT = (-181, -26), width 90; badge 8 above.
+            -- https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_UnitFrame/Mainline/TargetFrame.xml#L114
+            point, x, y = "TOPRIGHT", appearance.x - 136, appearance.y - 18
+        end
+        if not pcall(badge.SetPoint, badge, "BOTTOM", relativeTo, point, x, y) then
             rejectedAnchor, anchor = relativeTo, nil
             return HideDistance()
         end

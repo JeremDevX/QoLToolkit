@@ -213,14 +213,16 @@ do
     local frame, driver = env.TargetFrame, frames.ArkannsQOLTargetDistanceEvents
     local name, portrait = frame.name, Widget("Texture")
     portrait:Show(); frame.portrait = portrait
+    frame.TargetFrameContent = {TargetFrameContentMain = {Name = name}}
     local nameSecret, portraitSecret, frameSecret = true, false, false
     name.IsAnchoringSecret = function() return nameSecret end
     portrait.IsAnchoringSecret = function() return portraitSecret end
     frame.IsAnchoringSecret = function() return frameSecret end
     local function Tick() driver.scripts.OnUpdate(nil, .2) end
     Tick()
-    assert(badge.shown and badge.points[1][2] == portrait,
-        "A secret target name must fall back to the public portrait")
+    assert(badge.shown and badge.points[1][2] == frame and badge.points[1][3] == "TOPRIGHT"
+        and badge.points[1][4] == -136 and badge.points[1][5] == -18,
+        "A secret native name must retain its above-name position using the public frame")
     portraitSecret = true
     Tick()
     assert(badge.shown and badge.points[1][2] == frame,
@@ -233,6 +235,7 @@ do
     assert(badge.shown and badge.points[1][2] == name,
         "Restore the selected name anchor when it becomes public again")
     name.IsAnchoringSecret, frame.IsAnchoringSecret, frame.portrait = nil, nil, nil
+    frame.TargetFrameContent = nil
 end
 -- The same hostile unit must use the target's permitted probes in both displays.
 do

@@ -37,36 +37,47 @@ local function PageGroup(id)
 end
 
 local function CreateTab(name, text, callback)
-    local button = UI.Button(window, name, text, 0, 0, 100, callback)
+    -- Match the flat category tabs in Advanced Settings, including their font.
+    local button = CreateFrame("Button", name, window)
+    button.background = button:CreateTexture(nil, "BACKGROUND")
+    button.background:SetAllPoints()
+    button.label = button:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    button.label:SetAllPoints()
+    button.label:SetText(text)
     button.marker = button:CreateTexture(nil, "OVERLAY")
-    button.marker:SetPoint("BOTTOMLEFT", 3, 0)
-    button.marker:SetPoint("BOTTOMRIGHT", -3, 0)
+    button.marker:SetPoint("BOTTOMLEFT", 0, 0)
+    button.marker:SetPoint("BOTTOMRIGHT", 0, 0)
     button.marker:SetHeight(2)
+    button.marker:SetColorTexture(1, .72, .2, 1)
+    button:SetScript("OnClick", callback)
     return button
 end
 
 local function PlaceTabs(tabs, y)
-    local width, x = window:GetWidth() - 32, 0
+    local width, minimum = window:GetWidth() - 32, 90
     for _, tab in ipairs(tabs) do
-        local button = tab.button
-        local tabWidth = math.min(width, math.max(90, button:GetFontString():GetUnboundedStringWidth() + 24))
-        if x > 0 and x + tabWidth > width then x, y = 0, y - 32 end
-        button:ClearAllPoints(); button:SetPoint("TOPLEFT", 16 + x, y)
-        button:SetSize(tabWidth, 28)
-        x = x + tabWidth + 6
+        minimum = math.max(minimum, tab.button.label:GetUnboundedStringWidth() + 24)
     end
-    return y - 36
+    local columns = math.max(1, math.min(#tabs, math.floor(width / minimum)))
+    local tabWidth = width / columns
+    for index, tab in ipairs(tabs) do
+        local button = tab.button
+        button:ClearAllPoints()
+        button:SetPoint("TOPLEFT", 16 + ((index - 1) % columns) * tabWidth, y - math.floor((index - 1) / columns) * 32)
+        button:SetSize(tabWidth - 2, 28)
+    end
+    return y - math.ceil(#tabs / columns) * 32 - 4
 end
 
 Layout = function()
     if not active then return end
     local page, group = pages[active], PageGroup(active)
     local visibleMain, visibleSub = {}, {}
-    local style = UI.GetStyle()
     local function Update(tab, isActive)
         tab.button:SetEnabled(not isActive)
+        tab.button.background:SetColorTexture(isActive and .24 or .09, isActive and .19 or .09, .09, .95)
+        tab.button.label:SetTextColor(1, isActive and .82 or .95, isActive and .38 or .95)
         tab.button.marker:SetShown(isActive)
-        tab.button.marker:SetColorTexture(style.accent[1], style.accent[2], style.accent[3], 1)
     end
     for _, tab in ipairs(mainTabs) do
         local available = false

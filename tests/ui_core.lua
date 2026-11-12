@@ -438,6 +438,8 @@ print("PASS: merged favorites and scoped shared-theme return")
 -- Use the real window and bootstrap entry points with the existing frame simulation.
 Load("Core/SettingsWindow.lua")
 function methods:SetParent(parent) self.parent=parent end
+function methods:SetColorTexture(...) self.color={...} end
+function methods:SetTextColor(...) self.color={...} end
 function methods:SetResizeBounds(...) self.resizeBounds={...} end
 function methods:SetResizable(value) self.resizable=value end
 function methods:StartSizing(direction) self.sizing=direction end
@@ -502,8 +504,18 @@ assert(not panels.talents:IsShown() and not frames.ArkannsQOLSettingsSubTab_tale
 frames.ArkannsQOLSettingsTab_character.scripts.OnClick()
 assert(panels.talents:IsShown() and not root:IsShown())
 assert(frames.ArkannsQOLSettingsSubTab_talents.marker:IsShown() and not frames.ArkannsQOLSettingsSubTab_talents.enabled)
+local mainTab=frames.ArkannsQOLSettingsTab_character
+local subTab=frames.ArkannsQOLSettingsSubTab_talents
+for _,tab in ipairs({mainTab,subTab}) do
+    assert(tab.background.color[1]==.24 and tab.background.color[2]==.19 and tab.background.color[4]==.95)
+    assert(tab.label.color[1]==1 and tab.label.color[2]==.82 and tab.label.color[3]==.38)
+    assert(tab.marker.color[1]==1 and tab.marker.color[2]==.72 and tab.marker:GetHeight()==2)
+    assert(not tab.normal,"Flat navigation tabs must not use the themed button artwork")
+end
+assert(subTab:GetWidth()==frames.ArkannsQOLSettingsSubTab_session:GetWidth(),"Subtabs share the row width equally")
 frames.ArkannsQOLSettingsSubTab_session.scripts.OnClick()
 assert(panels.session:IsShown() and not panels.talents:IsShown())
+assert(subTab.background.color[1]==.09 and subTab.label.color[2]==.95 and not subTab.marker:IsShown())
 frames.ArkannsQOLSettingsTab_interface.scripts.OnClick()
 assert(panels.tooltips:IsShown() and not panels.session:IsShown())
 frames.ArkannsQOLSettingsTab_character.scripts.OnClick()

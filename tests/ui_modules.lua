@@ -77,6 +77,8 @@ env.MenuUtil = {CreateContextMenu = function(_, build)
     build(nil, setmetatable({CreateButton = function(_, text, callback) menuItems[text] = callback end}, {__index = function() return noop end}))
 end}
 local ns = {L = function(text) return text end, UI = {}, TalentPlanData = {Read = function() return nil end}}
+ns.UI.RegisterSettingsPanel = env.Settings.RegisterCanvasLayoutSubcategory
+ns.UI.OpenCategory = noop
 ns.UI.IsOverride = function(id) return overrides[id] == true end
 ns.UI.SetOverride = function(id, value) overrides[id] = value; if modules[id] then modules[id].Refresh() end end
 ns.UI.GetStyle = function() return nil end

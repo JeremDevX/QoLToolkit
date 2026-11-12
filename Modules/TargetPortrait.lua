@@ -152,7 +152,7 @@ function ns.InitializeTargetPortrait(root)
     local help = UI.Label(panel, L("Si WoW remplace le portrait par l’icône de classe, désactive ce réglage dans les options de WoW pour retrouver le visage."), 20, -92)
     help:SetPoint("RIGHT", panel, "RIGHT", -20, 0)
     help:SetWordWrap(true)
-    local category = Settings.RegisterCanvasLayoutSubcategory(root, panel, title)
+    local category = UI.RegisterSettingsPanel(root, panel, title, "targetPortrait")
     ns.RegisterModule("targetPortrait", {
         label = title, icon = "Interface\\Icons\\Achievement_Character_Human_Male",
         category = function() return category end,

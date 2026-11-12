@@ -2,6 +2,8 @@
 
 QoL Toolkit is a modular addon for **World of Warcraft Forever 1.60.1**. Build talent plans, track your session, and customize your interface from one dashboard.
 
+Click the minimap icon or type `/qt` to open the standalone settings window. Tabs group Character, Interface, Customization, and Tools; subtabs select each module. Drag the title to move the window, use Size to resize it, and close it with Escape or Close. The Blizzard Add-ons categories also link to this window.
+
 ## Modules
 
 | Module | What it does |
@@ -33,7 +35,7 @@ Layout changes require **Apply**. Cancelling or logging out restores the origina
 ## Install
 
 1. Put the addon folder in `World of Warcraft/_forever_/Interface/AddOns/` and name it `QoLToolkit`. The `QoLToolkit.toc` file should sit directly inside that folder.
-2. Restart WoW after installing. Open **Settings > Add-ons > QoL Toolkit** or type `/qt`.
+2. Restart WoW after installing. Click the minimap icon or type `/qt` to open settings.
 3. Open the default talent window with `N` to use the planner. Click **QoL** in the Blizzard bag header for quick bag settings.
 
 The addon follows the game client language. A French client uses French. English is used on English clients and as the default on other clients.

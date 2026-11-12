@@ -897,7 +897,7 @@ function ns.InitializeSessionJournal(parentCategory)
         if appearancePage:IsShown() then Preview() end
     end)
     panel:SetScript("OnHide", StopPreview)
-    settings = Settings.RegisterCanvasLayoutSubcategory(parentCategory, panel, L("Journal de session"))
+    settings = ns.UI.RegisterSettingsPanel(parentCategory, panel, L("Journal de session"), "session")
     ns.sessionCategory = settings
     SLASH_ARKANNSQOLSESSION1 = "/qtsession"
     SLASH_ARKANNSQOLSESSION2 = "/aqsession"
@@ -907,7 +907,7 @@ function ns.InitializeSessionJournal(parentCategory)
             SetTracking(command == "start")
             if ready then print(L("Journal de session") .. " · " .. TrackingStatus()) end
         else
-            Settings.OpenToCategory(settings:GetID())
+            ns.UI.OpenCategory(settings)
         end
     end
     refreshSettings(); Draw()

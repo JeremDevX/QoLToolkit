@@ -18,6 +18,7 @@ Locales\enUS-Flights.lua
 Core\WoWRuntime.lua
 Core\SettingsState.lua
 Core\QOLInterface.lua
+Core\SettingsWindow.lua
 Modules\Tooltips.lua
 Modules\SessionJournalModel.lua
 Modules\SessionHistory.lua

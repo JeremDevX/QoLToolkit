@@ -30,6 +30,7 @@ Settings = {RegisterCanvasLayoutSubcategory = function(_, panel, label) return {
 local module
 local ns = {RegisterModule = function(id, descriptor) assert(id == "flights"); module = descriptor end}
 ns.UI = {
+    RegisterSettingsPanel = Settings.RegisterCanvasLayoutSubcategory,
     StylePanel = noop,
     Label = function(parent, text)
         local frame = CreateFrame("FontString")

@@ -360,6 +360,8 @@ do
     end
     local bootstrapNS = {L = distanceNS.L, WoW = distanceNS.WoW, UI = {Initialize = noop},
         SettingsState = {Initialize = function() return true end}}
+    bootstrapNS.UI.RegisterSettingsPanel = function() return Settings.RegisterCanvasLayoutCategory() end
+    bootstrapNS.UI.OpenSettings = function(id) assert(id == "home"); opened = "standalone" end
     local function LoadButton()
         chunks["Core/Bootstrap.lua"]("QoLToolkit", bootstrapNS)
         frames.ArkannsQOLBootstrapEvents:OnEvent("ADDON_LOADED", "QoLToolkit")
@@ -372,7 +374,7 @@ do
         "Fill the round area and clip the artwork with its mask")
     assert(border.layer == "OVERLAY")
     button:OnClick()
-    assert(opened == 42)
+    assert(opened == "standalone")
     button:OnDragStart()
     button:OnUpdate()
     button:OnDragStop()
@@ -474,6 +476,8 @@ do
         UI = {StylePanel = noop, Label = Control, Check = Check, Button = Button, Refresh = noop,
             ClampScroll = function(scroll, height) scroll.offset = math.min(scroll.offset, math.max(0, height - scroll:GetHeight())) end},
         RegisterModule = function(_, module) bagModule = module end}
+    bagNS.UI.RegisterSettingsPanel = Settings.RegisterCanvasLayoutSubcategory
+    bagNS.UI.OpenCategory = function(category) opened = category:GetID(); return true end
     ForeverTooltipLibreDB.bagSort = {qualityInnerGlow = 100, qualityUncommonOnly = true}
     chunks["Modules/BagSort.lua"]("QoLToolkit", bagNS)
     bagNS.InitializeBagSort({GetID = function() return 1 end})

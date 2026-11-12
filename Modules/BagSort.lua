@@ -528,7 +528,7 @@ end
 local function OpenSettings(destination)
     CloseQuickSettings()
     if ns.StopAllPreviews then ns.StopAllPreviews() end
-    if destination and Settings.OpenToCategory then Settings.OpenToCategory(destination:GetID()) end
+    if destination then ns.UI.OpenCategory(destination) end
 end
 
 local function ReadTitleRight(title, frame)
@@ -933,7 +933,7 @@ function ns.InitializeBagSort(rootCategory)
         ns.UI.Label(body, L("Bordures indisponibles sur ce client."), 20, -224)
     end
     panel:SetScript("OnShow", function() CloseQuickSettings(); Refresh() end)
-    category = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Sacs"))
+    category = ns.UI.RegisterSettingsPanel(rootCategory, panel, L("Sacs"), "bags")
     AttachShortcut(ContainerFrameCombinedBags)
     if hooksecurefunc and type(ContainerFrame_GenerateFrame) == "function" then
         hooksecurefunc("ContainerFrame_GenerateFrame", AttachShortcut)

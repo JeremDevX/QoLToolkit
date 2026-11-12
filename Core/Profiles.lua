@@ -512,7 +512,7 @@ function ns.InitializeProfiles(rootCategory)
     end)
     panel:SetScript("OnHide", function() name:ClearFocus(); CancelOverwrite(); Invalidate() end)
     Invalidate(); undo:SetEnabled(false)
-    ns.profilesCategory = Settings.RegisterCanvasLayoutSubcategory(rootCategory, panel, L("Profils"))
+    ns.profilesCategory = UI.RegisterSettingsPanel(rootCategory, panel, L("Profils"), "profiles")
     if UI.RegisterSettings then UI.RegisterSettings("profiles", {
         category = function() return ns.profilesCategory end,
         OpenSettings = function(source)

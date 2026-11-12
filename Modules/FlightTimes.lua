@@ -353,7 +353,7 @@ local function RegisterSettings(root)
         help:SetText("")
         scroll:Hide()
     end)
-    category = Settings.RegisterCanvasLayoutSubcategory(root, panel, title)
+    category = UI.RegisterSettingsPanel(root, panel, title, "flights")
 end
 
 function ns.InitializeFlightTimes(root)

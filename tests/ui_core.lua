@@ -98,6 +98,9 @@ local function Load(path)
 end
 Load("Core/WoWRuntime.lua"); Load("Core/QOLInterface.lua")
 local UI=ns.UI
+-- Most editor checks isolate navigation; the actual window is exercised below.
+UI.RegisterSettingsPanel=function(parent, panel, label) return env.Settings.RegisterCanvasLayoutSubcategory(parent,panel,label) end
+UI.OpenCategory=function(category) env.Settings.OpenToCategory(category:GetID()); return true end
 UI.Initialize()
 assert(UI.GetStyle().theme == "warm" and UI.GetStyle().bg[1] == .2, "Old settings retain their custom palette")
 assert(UI.GetStyle().border == "theme", "Old settings use the theme border")
@@ -431,3 +434,128 @@ assert(UI.OpenSettings("appearance",nil,"talents"))
 panel.scripts.OnHide(); panel.scripts.OnShow()
 assert(not frames.ArkannsQOLAppearanceBack:IsShown(), "Native navigation clears an old return destination")
 print("PASS: merged favorites and scoped shared-theme return")
+
+-- Use the real window and bootstrap entry points with the existing frame simulation.
+Load("Core/SettingsWindow.lua")
+function methods:SetParent(parent) self.parent=parent end
+function methods:SetResizeBounds(...) self.resizeBounds={...} end
+function methods:SetResizable(value) self.resizable=value end
+function methods:StartSizing(direction) self.sizing=direction end
+function methods:StopMovingOrSizing() self.sizing=nil; self.moving=false end
+function methods:Show()
+    local before=self.shown
+    self.shown=true
+    if not before and self.scripts.OnShow then self.scripts.OnShow(self) end
+end
+function methods:SetSize(width,height)
+    local changed=self.width~=width or self.height~=height
+    self.width,self.height=width,height
+    if changed and self.scripts.OnSizeChanged then self.scripts.OnSizeChanged(self,width,height) end
+end
+local nativeCanvases={}
+local function RegisterCanvas(_, canvas)
+    local category=Category(#nativeCanvases+1)
+    nativeCanvases[#nativeCanvases+1]=canvas
+    return category
+end
+env.Settings.RegisterCanvasLayoutCategory=function(canvas) return RegisterCanvas(nil,canvas) end
+env.Settings.RegisterCanvasLayoutSubcategory=RegisterCanvas
+env.Settings.RegisterAddOnCategory=noop
+env.Settings.OpenToCategory=function() error("Standalone navigation must not open Blizzard Settings") end
+env.SettingsPanel=Frame(); env.SettingsPanel:Hide()
+env.HideUIPanel=function(frame) frame:Hide() end
+env.SlashCmdList={}
+env.Minimap=Frame(); env.Minimap:SetSize(180,180)
+function methods:GetSize() return self.width,self.height end
+function methods:GetFrameLevel() return self.level or 1 end
+methods.UnregisterEvent=noop
+function methods:CreateMaskTexture() return Frame() end
+methods.AddMaskTexture=noop
+env.C_AddOns={GetAddOnMetadata=function() return nil end}
+ns.SettingsState={Initialize=function() return true end}
+local initializeInterface,initializeProfiles=ns.InitializeInterface,ns.InitializeProfiles
+ns.InitializeInterface,ns.InitializeProfiles=nil,nil
+Load("Core/Bootstrap.lua")
+frames.ArkannsQOLBootstrapEvents.scripts.OnEvent(frames.ArkannsQOLBootstrapEvents,"ADDON_LOADED","QoLToolkit")
+ns.InitializeInterface,ns.InitializeProfiles=initializeInterface,initializeProfiles
+local root=ns.home
+local categories={}
+local panels={home=root,appearance=panel}
+local pageLabels={talents="Builds de talents",session="Journal de session",reminders="Rappels d'effets",ranks="Rangs de sorts",
+    tooltips="Infobulles et distance",targetPortrait="Portrait de la cible",bags="Sacs",advanced="Réglages avancés",
+    appearance="Apparence générale",profiles="Profils",diagnostics="Diagnostics"}
+for _,id in ipairs({"talents","session","reminders","ranks","tooltips","targetPortrait","bags","advanced","appearance","profiles","diagnostics"}) do
+    panels[id]=panels[id] or Frame()
+    panels[id]:Hide()
+    local destination=id
+    categories[id]=UI.RegisterSettingsPanel({},panels[id],pageLabels[id],id)
+    ns.RegisterModule(id,{label=id,category=function() return categories[destination] end})
+end
+-- The distance module shares the tooltip canvas in the real addon.
+ns.RegisterModule("distance",{label="Distance",category=function() return categories.tooltips end,
+    OpenSettings=function() panels.tooltips.distanceSelected=true end})
+frames.ArkannsQOLMinimapButton.scripts.OnClick()
+local settingsWindow=assert(frames.ArkannsQOLSettingsWindow)
+assert(settingsWindow:IsShown() and root:IsShown() and not env.SettingsPanel:IsShown())
+assert(root.parent.parent==settingsWindow and settingsWindow.resizable and settingsWindow.resizeBounds[1]==600)
+assert(not panels.talents:IsShown() and not frames.ArkannsQOLSettingsSubTab_talents:IsShown())
+frames.ArkannsQOLSettingsTab_character.scripts.OnClick()
+assert(panels.talents:IsShown() and not root:IsShown())
+assert(frames.ArkannsQOLSettingsSubTab_talents.marker:IsShown() and not frames.ArkannsQOLSettingsSubTab_talents.enabled)
+frames.ArkannsQOLSettingsSubTab_session.scripts.OnClick()
+assert(panels.session:IsShown() and not panels.talents:IsShown())
+frames.ArkannsQOLSettingsTab_interface.scripts.OnClick()
+assert(panels.tooltips:IsShown() and not panels.session:IsShown())
+frames.ArkannsQOLSettingsTab_character.scripts.OnClick()
+assert(panels.session:IsShown(),"Returning to a group keeps its selected subsection")
+assert(UI.OpenSettings("distance") and panels.tooltips.distanceSelected and panels.tooltips:IsShown())
+assert(not frames.ArkannsQOLSettingsSubTab_distance,"The merged distance page has no duplicate tab")
+assert(UI.OpenSettings("appearance",nil,"talents"))
+assert(frames.ArkannsQOLAppearanceBack:IsShown())
+frames.ArkannsQOLAppearanceBack.scripts.OnClick()
+assert(panels.talents:IsShown())
+settingsWindow:SetSize(600,480)
+assert(panels.talents:GetWidth()==576 and panels.talents:GetHeight()>200)
+for _,id in ipairs({"talents","session","reminders","ranks"}) do
+    local button=frames["ArkannsQOLSettingsSubTab_"..id]
+    assert(button.points.TOPLEFT[1]+button:GetWidth()<=settingsWindow:GetWidth()-16)
+end
+frames.ArkannsQOLSettingsResize.scripts.OnMouseDown(nil,"LeftButton")
+assert(settingsWindow.sizing=="BOTTOMRIGHT")
+frames.ArkannsQOLSettingsResize.scripts.OnMouseUp()
+assert(not settingsWindow.sizing)
+env.UIParent:SetSize(560,420)
+UI.FitSettingsWindow()
+assert(settingsWindow:GetWidth()==536 and settingsWindow:GetHeight()==396)
+env.UIParent:SetSize(1000,800)
+env.GameTooltip=nil
+local previewRunning=false
+for _,key in ipairs({"frame","GetPosition","SetPosition","ExportSettings","ImportSettings"}) do ns.modules.talents[key]=module[key] end
+ns.modules.talents.Preview=function() previewRunning=true; return true end
+ns.modules.talents.StopPreview=function() previewRunning=false end
+assert(UI.PreviewModule("talents") and previewRunning)
+frames.ArkannsQOLSettingsClose.scripts.OnClick()
+assert(not settingsWindow:IsShown() and not panels.talents:IsShown() and not previewRunning)
+assert(env.UISpecialFrames[#env.UISpecialFrames]=="ArkannsQOLSettingsWindow","Escape owns the standalone window")
+env.SlashCmdList.ARKANNSQOL()
+assert(settingsWindow:IsShown() and root:IsShown(),"The slash command reopens the same window at home")
+assert(UI.OpenSettings("talents") and UI.StartLayout("talents"))
+assert(not settingsWindow:IsShown(),"Moving a module hides the settings window")
+frames.ArkannsQOLLayoutApply.scripts.OnClick()
+assert(settingsWindow:IsShown() and panels.talents:IsShown(),"Applying layout returns to the module in the same window")
+combat=true
+assert(UI.OpenSettings("bags") and panels.bags:IsShown(),"Opening an owned settings canvas remains available in combat")
+combat=false
+local sourceSeen
+ns.modules.bags.OpenSettings=function(source) sourceSeen=source; assert(panels.bags:IsShown()) end
+assert(UI.OpenSettings("bags","Halo intérieur") and sourceSeen=="Halo intérieur")
+assert(not UI.OpenCategory({}) and not UI.OpenSettings("missing"))
+assert(UI.OpenSettings("advanced"))
+settingsWindow:Hide()
+assert(not panels.advanced:IsShown(),"Closing the window hides its active canvas")
+env.SettingsPanel:Show()
+local launcher=nativeCanvases[#nativeCanvases]
+launcher.children[#launcher.children].scripts.OnClick()
+assert(settingsWindow:IsShown() and panels.diagnostics:IsShown() and not env.SettingsPanel:IsShown(),
+    "The Blizzard entry launches the same canvas in the standalone window")
+print("PASS: minimap and slash window, grouped tabs, shared distance, resize, close, and native launcher")

@@ -961,7 +961,7 @@ function ns.InitializeTalentPlanner(parentCategory)
     options:HookScript("OnSizeChanged", LayoutAppearance)
     options:SetScript("OnHide", StopPreview)
     if ns.UI and ns.UI.StylePanel then ns.UI.StylePanel(options) end
-    ns.talentCategory = Settings.RegisterCanvasLayoutSubcategory(parentCategory, options, L("Builds de talents"))
+    ns.talentCategory = ns.UI.RegisterSettingsPanel(parentCategory, options, L("Builds de talents"), "talents")
     local searchTargets = {["Afficher avec les talents"] = check, ["Étapes visibles"] = steps,
         ["Points suivants visibles"] = steps, ["Panneau compact"] = compact, ["Intensité du halo"] = glow,
         ["Couleur du prochain point"] = colors[1], ["Couleur des points suivants"] = colors[2],

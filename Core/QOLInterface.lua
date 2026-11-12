@@ -12,10 +12,10 @@ function UI.OpenSettings(id, source, back)
     local module = ns.modules[id] or settingsPages[id]
     local category = module and module.category and module.category()
     category = category or ns[({profiles="profilesCategory",diagnostics="diagnosticsCategory"})[id] or ""]
-    if not category or not Settings then return false end
+    if not category then return false end
     ns.StopAllPreviews()
     if id == "appearance" then appearanceBack = back end
-    Settings.OpenToCategory(category:GetID())
+    if not UI.OpenCategory(category) then return false end
     if module and module.OpenSettings then module.OpenSettings(source) end
     return true
 end
@@ -181,6 +181,7 @@ function UI.Refresh()
     for _, module in pairs(ns.modules) do if module.Refresh then pcall(module.Refresh) end end
     if home and home.Refresh then home.Refresh() end
     if appearanceRefresh then appearanceRefresh() end
+    if UI.RefreshSettingsWindow then UI.RefreshSettingsWindow() end
 end
 function UI.ImportSettings(value)
     if type(value) ~= "table" then return false, L("Apparence invalide.") end
@@ -385,7 +386,7 @@ function UI.StartLayout(focusId)
     if not layoutReturn then
         layoutReturn = ns.appearancePanel and ns.appearancePanel:IsVisible() and "appearance" or "home"
     end
-    if SettingsPanel and SettingsPanel:IsShown() then HideUIPanel(SettingsPanel) end
+    if UI.HideSettingsWindow then UI.HideSettingsWindow() end
     if not layout then
         layout = CreateFrame("Frame", "ArkannsQOLLayout", UIParent, "BackdropTemplate")
         layout:SetSize(620, 164); layout:SetPoint("TOP", UIParent, "TOP", 0, -28)
@@ -706,7 +707,7 @@ local function BuildAppearance(root)
     panel:SetScript("OnShow", appearanceRefresh)
     panel:HookScript("OnSizeChanged",LayoutAppearance)
     panel:SetScript("OnHide", function() appearanceBack = nil; ns.StopAllPreviews() end)
-    ns.appearanceCategory = Settings.RegisterCanvasLayoutSubcategory(root,panel,L("Apparence générale"))
+    ns.appearanceCategory = UI.RegisterSettingsPanel(root,panel,L("Apparence générale"),"appearance")
     ns.RegisterModule("appearance", {label = L("Apparence générale"), category = function() return ns.appearanceCategory end,
         OpenSettings = function(source)
             if not source then return end
@@ -803,13 +804,13 @@ function UI.BuildHome(panel)
         end
         local advanced=ns.modules.advanced
         if advanced and advanced.category then
-            Add(advanced.label,"",function() local category=advanced.category(); if category then Settings.OpenToCategory(category:GetID()) end end)
+            Add(advanced.label,"",function() UI.OpenSettings("advanced") end)
             for _,option in ipairs(ns.AdvancedSettingsCatalog or {}) do
                 if not ns.AdvancedSettings or not ns.AdvancedSettings.IsNative(option.name) then
                     local name=option.name
                     Add(advanced.label.." · "..option.label,name.." "..(option.help or ""),function()
                         if ns.AdvancedSettings and ns.AdvancedSettings.OpenSetting then ns.AdvancedSettings.OpenSetting(name)
-                        else local category=advanced.category(); if category then Settings.OpenToCategory(category:GetID()) end end
+                        else UI.OpenSettings("advanced") end
                     end)
                 end
             end
@@ -1056,10 +1057,10 @@ end
 function ns.InitializeInterface(root)
     BuildAppearance(root)
     UI.BuildHome(ns.home)
-    if SettingsPanel and SettingsPanel.HookScript then SettingsPanel:HookScript("OnHide",ns.StopAllPreviews) end
     local events=CreateFrame("Frame","ArkannsQOLInterfaceEvents")
     for _,event in ipairs({"PLAYER_REGEN_DISABLED","PLAYER_LOGOUT","DISPLAY_SIZE_CHANGED","UI_SCALE_CHANGED"}) do events:RegisterEvent(event) end
     events:SetScript("OnEvent",function(_,event)
         if UI.layoutActive then UI.EndLayout(true) else ns.StopAllPreviews() end
+        if (event == "DISPLAY_SIZE_CHANGED" or event == "UI_SCALE_CHANGED") and UI.FitSettingsWindow then UI.FitSettingsWindow() end
     end)
 end

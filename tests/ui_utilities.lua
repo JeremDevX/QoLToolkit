@@ -87,6 +87,8 @@ local ns = {L = function(text) return text end, RegisterModule = function(id, mo
 local ui = {Copy = Copy, StylePanel = noop, StyleFrame = noop, StyleButton = noop, Refresh = noop,
     GetStyle = function() return nil end, IsOverride = function() return false end, SetOverride = noop}
 ns.UI = ui
+ui.RegisterSettingsPanel = env.Settings.RegisterCanvasLayoutSubcategory
+ui.OpenCategory = env.Settings.OpenToCategory
 function ui.ClampScroll(scroll, height)
     scroll:SetVerticalScroll(math.min(scroll:GetVerticalScroll(), math.max(0, height - scroll:GetHeight())))
 end

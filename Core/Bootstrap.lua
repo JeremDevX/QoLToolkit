@@ -94,14 +94,14 @@ local function RegisterHome()
     local home = CreateFrame("Frame", "ArkannsQOLHome", UIParent, "BackdropTemplate")
     home:Hide()
     ns.home = home
-    local root = Settings.RegisterCanvasLayoutCategory(home, "QoL Toolkit")
+    local root = ns.UI.RegisterSettingsPanel(nil, home, "QoL Toolkit", "home")
     Settings.RegisterAddOnCategory(root)
     if ns.UI.RegisterSettings then ns.UI.RegisterSettings("home", {category = function() return root end}) end
     SLASH_ARKANNSQOL1 = "/qt"
     SLASH_ARKANNSQOL2 = "/aqol"
     local function OpenHome()
         if ns.StopAllPreviews then ns.StopAllPreviews() end
-        Settings.OpenToCategory(root:GetID())
+        ns.UI.OpenSettings("home")
     end
     SlashCmdList.ARKANNSQOL = OpenHome
     RegisterMinimapButton(OpenHome)

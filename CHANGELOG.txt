@@ -2,6 +2,7 @@ QoL Toolkit 0.1.3 for WoW Forever 1.60.1
 
 Added
 
+- Standalone settings window. Open every module from the minimap icon or /qt, with grouped tabs and subtabs, a draggable title, resizing, and Escape to close.
 - Session Journal. Save up to 100 recent sessions per character. Review all-time, 7-day, and 30-day totals, plot XP and net gold over a session, and compare hourly rates across sessions.
 - Settings search. Find controls from the dashboard and jump to the matching setting, including controls inside collapsed sections.
 - Talent Planner. Duplicate builds and share them through a copy-and-paste import and export format. Imports validate the full plan before saving a new build.

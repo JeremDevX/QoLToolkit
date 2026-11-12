@@ -595,10 +595,11 @@ local function RegisterSettings(root)
 
     Layout = function()
         local width = math.max(270, panel:GetWidth() - (host and 0 or 54))
-        local narrow = width < 508
-        local extra = width < 344 and 34 or 0
+        local totalWidth, columns = width, width >= 800
+        local placementWidth = columns and 268 or width
+        local originX = 0
         local function Place(control, x, y)
-            control:ClearAllPoints(); control:SetPoint("TOPLEFT", body, "TOPLEFT", x, y)
+            control:ClearAllPoints(); control:SetPoint("TOPLEFT", body, "TOPLEFT", originX + x, y)
         end
         local y = 0
         for _, check in ipairs({toggle, mouseover, rounded, portrait}) do
@@ -618,6 +619,8 @@ local function RegisterSettings(root)
             resetPosition, colorsTitle, frame, resetColors, colorHelp}) do control:SetShown(advanced) end
         local frameMode = db.appearance.frame
         borderButton:SetShown(advanced and frameMode == "framed")
+        local colorWidth = columns and width - placementWidth - 24 or width
+        local narrow = colorWidth < 508
         for _, heading in ipairs(headings) do heading:SetShown(advanced and not narrow) end
         headings[3]:SetShown(advanced and not narrow and frameMode ~= "text")
         for _, controls in ipairs(rowControls) do
@@ -630,11 +633,24 @@ local function RegisterSettings(root)
             UI.ClampScroll(scroll, y)
             return
         end
+        local sectionTop = y
+        if portrait.label then portrait.label:SetWidth(placementWidth - 38) end
         Place(placementTitle, 4, -y); y = y + 22; CheckRow(portrait)
-        y = y + 8; Place(offsetLabel, 4, -y - 6); Place(offsetX, 110, -y); Place(offsetY, 174, -y)
-        Place(applyOffsets, extra > 0 and 4 or 240, -y - extra)
-        y = y + 36 + extra; Place(resetPosition, 4, -y)
-        y = y + 45; Place(colorsTitle, 4, -y)
+        y = y + 8
+        if columns then
+            Place(offsetLabel, 4, -y); y = y + offsetLabel:GetStringHeight() + 10
+            Place(offsetX, 10, -y); Place(offsetY, 74, -y); Place(applyOffsets, 138, -y)
+            y = y + 36
+        else
+            local extra = width < 344 and 34 or 0
+            Place(offsetLabel, 4, -y - 6); Place(offsetX, 110, -y); Place(offsetY, 174, -y)
+            Place(applyOffsets, extra > 0 and 4 or 240, -y - extra)
+            y = y + 36 + extra
+        end
+        Place(resetPosition, 4, -y)
+        local placementBottom = y + 42
+        if columns then originX, y, width = placementWidth + 24, sectionTop, colorWidth else y = y + 45 end
+        Place(colorsTitle, 4, -y)
         y = y + 25; Place(frame, 4, -y)
         local borderExtra = width < 320 and frameMode == "framed" and 34 or 0
         Place(borderButton, borderExtra > 0 and 4 or 180, -y - borderExtra)
@@ -648,7 +664,7 @@ local function RegisterSettings(root)
         for index, controls in ipairs(rowControls) do
             local y = top - (index - 1) * (narrow and 110 or 35)
             Place(controls.caption, 4, y - 6)
-            controls.badge:ClearAllPoints(); controls.badge:SetPoint("CENTER", body, "TOPLEFT", narrow and math.min(width - 64, 200) or 158, y - 13)
+            controls.badge:ClearAllPoints(); controls.badge:SetPoint("CENTER", body, "TOPLEFT", originX + (narrow and math.min(width - 64, 200) or 158), y - 13)
             Place(controls.text, narrow and 4 or 215, y - (narrow and 34 or 0))
             Place(controls.background, narrow and 120 or 273, y - (narrow and 34 or 0))
             controls.text:SetWidth(narrow and 106 or 48); controls.text:SetText(narrow and L("Texte") or "")
@@ -660,7 +676,7 @@ local function RegisterSettings(root)
         end
         local bottom = -top + (narrow and 330 or 105)
         Place(resetColors, 4, -bottom)
-        body:SetSize(width, bottom + 42)
+        body:SetSize(totalWidth, math.max(placementBottom, bottom + 42))
         UI.ClampScroll(scroll, body:GetHeight())
     end
 

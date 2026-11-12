@@ -907,51 +907,59 @@ function ns.InitializeTalentPlanner(parentCategory)
     local tip = Text(body, L("Ouvre les talents (N). Déplacer ouvre le mode Disposition.\n/qtbuild réaffiche le panneau fermé.\nLes profils généraux copient les réglages, jamais tes builds."), 0, 0)
     LayoutAppearance = function()
         local width = math.max(1, options:GetWidth() - 50)
+        local columns = width >= 660
+        local laneWidth = columns and math.floor((width - 24) / 2) or width
+        local laneX, availableWidth = 0, width
         body:SetWidth(width)
         local function Place(widget, x, y, size)
             widget:ClearAllPoints(); widget:SetPoint("TOPLEFT", x, -y)
             if size then widget:SetWidth(size) end
         end
         local function Block(widget, y)
-            Place(widget, 0, y, width)
+            Place(widget, laneX, y, availableWidth)
             return y + widget:GetStringHeight() + 12
         end
         local function Buttons(first, second, y, firstWidth, secondWidth)
-            Place(first, 0, y, math.min(firstWidth, width))
-            if firstWidth + secondWidth + 10 <= width then
-                Place(second, firstWidth + 10, y, secondWidth)
+            Place(first, laneX, y, math.min(firstWidth, availableWidth))
+            if firstWidth + secondWidth + 10 <= availableWidth then
+                Place(second, laneX + firstWidth + 10, y, secondWidth)
                 return y + 34
             end
-            Place(second, 0, y + 34, math.min(secondWidth, width))
+            Place(second, laneX, y + 34, math.min(secondWidth, availableWidth))
             return y + 68
         end
         local y = Block(heading, 0)
-        Place(check, -4, y); label:SetWidth(math.max(1, width - 34))
+        local sectionTop = y
+        availableWidth = laneWidth
+        Place(check, -4, y); label:SetWidth(math.max(1, availableWidth - 34))
         y = Buttons(steps, resetBehavior, y + 34, 260, 190)
         y = Block(help, y) + 8
         y = Block(placementTitle, y)
         y = Buttons(moveButton, repositionButton, y, 120, 250)
         y = Block(tip, y) + 8
+        local leftBottom = y
+        if columns then laneX, y = laneWidth + 24, sectionTop end
         y = Block(appearanceTitle, y)
-        Place(compact, -4, y); compactLabel:SetWidth(math.max(1, width - 34))
+        Place(compact, laneX - 4, y); compactLabel:SetWidth(math.max(1, availableWidth - 34))
         y = Buttons(glow, previewButton, y + 34, 240, 190)
         advancedButton:SetText(advanced:IsShown() and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
         y = Buttons(advancedButton, resetAppearance, y, 290, 190)
         if advanced:IsShown() then
-            local columns = width >= 455 and 3 or 1
-            local size = math.min(145, math.max(1, width))
+            local colorsColumns = math.max(1, math.min(3, math.floor((availableWidth + 10) / 155)))
+            local size = math.min(145, math.max(1, availableWidth))
             local colorsTop = appearanceLink and 68 or 34
-            local height = colorsTop + math.ceil(#colors / columns) * 34
-            Place(advanced, 0, y); advanced:SetSize(width, height)
-            Place(own, -4, 0); ownLabel:SetWidth(math.max(1, width - 34))
-            if appearanceLink then Place(appearanceLink, 0, 34, math.min(280, width)) end
+            local height = colorsTop + math.ceil(#colors / colorsColumns) * 34
+            Place(advanced, laneX, y); advanced:SetSize(availableWidth, height)
+            Place(own, -4, 0); ownLabel:SetWidth(math.max(1, availableWidth - 34))
+            if appearanceLink then Place(appearanceLink, 0, 34, math.min(280, availableWidth)) end
             for index, button in ipairs(colors) do
-                Place(button, (index - 1) % columns * (size + 10), colorsTop + math.floor((index - 1) / columns) * 34, size)
+                Place(button, (index - 1) % colorsColumns * (size + 10), colorsTop + math.floor((index - 1) / colorsColumns) * 34, size)
             end
             y = y + height
         end
-        body:SetHeight(y)
-        ns.UI.ClampScroll(optionsScroll, y)
+        local height = math.max(leftBottom, y)
+        body:SetHeight(height)
+        ns.UI.ClampScroll(optionsScroll, height)
     end
     options.OnRefresh = function()
         check:SetChecked(db.enabled); compact:SetChecked(db.compact)

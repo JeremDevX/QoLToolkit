@@ -12,7 +12,55 @@ local groups = {
 }
 local mainTabs, subTabs, selected = {}, {}, {}
 local navigation, navigationBody, breadcrumb, titleBar, searchButton, sidebarPage
+local searchPanel, searchInput, searchScroll, searchBody, searchStatus
+local searchResults, searchMatches = {}, {}
 local Layout
+
+local function CloseSearch()
+    if searchPanel then searchPanel:Hide(); searchInput:ClearFocus() end
+end
+
+local function RefreshSearch()
+    if not searchPanel then return end
+    local width = math.max(1, content:GetWidth() - 50)
+    searchPanel:SetSize(content:GetWidth(), content:GetHeight())
+    local style = UI.GetStyle()
+    searchPanel:SetBackdropColor(style.bg[1], style.bg[2], style.bg[3], 1)
+    searchInput:SetWidth(math.max(1, width - 6))
+    searchStatus:SetWidth(width)
+    searchMatches = UI.SearchSettings and UI.SearchSettings(searchInput:GetText()) or {}
+    local query = searchInput:GetText():find("%S")
+    searchStatus:SetText(not query and L("Rechercher dans tous les réglages") or #searchMatches == 0
+        and L("Aucun réglage trouvé.") or L("%d résultat(s) — ouvre la rubrique correspondante."):format(#searchMatches))
+    local top = 78 + searchStatus:GetStringHeight() + 10
+    searchScroll:ClearAllPoints(); searchScroll:SetPoint("TOPLEFT", 16, -top)
+    searchScroll:SetSize(width, math.max(1, content:GetHeight() - top - 12))
+    local y = 0
+    for _, button in ipairs(searchResults) do button:Hide() end
+    for index, entry in ipairs(searchMatches) do
+        local button = searchResults[index]
+        if not button then
+            button = UI.Button(searchBody, "ArkannsQOLSettingsResult" .. index, "", 0, 0, width, function() end)
+            searchResults[index] = button
+        end
+        button:SetText(entry.label)
+        button:SetWidth(width)
+        local label = button:GetFontString()
+        label:SetWidth(math.max(1, width - 24)); label:SetWordWrap(true)
+        button:ClearAllPoints(); button:SetPoint("TOPLEFT", 0, -y)
+        button:SetHeight(math.max(30, label:GetStringHeight() + 12))
+        button:SetScript("OnClick", function() CloseSearch(); entry.Open() end)
+        button:Show()
+        y = y + button:GetHeight() + 4
+    end
+    searchBody:SetSize(width, y)
+    UI.ClampScroll(searchScroll, y)
+end
+
+local function OpenSearch()
+    ns.StopAllPreviews()
+    searchPanel:Show(); RefreshSearch(); searchInput:SetFocus()
+end
 
 -- Blizzard owns only these launchers. The real canvases always belong to our window.
 function UI.RegisterSettingsPanel(parent, panel, label, id)
@@ -75,13 +123,13 @@ Layout = function()
     local page, group = pages[active], PageGroup(active)
     local style = UI.GetStyle()
     -- Reserve enough width for the longest localized page name and the canvas.
-    local navigationWidth = 200
+    local navigationWidth = 190
     for _, tab in ipairs(subTabs) do
         tab.button.label:SetFont(style.font, 12, "")
-        navigationWidth = math.max(navigationWidth, tab.button.label:GetUnboundedStringWidth() + 56)
+        navigationWidth = math.max(navigationWidth, tab.button.label:GetUnboundedStringWidth() + 40)
     end
-    navigationWidth = math.min(260, navigationWidth)
-    local sidebar = window:GetWidth() >= math.max(900, navigationWidth + 650)
+    navigationWidth = math.min(232, navigationWidth)
+    local sidebar = window:GetWidth() >= math.max(860, navigationWidth + 600)
     navigation:SetShown(sidebar)
     searchButton:SetShown(window:GetWidth() >= 520)
     titleBar:SetPoint("TOPRIGHT", window:GetWidth() >= 520 and -250 or -110, -4)
@@ -114,7 +162,8 @@ Layout = function()
     local count = 0
     for _, id in ipairs(group.pages) do if pages[id] then count = count + 1 end end
     for _, tab in ipairs(subTabs) do
-        local visible = PageGroup(tab.id) == group and (count > 1 or (sidebar and group.id ~= "home"))
+        local owner = PageGroup(tab.id)
+        local visible = sidebar and #owner.pages > 1 or (not sidebar and owner == group and count > 1)
         tab.button:SetShown(visible)
         if visible then visibleSub[#visibleSub + 1] = tab end
         Update(tab, tab.id == active, sidebar)
@@ -122,27 +171,27 @@ Layout = function()
     local x, y = 12, -60
     if sidebar then
         navigation:SetSize(navigationWidth - 24, math.max(1, window:GetHeight() - 104))
-        local top, buttonWidth, activeButton = 0, navigationWidth - 24
+        local top, buttonWidth, activeTop, activeHeight = 0, navigationWidth - 24, 0, 28
         for _, tab in ipairs(visibleMain) do
             local groupButton = tab.button
             groupButton:SetParent(navigationBody)
             groupButton.label:SetJustifyH("LEFT")
             groupButton:SetWidth(buttonWidth)
-            local groupHeight = math.max(30, groupButton.label:GetStringHeight() + 12)
+            local groupHeight = math.max(28, groupButton.label:GetStringHeight() + 10)
             groupButton:ClearAllPoints(); groupButton:SetPoint("TOPLEFT", 0, -top)
             groupButton:SetSize(buttonWidth, groupHeight)
-            top = top + groupHeight + 4
-            if tab.group == group then
-                activeButton = groupButton
-                for _, item in ipairs(visibleSub) do
+            if tab.group == group then activeTop, activeHeight = top, groupHeight end
+            top = top + groupHeight + 2
+            for _, item in ipairs(visibleSub) do
+                if PageGroup(item.id) == tab.group then
                     local button = item.button
                     button:SetParent(navigationBody)
                     button.label:SetJustifyH("LEFT")
                     button:SetWidth(buttonWidth - 12)
-                    local height = math.max(30, button.label:GetStringHeight() + 12)
+                    local height = math.max(28, button.label:GetStringHeight() + 10)
                     button:ClearAllPoints(); button:SetPoint("TOPLEFT", 12, -top)
                     button:SetSize(buttonWidth - 12, height)
-                    if item.id == active then activeButton = button end
+                    if item.id == active then activeTop, activeHeight = top, height end
                     top = top + height + 2
                 end
             end
@@ -151,7 +200,13 @@ Layout = function()
         navigationBody:SetSize(buttonWidth, top)
         UI.ClampScroll(navigation, top)
         if navigation.ScrollBar then navigation.ScrollBar:SetShown(top > navigation:GetHeight() + 1) end
-        if sidebarPage ~= active then UI.RevealControl(navigation, activeButton) end
+        if sidebarPage ~= active then
+            local offset = navigation:GetVerticalScroll()
+            if activeTop < offset then navigation:SetVerticalScroll(activeTop)
+            elseif activeTop + activeHeight > offset + navigation:GetHeight() then
+                navigation:SetVerticalScroll(activeTop + activeHeight - navigation:GetHeight())
+            end
+        end
         sidebarPage = active
         x = navigationWidth + 24
     else
@@ -165,6 +220,7 @@ Layout = function()
     -- Explicit dimensions also let each existing canvas recalculate its scroll range.
     content:SetSize(math.max(1, window:GetWidth() - x - 12), math.max(1, window:GetHeight() + y - 40))
     page.panel:SetSize(content:GetWidth(), content:GetHeight())
+    if searchPanel and searchPanel:IsShown() then RefreshSearch() end
 end
 
 function UI.FitSettingsWindow()
@@ -178,7 +234,7 @@ end
 local function BuildWindow()
     window = CreateFrame("Frame", "ArkannsQOLSettingsWindow", UIParent, "BackdropTemplate")
     window:Hide()
-    window:SetSize(math.min(980, UIParent:GetWidth() - 24), math.min(740, UIParent:GetHeight() - 24))
+    window:SetSize(math.min(1180, UIParent:GetWidth() - 24), math.min(780, UIParent:GetHeight() - 24))
     window:SetPoint("CENTER")
     window:SetFrameStrata("DIALOG")
     window:SetClampedToScreen(true)
@@ -196,7 +252,7 @@ local function BuildWindow()
     breadcrumb:SetPoint("TOPRIGHT", -8, -32)
     breadcrumb:SetWordWrap(false)
     searchButton = UI.Button(window, "ArkannsQOLSettingsSearch", L("Rechercher"), 0, 0, 120, function()
-        if UI.OpenSettings("home") and UI.FocusSettingsSearch then UI.FocusSettingsSearch() end
+        if searchPanel:IsShown() then CloseSearch() else OpenSearch() end
     end)
     searchButton:ClearAllPoints(); searchButton:SetPoint("TOPRIGHT", -110, -10)
     local close = UI.Button(window, "ArkannsQOLSettingsClose", L("Fermer"), 0, 0, 90, function() window:Hide() end)
@@ -209,6 +265,28 @@ local function BuildWindow()
     resize:SetScript("OnMouseDown", function(_, button) if button == "LeftButton" then window:StartSizing("BOTTOMRIGHT") end end)
     resize:SetScript("OnMouseUp", function() window:StopMovingOrSizing() end)
     content = CreateFrame("Frame", nil, window)
+    searchPanel = CreateFrame("Frame", "ArkannsQOLSettingsSearchPanel", window, "BackdropTemplate")
+    searchPanel:Hide(); searchPanel:SetPoint("TOPLEFT", content, "TOPLEFT")
+    searchPanel:SetFrameLevel(window:GetFrameLevel() + 20)
+    searchPanel:EnableMouse(true); UI.StylePanel(searchPanel)
+    local searchTitle = UI.Label(searchPanel, L("Rechercher"), 16, -14, 15)
+    searchTitle:SetPoint("TOPRIGHT", -130, -14)
+    local searchBack = UI.Button(searchPanel, "ArkannsQOLSettingsSearchBack", L("Retour"), 0, 0, 100, CloseSearch)
+    searchBack:ClearAllPoints(); searchBack:SetPoint("TOPRIGHT", -16, -8)
+    searchInput = UI.Input(searchPanel, "ArkannsQOLSettingsQuery", 22, -42, 300)
+    searchInput:SetMaxLetters(80)
+    searchStatus = UI.Label(searchPanel, "", 16, -78, 12)
+    searchScroll = CreateFrame("ScrollFrame", nil, searchPanel, "UIPanelScrollFrameTemplate")
+    searchScroll:SetPoint("TOPLEFT", 16, -108)
+    searchBody = CreateFrame("Frame", nil, searchScroll)
+    searchBody:SetSize(1, 1); searchScroll:SetScrollChild(searchBody)
+    searchInput:SetScript("OnTextChanged", function() RefreshSearch(); searchScroll:SetVerticalScroll(0) end)
+    searchInput:SetScript("OnEscapePressed", CloseSearch)
+    searchInput:SetScript("OnEnterPressed", function()
+        local entry = searchMatches[1]
+        if entry then CloseSearch(); entry.Open() end
+    end)
+    searchPanel:SetScript("OnHide", function() searchInput:ClearFocus() end)
     navigation = CreateFrame("ScrollFrame", "ArkannsQOLSettingsNavigation", window, "UIPanelScrollFrameTemplate")
     navigation:SetPoint("TOPLEFT", 16, -62)
     navigationBody = CreateFrame("Frame", nil, navigation)
@@ -232,6 +310,7 @@ local function BuildWindow()
     end
     window:SetScript("OnSizeChanged", Layout)
     window:SetScript("OnHide", function()
+        CloseSearch()
         window:StopMovingOrSizing()
         if active then pages[active].panel:Hide() end
         ns.StopAllPreviews()
@@ -245,6 +324,7 @@ function UI.OpenCategory(category)
     for _, page in pairs(pages) do if page.category == category then destination = page; break end end
     if not destination then return false end
     if not window then BuildWindow() end
+    CloseSearch()
     if active ~= destination.id then
         ns.StopAllPreviews()
         if active then pages[active].panel:Hide() end

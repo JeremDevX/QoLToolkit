@@ -790,7 +790,7 @@ function UI.BuildHome(panel)
         search:SetText(""); search:ClearFocus(); home.Refresh()
     end)
     local searchStatus=Label(body,"",0,0)
-    local resultButtons, matches = {}, {}
+    local resultButtons, matches, minimap = {}, {}, nil
     -- Index settings, never session values, player names, or generated preview labels.
     local settingLabels = {
         tooltips = {"Personnaliser les infobulles", "Suivre le curseur", "Position fixe", "Échelle", "Réglages propres à ce type", "Décalage du curseur",
@@ -835,7 +835,10 @@ function UI.BuildHome(panel)
             result[#result+1]={label=label,Open=open}
         end
         if ns.IsMinimapVisible then
-            Add(L("Afficher le bouton de minicarte"),"",function() search:SetText(""); home.Refresh() end)
+            Add(L("Afficher le bouton de minicarte"),"",function()
+                search:SetText(""); home.Refresh(); UI.OpenSettings("home")
+                UI.RevealControl(scroll, minimap)
+            end)
         end
         for _,id in ipairs({"tooltips","reminders","session","talents","ranks","distance","targetPortrait","bags","flights","appearance"}) do
             local module=ns.modules[id]
@@ -890,7 +893,7 @@ function UI.BuildHome(panel)
     toolbar[4]=Button(body,"ArkannsQOLHomeDiagnostics",L("Diagnostics"),0,0,130,function()
         UI.OpenSettings("diagnostics")
     end)
-    local minimap = Check(body,"ArkannsQOLShowMinimap",L("Afficher le bouton de minicarte"),0,0,function(value)
+    minimap = Check(body,"ArkannsQOLShowMinimap",L("Afficher le bouton de minicarte"),0,0,function(value)
         if ns.SetMinimapVisible then ns.SetMinimapVisible(value) end
     end)
     local function IsPinned(id, module)
@@ -953,8 +956,7 @@ function UI.BuildHome(panel)
     local groups = {
         {label=L("Personnage"),ids={"talents","session","reminders","ranks"}},
         {label=L("Interface"),ids={"tooltips","distance","targetPortrait","bags"}},
-        {label=L("Personnalisation"),ids={},buttons={toolbar[1],toolbar[2]}},
-        {label=L("Outils"),ids={"flights","advanced"},buttons={toolbar[3],toolbar[4]}},
+        {label=L("Outils"),ids={"flights","advanced"}},
     }
     for _,group in ipairs(groups) do group.title=Label(body,group.label,0,0,16) end
     local function Pinned(card)
@@ -991,13 +993,22 @@ function UI.BuildHome(panel)
             body:SetSize(width,y); UI.ClampScroll(scroll,y); return
         end
         matches={}
+        -- Frequent actions stay above module cards, regardless of favorites or module count.
+        local actionColumns = math.max(1, math.min(#toolbar, math.floor((width + 8) / 138)))
+        local actionWidth = (width - (actionColumns - 1) * 8) / actionColumns
+        for index, button in ipairs(toolbar) do
+            button:Show()
+            Place(button, ((index - 1) % actionColumns) * (actionWidth + 8),
+                y + math.floor((index - 1) / actionColumns) * 34, actionWidth)
+        end
+        y = y + math.ceil(#toolbar / actionColumns) * 34 + 8
         for _,card in ipairs(cards) do card:Show() end
         minimap:SetShown(ns.IsMinimapVisible ~= nil)
         if ns.IsMinimapVisible then
             minimap.label:SetWidth(math.max(1,width-32))
             minimap:SetChecked(ns.IsMinimapVisible())
         end
-        local columns=width>=540 and 2 or 1
+        local columns=width>=900 and 3 or width>=540 and 2 or 1
         local cardWidth=(width-12*(columns-1))/columns
         local entries={}
         local advanced=ns.modules.advanced
@@ -1068,20 +1079,11 @@ function UI.BuildHome(panel)
                     if card.id==id and not Pinned(card) then list[#list+1]=card end
                 end
             end
-            local visible=#list>0 or group.buttons~=nil
+            local visible=#list>0
             group.title:SetShown(visible)
             if visible then
                 Place(group.title,0,y,width); y=y+group.title:GetStringHeight()+8
                 DrawCards(list)
-                if group.buttons then
-                    local buttonColumns=width>=350 and 2 or 1
-                    local buttonWidth=(width-10*(buttonColumns-1))/buttonColumns
-                    for index,button in ipairs(group.buttons) do
-                        button:Show()
-                        Place(button,((index-1)%buttonColumns)*(buttonWidth+10),y+math.floor((index-1)/buttonColumns)*34,buttonWidth)
-                    end
-                    y=y+math.ceil(#group.buttons/buttonColumns)*34
-                end
                 y=y+12
             end
         end

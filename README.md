@@ -2,7 +2,7 @@
 
 QoL Toolkit is a modular addon for **World of Warcraft Forever 1.60.1**. Build talent plans, track your session, and customize your interface from one dashboard.
 
-Click the minimap icon or type `/qt` to open the standalone settings window. Tabs group Character, Interface, Customization, and Tools; subtabs select each module. Drag the title to move the window, use Size to resize it, and close it with Escape or Close. The Blizzard Add-ons categories also link to this window.
+Click the minimap icon or type `/qt` to open the standalone settings window. On wide windows, the sidebar lists every module under Character, Interface, Customization, and Tools for direct access. Compact windows use tabs. Drag the title to move the window, use Size to resize it, and close it with Escape or Close. The Blizzard Add-ons categories also link to this window.
 
 ## Modules
 
@@ -21,7 +21,7 @@ Click the minimap icon or type `/qt` to open the standalone settings window. Tab
 
 The dashboard groups tools under Character, Interface, Customization, and Tools. Pinning moves a module card to Favorites without duplicating it. Tooltip and distance settings share one page, while their displays remain independently controlled. Local Move buttons open the shared Layout editor; Apply keeps moved frames and Cancel restores their original placement. Both actions return to the original settings section. The minimap button can be dragged or hidden from the dashboard. Named profiles share selected module settings across characters on the same account. Talent builds and journal totals stay with their character. Partial profiles include each module’s shared/custom appearance choice. Profiles and talent builds can be deleted after confirmation.
 
-Search from the dashboard to find settings across modules. Results open the matching section, expand its detailed options when needed, and scroll to the control. Controls that depend on a disabled option lead to that prerequisite. Searching never changes the option. Clear the search to return to the dashboard.
+Use Search at the top of the window to find settings across modules without leaving the current page. Back or Escape closes search; its query is kept for another lookup. Results open the matching section, expand its detailed options when needed, and scroll to the control. Controls that depend on a disabled option lead to that prerequisite. Searching never changes the option. The dashboard also has a search field, with Appearance, Layout, Profiles, and Diagnostics directly below it.
 
 The talent build menu offers **Duplicate**, **Export**, and **Import**. Copy or paste the versioned text in the transfer window. Imports validate the class, tree, first-point level, and complete point order before adding a new build after confirmation. Existing builds are preserved. This format is specific to QoL Toolkit.
 
@@ -58,6 +58,7 @@ Module settings distinguish visibility from tracking and automatic actions. Hidi
 
 Shared appearance applies unless a module uses custom appearance. Inherited controls are disabled. Detailed appearance controls are collapsed by default. Configure mouseover distance in the Distance section of Tooltips and distance.
 The journal groups Tracking and statistics separately from Display. Effect Reminders groups Tracked effects separately from Display. Display brings visibility, compact mode, appearance, previews, and placement together. Shared-theme links open common appearance settings with a return button for the original module.
+The settings window opens wider when screen space permits. Tooltips, distance, journal, talents, and spell ranks place independent setting groups side by side at comfortable widths and return to one column in smaller windows.
 
 Advanced graphics are opt-in. The read-only client inventory is under Diagnostics, also available with /qtlog inventory.
 

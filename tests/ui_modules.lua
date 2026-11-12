@@ -181,6 +181,33 @@ assert(frames.ArkannsQOLSession_compact.parent == frames.ArkannsQOLSession_enabl
     "Compact mode and window visibility share the display group")
 modules.session.OpenSettings("Largeur min.")
 assert(frames.ArkannsQOLSessionAppearance.shown and revealed.control == frames.ArkannsQOLSession_width)
+do
+    local page = frames.ArkannsQOLSessionAppearance
+    local visibility = frames.ArkannsQOLSession_enabled.parent
+    local appearance = frames.ArkannsQOLSession_fontSize.parent
+    page.scripts.OnSizeChanged(page, 819)
+    local stacked = page.child:GetHeight()
+    assert(appearance.points[1][3] < 0, "Session display stacks on a narrow canvas")
+    page.scripts.OnSizeChanged(page, 820)
+    assert(appearance.points[1][2] > visibility:GetWidth() and appearance.points[1][3] == 0,
+        "Session display places visibility and appearance side by side")
+    assert(page.child:GetHeight() < stacked, "Two session groups reduce vertical scrolling")
+    page:SetVerticalScroll(900)
+    frames.ArkannsQOLSessionAdvanced.scripts.OnClick(frames.ArkannsQOLSessionAdvanced)
+    assert(page:GetVerticalScroll() <= math.max(0, page.child:GetHeight() - page:GetHeight()),
+        "Collapsing advanced appearance clamps the two-column display")
+    frames.ArkannsQOLSessionAdvanced.scripts.OnClick(frames.ArkannsQOLSessionAdvanced)
+    page.scripts.OnSizeChanged(page, 620)
+    local operation = frames.ArkannsQOLSessionMetric1.parent
+    local scroll = operation.parent
+    scroll.scripts.OnSizeChanged(scroll, 779)
+    local stackedOperation = operation:GetHeight()
+    scroll.scripts.OnSizeChanged(scroll, 780)
+    assert(frames.ArkannsQOLSessionMetric1.points[1][2] > frames.ArkannsQOLSessionTracking.points[1][2],
+        "Session statistics use a separate column from tracking controls")
+    assert(operation:GetHeight() < stackedOperation, "Tracking and metrics share the available height")
+    scroll.scripts.OnSizeChanged(scroll, 620)
+end
 modules.session.OpenSettings(nil)
 assert(frames.ArkannsQOLSessionAppearance.shown, "Layout return preserves session display tab")
 modules.session.OpenSettings("XP gagnée")
@@ -366,6 +393,14 @@ assert(wideHeight > collapsedHeight, "The expanded colors extend the scroll cont
 talentOptions:SetWidth(340); talentOptions.scripts.OnSizeChanged()
 assert(talentScroll.child:GetWidth() == 290 and talentScroll.child:GetHeight() > wideHeight)
 assert(frames.ArkannsQOLTalentColorfutureColor.points[1][3] < frames.ArkannsQOLTalentColornextColor.points[1][3], "Narrow talent colors stack")
+
+local stackedHeight = talentScroll.child:GetHeight()
+talentOptions:SetWidth(760); talentOptions.scripts.OnSizeChanged()
+assert(frames.ArkannsQOLTalentCompact.points[1][2] > frames.ArkannsQOLTalentMove.points[1][2],
+    "Wide talent settings keep appearance beside behavior and placement")
+assert(talentScroll.child:GetHeight() < stackedHeight, "Independent talent groups reduce scrolling")
+assert(frames.ArkannsQOLTalentAdvanced.width <= (talentScroll.child.width - 24) / 2)
+talentOptions:SetWidth(340); talentOptions.scripts.OnSizeChanged()
 talentScroll:SetVerticalScroll(300)
 frames.ArkannsQOLTalentAdvancedToggle.scripts.OnClick()
 assert(not frames.ArkannsQOLTalentAdvanced.shown and talentScroll:GetVerticalScroll() < 300)

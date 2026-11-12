@@ -218,6 +218,7 @@ for source, translation in pairs({
     ["Copier la dernière trace"] = "Copy the latest trace",
     ["Régler le thème commun"] = "Configure shared theme",
     ["Retour au module"] = "Back to module",
+    ["Retour"] = "Back",
     ["Personnage"] = "Character",
     ["Personnalisation"] = "Customization",
     ["Outils"] = "Tools",

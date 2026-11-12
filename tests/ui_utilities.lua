@@ -197,6 +197,23 @@ modules.tooltips.SetEnabled(false)
 assert(modules.tooltips.Summary() == "Placement WoW" and ns.GetMouseoverDistanceSetting(),
     "The tooltip switch describes placement while mouseover distance remains independent")
 modules.tooltips.SetEnabled(true)
+do
+    local panel = frames.ForeverTooltipLibreSettings
+    local main = frames.ArkannsQOLTooltipGeneralEnabled.parent
+    panel:SetWidth(857); panel.scripts.OnSizeChanged()
+    local narrowMain, narrowBehavior = main:GetHeight(), behavior:GetHeight()
+    assert(frames.ArkannsQOLTooltipOwnStyle.points[1][2] == 0)
+    panel:SetWidth(858); panel.scripts.OnSizeChanged()
+    assert(frames.ArkannsQOLTooltipOwnStyle.points[1][2] > 0,
+        "Tooltip placement and appearance use separate columns")
+    assert(frames.ArkannsQOLTooltipCombat.points[1][2] > 0,
+        "Tooltip scale and combat behavior remain beside type placement")
+    assert(main:GetHeight() < narrowMain and behavior:GetHeight() < narrowBehavior,
+        "Both tooltip tabs need less scrolling when groups fit side by side")
+    assert(frames.ForeverTooltipLibreSize:GetWidth() > 330, "Tooltip sliders use the available column width")
+    panel:SetWidth(600); panel.scripts.OnSizeChanged()
+    assert(frames.ArkannsQOLTooltipOwnStyle.points[1][2] == 0)
+end
 
 env.TargetFrame = Widget("Frame"); env.TargetFrame:Show(); env.TargetFrame:SetScale(.8); env.TargetFrame:SetAlpha(.6)
 env.TargetFrame:SetFrameStrata("LOW"); env.TargetFrame:SetFrameLevel(4)
@@ -305,6 +322,12 @@ panel:SetWidth(330); panel.scripts.OnSizeChanged()
 local narrowColorHeight = colorReset.parent.height
 panel:SetWidth(580); panel.scripts.OnSizeChanged()
 assert(colorReset.parent.height < narrowColorHeight, "Wide color controls use a table")
+local tableHeight = colorReset.parent.height
+panel:SetWidth(840); panel.scripts.OnSizeChanged()
+assert(colorReset.points[1][4] > frames.ArkannsQOLDistanceResetPosition.points[1][4],
+    "Wide distance settings place colors beside placement")
+assert(colorReset.parent.height < tableHeight, "Independent distance groups reduce scrolling")
+panel:SetWidth(580); panel.scripts.OnSizeChanged()
 colorReset.parent.parent:SetVerticalScroll(550)
 Click("ArkannsQOLDistanceAdvanced")
 assert(not colorReset.shown and colorReset.parent.parent:GetVerticalScroll() == 0)
@@ -346,6 +369,13 @@ local narrowRankHeight = frames.ArkannsQOLRankStyle.parent.height
 rankPanel:SetWidth(600); rankPanel.scripts.OnSizeChanged()
 assert(frames.ArkannsQOLRankStyle.parent.height < narrowRankHeight, "Wide independent rank controls share rows")
 assert(frames.ArkannsQOLRankCombat.points[1][5] == frames.ArkannsQOLRankRest.points[1][5])
+local stackedRankHeight = frames.ArkannsQOLRankStyle.parent.height
+rankPanel:SetWidth(760); rankPanel.scripts.OnSizeChanged()
+assert(frames.ArkannsQOLRankAddException.points[1][4] > frames.ArkannsQOLRankPreview.points[1][4],
+    "Wide rank settings place exceptions beside activation and visibility")
+assert(frames.ArkannsQOLRankStyle.parent.height < stackedRankHeight,
+    "Independent rank groups reduce scrolling")
+rankPanel:SetWidth(600); rankPanel.scripts.OnSizeChanged()
 local style = frames.ArkannsQOLRankStyle
 Click("ArkannsQOLRankStyle"); menu["Bordure"]()
 assert(not frames.ArkannsQOLRankCorner.shown and style.parent.height < narrowRankHeight)

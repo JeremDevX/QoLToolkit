@@ -1010,6 +1010,25 @@ function UI.BuildHome(panel)
         end
         local columns=width>=900 and 3 or width>=540 and 2 or 1
         local cardWidth=(width-12*(columns-1))/columns
+        local titleHeight, summaryHeight, toggleHeight, stackedPreview = 44, 0, 0, false
+        -- Measure every module before placing groups, so favorites share the same card size.
+        for _, card in ipairs(cards) do
+            card:SetWidth(cardWidth)
+            card.title:SetWidth(math.max(1,cardWidth-64))
+            titleHeight=math.max(titleHeight,card.title:GetStringHeight()+18)
+            card.summary:SetText(card.module.Summary and card.module.Summary() or L("Options et préférences."))
+            card.summary:SetWidth(math.max(1,cardWidth-24))
+            summaryHeight=math.max(summaryHeight,card.summary:GetStringHeight())
+            if card.enabled then
+                card.enabled:SetChecked(card.module.IsEnabled())
+                card.enabled.label:SetWidth(math.max(1,cardWidth-48))
+                toggleHeight=math.max(toggleHeight,32,card.enabled.label:GetStringHeight()+12)
+            end
+            stackedPreview=stackedPreview or (card.preview ~= nil and cardWidth<244)
+        end
+        local toggleY=titleHeight+summaryHeight+6
+        local actionY=toggleY+toggleHeight
+        local cardHeight=actionY+36+(stackedPreview and 32 or 0)
         local entries={}
         local advanced=ns.modules.advanced
         if advanced and advanced.Favorites then
@@ -1043,32 +1062,20 @@ function UI.BuildHome(panel)
         for index=#entries+1,#favoriteButtons do favoriteButtons[index]:Hide() end
         if #entries>0 then y=y+8 end
         local function DrawCards(list)
-            local rowHeight=0
             for index,card in ipairs(list) do
                 Place(card,((index-1)%columns)*(cardWidth+12),y,cardWidth)
                 UI.StyleFrame(card)
                 UI.SetFavoriteIcon(card.pin,Pinned(card))
-                card.title:SetWidth(math.max(1,cardWidth-64))
-                card.summary:SetText(card.module.Summary and card.module.Summary() or L("Options et préférences."))
-                local cardY=math.max(44,card.title:GetStringHeight()+18)
-                Place(card.summary,12,cardY,math.max(1,cardWidth-24))
-                cardY=cardY+card.summary:GetStringHeight()+6
-                if card.enabled then
-                    Place(card.enabled,8,cardY)
-                    card.enabled:SetChecked(card.module.IsEnabled())
-                    card.enabled.label:SetWidth(math.max(1,cardWidth-48))
-                    cardY=cardY+math.max(32,card.enabled.label:GetStringHeight()+12)
-                end
-                Place(card.configure,12,cardY)
-                Place(card.pin,cardWidth-44,cardY)
+                Place(card.summary,12,titleHeight)
+                if card.enabled then Place(card.enabled,8,toggleY) end
+                Place(card.configure,12,actionY)
+                Place(card.pin,cardWidth-44,actionY)
                 if card.preview then
                     local inline=cardWidth>=244
-                    Place(card.preview,inline and 120 or 12,inline and cardY or cardY+32)
-                    if not inline then cardY=cardY+32 end
+                    Place(card.preview,inline and 120 or 12,inline and actionY or actionY+32)
                 end
-                card:SetHeight(cardY+36)
-                rowHeight=math.max(rowHeight,card:GetHeight())
-                if index%columns==0 or index==#list then y=y+rowHeight+12; rowHeight=0 end
+                card:SetHeight(cardHeight)
+                if index%columns==0 or index==#list then y=y+cardHeight+12 end
             end
         end
         DrawCards(favoriteCards)

@@ -159,7 +159,8 @@ env.Settings={RegisterCanvasLayoutSubcategory=function() return {GetID=function(
 module.category=function() return {GetID=function() return 2 end} end
 ns.RegisterModule("session", {label="Journal"})
 ns.RegisterModule("tooltips", {label="Infobulles", category=function() return {GetID=function() return 3 end} end})
-ns.RegisterModule("bags", {label="Sacs", category=function() return {GetID=function() return 4 end} end})
+ns.RegisterModule("bags", {label="Sacs", category=function() return {GetID=function() return 4 end} end,
+    IsEnabled=function() return true end,SetEnabled=noop})
 ns.RegisterModule("advanced", {label="Réglages avancés", category=function() return {GetID=function() return 5 end} end})
 ns.home=Frame(); ns.home:SetSize(400,600)
 ns.InitializeInterface({})
@@ -240,6 +241,40 @@ assert(frames.ArkannsQOLHomeBags.parent.points.TOPLEFT[2]==card.parent.points.TO
 assert(homeScroll.child:GetHeight()<twoColumnHomeHeight)
 appearance=UI.ExportSettings(); appearance.pins.bags=nil; UI.ImportSettings(appearance)
 appearance=UI.ExportSettings(); appearance.pins.session=nil; UI.ImportSettings(appearance)
+
+-- Different content and optional controls still share one size across groups and favorites.
+local homeCards={card.parent,journal,frames.ArkannsQOLHomeBags.parent,
+    frames.ArkannsQOLHomeTooltips.parent,frames.ArkannsQOLHomeAdvanced.parent}
+local originalStringHeight=methods.GetStringHeight
+function methods:GetStringHeight()
+    if self==homeCards[1].title then return 54 end
+    if self==homeCards[3].summary then return 72 end
+    if self==homeCards[3].enabled.label then return 42 end
+    return originalStringHeight(self)
+end
+for _,width in ipairs({280,589,590,949,950,1180}) do
+    ns.home:SetWidth(width); ns.home.Refresh()
+    local expected=homeCards[1]
+    for _,entry in ipairs(homeCards) do
+        assert(entry:GetWidth()==expected:GetWidth() and entry:GetHeight()==expected:GetHeight(),
+            "Every feature card has the same dimensions, including favorites")
+        assert(entry.configure.points.TOPLEFT[2]==expected.configure.points.TOPLEFT[2],
+            "Configure buttons align even when a module has no toggle or preview")
+        assert(entry.summary.points.TOPLEFT[2]==expected.summary.points.TOPLEFT[2])
+        local summaryBottom=-entry.summary.points.TOPLEFT[2]+entry.summary:GetStringHeight()
+        local actionTop=-entry.configure.points.TOPLEFT[2]
+        if entry.enabled then
+            local toggleTop=-entry.enabled.points.TOPLEFT[2]
+            assert(summaryBottom<toggleTop and toggleTop+entry.enabled.label:GetStringHeight()+12<=actionTop)
+        else assert(summaryBottom<actionTop) end
+        if entry.preview then
+            assert(-entry.preview.points.TOPLEFT[2]+entry.preview:GetHeight()<=entry:GetHeight()-8,
+                "Stacked previews stay inside the uniform narrow card")
+        end
+    end
+end
+methods.GetStringHeight=originalStringHeight
+ns.home:SetWidth(950); ns.home.Refresh()
 
 local openedSource, openedCalls=nil,0
 module.OpenSettings=function(source) openedSource=source; openedCalls=openedCalls+1 end

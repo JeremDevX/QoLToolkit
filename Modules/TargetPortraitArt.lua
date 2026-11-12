@@ -4,9 +4,10 @@ local _, ns = ...
 -- Resource usage, portrait layout and required API declarations rechecked on Forever 1.60.1.70888
 -- at 4cd0ab752a77164f654ccbca9d0c1fe8dafceebe; relevant sources match the reference above.
 -- PlayerChoiceGenericPowerChoiceOptionTemplate uses the portrait border and glow.
--- ArtifactPowerButton:UpdateIcon and ArtifactPerks:RefreshBackground use the class artwork.
+-- ArtifactPerks:RefreshBackground uses the class artwork.
 -- Dimensions and fallback UVs: BlizzardInterfaceResources AtlasInfo d1ee569878094270c0ad8d8b00de0762158fd578.
--- Crests are intended for ornaments outside the portrait. Their central transparency is unverified.
+-- The full class artwork has an opaque central crest and translucent ornamental edges.
+-- Draw it below the native portrait (BACKGROUND 0 vs 1), which occludes its center.
 ns.TargetPortraitArt = {
     ring = {
         atlas = "UI-Frame-GenericPlayerChoice-Portrait-Border",
@@ -33,12 +34,6 @@ ns.TargetPortraitArt = {
     classes = {
         WARRIOR = {
             label = "Guerrier",
-            emblem = {
-                atlas = "Artifacts-Warrior-FinalIcon",
-                texture = "Interface\\Artifacts\\ArtifactUIWarrior",
-                coords = {0.8779296875, 0.9619140625, 0.0009765625, 0.0849609375},
-                width = 86, height = 86,
-            },
             rune = {
                 atlas = "Artifacts-Warrior-BG-rune",
                 texture = "Interface\\Artifacts\\ArtifactUIWarrior",
@@ -48,12 +43,6 @@ ns.TargetPortraitArt = {
         },
         PALADIN = {
             label = "Paladin",
-            emblem = {
-                atlas = "Artifacts-Paladin-FinalIcon",
-                texture = "Interface\\Artifacts\\ArtifactUIPaladin",
-                coords = {0.8779296875, 0.9619140625, 0.0009765625, 0.0849609375},
-                width = 86, height = 86,
-            },
             rune = {
                 atlas = "Artifacts-Paladin-BG-rune",
                 texture = "Interface\\Artifacts\\ArtifactUIPaladin",
@@ -63,12 +52,6 @@ ns.TargetPortraitArt = {
         },
         HUNTER = {
             label = "Chasseur",
-            emblem = {
-                atlas = "Artifacts-Hunter-FinalIcon",
-                texture = "Interface\\Artifacts\\ArtifactUIHunter",
-                coords = {0.8779296875, 0.9619140625, 0.0009765625, 0.0849609375},
-                width = 86, height = 86,
-            },
             rune = {
                 atlas = "Artifacts-Hunter-BG-rune",
                 texture = "Interface\\Artifacts\\ArtifactUIHunter",
@@ -78,12 +61,6 @@ ns.TargetPortraitArt = {
         },
         ROGUE = {
             label = "Voleur",
-            emblem = {
-                atlas = "Artifacts-Rogue-FinalIcon",
-                texture = "Interface\\Artifacts\\ArtifactUIRogue",
-                coords = {0.8779296875, 0.9619140625, 0.0009765625, 0.0849609375},
-                width = 86, height = 86,
-            },
             rune = {
                 atlas = "Artifacts-Rogue-BG-rune",
                 texture = "Interface\\Artifacts\\ArtifactUIRogue",
@@ -93,12 +70,6 @@ ns.TargetPortraitArt = {
         },
         PRIEST = {
             label = "Prêtre",
-            emblem = {
-                atlas = "Artifacts-Priest-FinalIcon",
-                texture = "Interface\\Artifacts\\ArtifactUIPriest",
-                coords = {0.8779296875, 0.9619140625, 0.0009765625, 0.0849609375},
-                width = 86, height = 86,
-            },
             rune = {
                 atlas = "Artifacts-Priest-BG-rune",
                 texture = "Interface\\Artifacts\\ArtifactUIPriest",
@@ -108,12 +79,6 @@ ns.TargetPortraitArt = {
         },
         SHAMAN = {
             label = "Chaman",
-            emblem = {
-                atlas = "Artifacts-Shaman-FinalIcon",
-                texture = "Interface\\Artifacts\\ArtifactUIShaman",
-                coords = {0.8779296875, 0.9619140625, 0.0009765625, 0.0849609375},
-                width = 86, height = 86,
-            },
             rune = {
                 atlas = "Artifacts-Shaman-BG-rune",
                 texture = "Interface\\Artifacts\\ArtifactUIShaman",
@@ -123,12 +88,6 @@ ns.TargetPortraitArt = {
         },
         MAGE = {
             label = "Mage",
-            emblem = {
-                atlas = "Artifacts-MageArcane-FinalIcon",
-                texture = "Interface\\Artifacts\\ArtifactUIMageArcane",
-                coords = {0.8779296875, 0.9619140625, 0.0009765625, 0.0849609375},
-                width = 86, height = 86,
-            },
             rune = {
                 atlas = "Artifacts-MageArcane-BG-rune",
                 texture = "Interface\\Artifacts\\ArtifactUIMageArcane",
@@ -138,12 +97,6 @@ ns.TargetPortraitArt = {
         },
         WARLOCK = {
             label = "Démoniste",
-            emblem = {
-                atlas = "Artifacts-Warlock-FinalIcon",
-                texture = "Interface\\Artifacts\\ArtifactUIWarlock",
-                coords = {0.8779296875, 0.9619140625, 0.0009765625, 0.0849609375},
-                width = 86, height = 86,
-            },
             rune = {
                 atlas = "Artifacts-Warlock-BG-rune",
                 texture = "Interface\\Artifacts\\ArtifactUIWarlock",
@@ -153,12 +106,6 @@ ns.TargetPortraitArt = {
         },
         DRUID = {
             label = "Druide",
-            emblem = {
-                atlas = "Artifacts-Druid-FinalIcon",
-                texture = "Interface\\Artifacts\\ArtifactUIDruid",
-                coords = {0.8779296875, 0.9619140625, 0.0009765625, 0.0849609375},
-                width = 86, height = 86,
-            },
             rune = {
                 atlas = "Artifacts-Druid-BG-rune",
                 texture = "Interface\\Artifacts\\ArtifactUIDruid",

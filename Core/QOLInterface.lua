@@ -498,17 +498,15 @@ local function BuildAppearance(root)
     ns.appearancePanel = panel
     panel:Hide(); UI.StylePanel(panel)
     local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 16, -16); scroll:SetPoint("BOTTOMRIGHT", -34, 16)
     local body = CreateFrame("Frame", nil, scroll); body:SetSize(1, 1); scroll:SetScrollChild(body)
-    local heading=Label(body, L("Apparence générale"), 0, 0, 18)
-    local back=Button(body,"ArkannsQOLAppearanceBack",L("Retour au module"),0,0,240,function()
+    local heading=Label(panel, L("Apparence générale"), 0, 0, 18)
+    local back=Button(panel,"ArkannsQOLAppearanceBack",L("Retour au module"),0,0,240,function()
         local id = appearanceBack
         appearanceBack = nil
         if id then UI.OpenSettings(id) end
     end)
-    local description=Label(body, L("Les modules qui suivent l’apparence commune changent immédiatement."), 0, 0)
-    local previewHint=Label(body, L("Le journal utilise sa propre apparence."), 0, 0)
-    local fields, syncing, advanced = {}, false, false
+    local description=Label(panel, L("Les modules qui suivent l’apparence commune changent immédiatement."), 0, 0)
+    local fields, syncing, section = {}, false, "general"
     local LayoutAppearance
     local themeButton = Button(body, "ArkannsQOLCommonTheme", "", 0, 0, 330, function(self)
         if not MenuUtil or not MenuUtil.CreateContextMenu then return end
@@ -560,9 +558,17 @@ local function BuildAppearance(root)
     Slider("borderSize", L("Épaisseur de bordure"), 1, 24)
     Slider("padding", L("Marge intérieure"), 4, 24)
     Slider("gap", L("Espacement"), 0, 20)
-    local advancedButton = Button(body, "ArkannsQOLCommonAdvanced", L("Personnalisation avancée"), 0, 0, 260, function()
-        advanced = not advanced; LayoutAppearance()
-    end)
+    local tabs = {}
+    for _, spec in ipairs({{"general", "ArkannsQOLCommonGeneral", "Général"},
+        {"style", "ArkannsQOLCommonAdvanced", "Couleurs et bordure"},
+        {"dimensions", "ArkannsQOLCommonDimensions", "Dimensions"}}) do
+        local id = spec[1]
+        tabs[#tabs + 1] = {id = id, button = Button(panel, spec[2], L(spec[3]), 0, 0, 150, function()
+            section = id
+            scroll:SetVerticalScroll(0)
+            LayoutAppearance()
+        end)}
+    end
     local fontButton = Button(body, "ArkannsQOLCommonFont", "", 0, 0, 330, function(self)
         if not MenuUtil or not MenuUtil.CreateContextMenu then return end
         MenuUtil.CreateContextMenu(self, function(_, menu)
@@ -595,17 +601,21 @@ local function BuildAppearance(root)
         end)
     end
     local colorHint=Label(body, L("Couleurs · code hexadécimal (#RRGGBB)"), 0, 0)
-    local textHeading=Label(body, L("Texte et échelle"), 0, 0, 15)
-    local frameHeading=Label(body, L("Fond et bordure"), 0, 0, 15)
-    local spacingHeading=Label(body, L("Espacement des modules"), 0, 0, 15)
-    local reset=Button(body, "ArkannsQOLCommonDefaults", L("Rétablir Chaleureux"), 0, 0, 220, function()
+    local reset=Button(panel, "ArkannsQOLCommonDefaults", L("Rétablir Chaleureux"), 0, 0, 220, function()
         UI.Confirm(L("Rétablir tous les réglages de l’apparence commune sur Chaleureux ?"), function()
             local value = Copy(defaults)
             value.overrides, value.pins, value.grid, value.snap = config.overrides, config.pins, config.grid, config.snap
             UI.ImportSettings(value)
         end)
     end)
-    local preview=Button(body, "ArkannsQOLCommonPreview", L("Aperçu du journal"), 0, 0, 200, function() UI.PreviewModule("session") end)
+    local preview=Button(panel, "ArkannsQOLCommonPreview", L("Aperçu du journal"), 0, 0, 200, function() UI.PreviewModule("session") end)
+    local specimen = CreateFrame("Frame", "ArkannsQOLCommonSample", panel, "BackdropTemplate")
+    local specimenTitle = Label(specimen, L("Aperçu"), 12, -12, 15)
+    local specimenText = Label(specimen, L("Texte"), 12, -44)
+    local specimenLine = specimen:CreateTexture(nil, "ARTWORK")
+    specimenLine:SetPoint("BOTTOMLEFT", 12, 14)
+    specimenLine:SetPoint("BOTTOMRIGHT", -12, 14)
+    specimenLine:SetHeight(3)
     appearanceRefresh = function()
         syncing = true
         themeButton:SetText(L("Thème : %s"):format(themes[config.theme].label))
@@ -626,102 +636,116 @@ local function BuildAppearance(root)
             end
         end
         fontButton:SetText(L("Police : ") .. ({standard=L("Classique"),narrow="Arial",fantasy="Morpheus"})[config.font])
+        UI.StyleFrame(specimen)
+        specimenTitle:SetFont(fonts[config.font], config.fontSize + 2, "")
+        specimenTitle:SetTextColor(unpack(config.accent))
+        specimenText:SetFont(fonts[config.font], config.fontSize, "")
+        specimenText:SetTextColor(unpack(config.text))
+        specimenLine:SetColorTexture(unpack(config.accent))
         syncing = false
         LayoutAppearance()
     end
     LayoutAppearance = function()
         local width = math.max(1, panel:GetWidth() - 50)
-        local controlWidth = math.min(330, width)
-        local paired = width >= 570
-        local columnWidth = paired and (width - 24) / 2 or width
-        local right = paired and columnWidth + 24 or 0
-        local function SliderRow(key, x, y, space, shown)
+        local short = panel:GetHeight() < 420
+        local beside = width >= 620
+        local contentWidth = beside and width - 238 or width
+        local function SliderRow(key, y, shown)
             local field = fields[key]
             field.caption:SetShown(shown); field.slider:SetShown(shown)
             if not shown then return y end
-            Place(field.caption, x, y, space)
+            Place(field.caption, 0, y, contentWidth)
             local captionHeight = field.caption:GetStringHeight()
-            Place(field.slider, x + 4, y + captionHeight + 8, math.max(1, math.min(330, space - 8)))
-            return y + captionHeight + 38
+            Place(field.slider, 4, y + captionHeight + (short and 4 or 6), math.max(1, contentWidth - 8))
+            return y + captionHeight + (short and 26 or 34)
         end
-        local function Section(label, x, y, space)
-            Place(label, x, y, space)
-            return y + label:GetStringHeight() + 12
-        end
-        local function MenuRow(button, x, y, space)
-            local buttonWidth = math.min(330, space)
-            Place(button, x, y, buttonWidth)
+        local function MenuRow(button, y, shown)
+            button:SetShown(shown)
+            if not shown then return y end
+            local buttonWidth = contentWidth
+            Place(button, 0, y, buttonWidth)
             local text = button:GetFontString()
             text:SetWidth(math.max(1, buttonWidth - 24)); text:SetWordWrap(true)
-            button:SetHeight(math.max(26, text:GetStringHeight() + 10))
-            return y + button:GetHeight() + 12
+            button:SetHeight(math.max(26, text:GetStringHeight() + (short and 6 or 10)))
+            return y + button:GetHeight() + (short and 6 or 10)
         end
-
-        heading:SetWidth(width)
-        local y = heading:GetStringHeight() + 8
+        heading:SetShown(not short)
+        description:SetShown(not short)
+        local top = 8
+        if not short then
+            Place(heading, 16, 16, width)
+            top = heading:GetStringHeight() + 24
+        end
         back:SetShown(appearanceBack ~= nil)
         if appearanceBack then
-            Place(back, 0, y, math.min(240, width))
-            y = y + 34
+            Place(back, 16, top, math.min(240, width))
+            top = top + (short and 30 or 34)
         end
-        Place(description, 0, y, width)
-        y = y + description:GetStringHeight() + 20
-        local themeBottom = MenuRow(themeButton, 0, y, columnWidth)
-        y = math.max(themeBottom, SliderRow("fontSize", right, paired and y or themeBottom, columnWidth, true))
-        Place(preview, 0, y, math.min(200, width))
-        y = y + 34
-        local separatePreview = UI.IsOverride("session")
-        previewHint:SetShown(separatePreview)
-        if separatePreview then
-            Place(previewHint, 0, y, width)
-            y = y + previewHint:GetStringHeight() + 8
+        if not short then
+            Place(description, 16, top, width)
+            top = top + description:GetStringHeight() + 12
         end
-        advancedButton:SetText(advanced and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
-        Place(advancedButton, 0, y, controlWidth)
-        y = y + 36
-
-        borderButton:SetShown(advanced); fontButton:SetShown(advanced)
-        colorHint:SetShown(advanced); reset:SetShown(advanced)
-        textHeading:SetShown(advanced); frameHeading:SetShown(advanced); spacingHeading:SetShown(advanced)
-        if advanced then
-            local textY = Section(textHeading, 0, y + 6, columnWidth)
-            textY = MenuRow(fontButton, 0, textY, columnWidth)
-            textY = SliderRow("scale", 0, textY, columnWidth, true)
-            local frameY = Section(frameHeading, right, paired and y + 6 or textY + 12, columnWidth)
-            frameY = MenuRow(borderButton, right, frameY, columnWidth)
-            frameY = SliderRow("borderSize", right, frameY, columnWidth, config.border ~= "none")
-            frameY = SliderRow("opacity", right, frameY, columnWidth, true)
-            y = math.max(textY, frameY) + 12
+        local tabX, tabY = 16, top
+        local equalTabs = width >= 420
+        local tabWidth = (width - 12) / 3
+        for _, tab in ipairs(tabs) do
+            local button = tab.button
+            local needed = equalTabs and tabWidth or math.min(width, button:GetFontString():GetUnboundedStringWidth() + 24)
+            if tabX > 16 and tabX + needed > width + 16 then tabX, tabY = 16, tabY + 34 end
+            Place(button, tabX, tabY, needed)
+            button:SetHeight(28)
+            button:SetEnabled(tab.id ~= section)
+            tabX = tabX + needed + 6
+        end
+        top = tabY + (short and 36 or 42)
+        local footerHeight = width >= 440 and (short and 42 or 48) or (short and 76 or 82)
+        scroll:ClearAllPoints()
+        scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -top)
+        scroll:SetSize(contentWidth, math.max(1, panel:GetHeight() - top - footerHeight))
+        specimen:SetParent(beside and panel or body)
+        specimen:SetShown(beside or not short)
+        if beside then
+            Place(specimen, 16 + contentWidth + 24, top, 214)
         else
-            for _, key in ipairs({"scale", "borderSize", "opacity"}) do SliderRow(key, 0, y, width, false) end
+            Place(specimen, 0, 0, contentWidth)
         end
-        local spacingY = y
-        if advanced then
-            spacingY = Section(spacingHeading, 0, y, columnWidth)
+        specimen:SetHeight(110)
+        specimenTitle:SetWidth(specimen:GetWidth() - 24)
+        specimenText:SetWidth(specimen:GetWidth() - 24)
+        local y = (beside or short) and 0 or 126
+        y = MenuRow(themeButton, y, section == "general")
+        y = MenuRow(fontButton, y, section == "general")
+        y = SliderRow("fontSize", y, section == "general")
+        y = SliderRow("scale", y, section == "general")
+        y = MenuRow(borderButton, y, section == "style")
+        y = SliderRow("opacity", y, section == "style")
+        y = SliderRow("borderSize", y, section == "dimensions" and config.border ~= "none")
+        y = SliderRow("padding", y, section == "dimensions")
+        y = SliderRow("gap", y, section == "dimensions")
+        colorHint:SetShown(section == "style")
+        if section == "style" then
+            Place(colorHint, 0, y, contentWidth)
+            y = y + colorHint:GetStringHeight() + (short and 8 or 10)
         end
-        spacingY = SliderRow("padding", 0, spacingY, columnWidth, advanced)
-        spacingY = SliderRow("gap", 0, spacingY, columnWidth, advanced)
-        local colorY = advanced and Section(colorHint, right, paired and y or spacingY + 12, columnWidth) or y
         for _, key in ipairs({"bg", "text", "accent"}) do
-            pickers[key]:SetShown(advanced); colors[key]:SetShown(advanced); colorButtons[key]:SetShown(advanced)
-            if advanced then
-                Place(pickers[key], right, colorY, math.min(144, columnWidth))
-                local sameRow = columnWidth >= 334
-                if not sameRow then colorY = colorY + 30 end
-                Place(colors[key], right + (sameRow and 156 or 4), colorY)
-                Place(colorButtons[key], right + (sameRow and 244 or 92), colorY)
-                colorY = colorY + 34
+            local visible = section == "style"
+            pickers[key]:SetShown(visible); colors[key]:SetShown(visible); colorButtons[key]:SetShown(visible)
+            if visible then
+                local sameRow = contentWidth >= 334
+                Place(pickers[key], 0, y, sameRow and contentWidth - 190 or contentWidth)
+                if not sameRow then y = y + 34 end
+                Place(colors[key], sameRow and contentWidth - 182 or 4, y)
+                Place(colorButtons[key], sameRow and contentWidth - 94 or 92, y)
+                y = y + (short and 32 or 36)
             else
                 colors[key]:ClearFocus()
             end
         end
-        if advanced then
-            y = math.max(spacingY, colorY)
-            Place(reset, 0, y + 6, math.min(220, width))
-            y = y + 40
-        end
-        body:SetSize(width, y)
+        Place(reset, 16, panel:GetHeight() - footerHeight + 8, math.min(220, width))
+        Place(preview, width >= 440 and width - 184 or 16, panel:GetHeight() - (width >= 440 and footerHeight - 8 or 40), math.min(200, width))
+        body:SetSize(contentWidth, y)
         UI.ClampScroll(scroll, y)
+        if scroll.ScrollBar then scroll.ScrollBar:SetShown(y > scroll:GetHeight() + 1) end
     end
     panel:SetScript("OnShow", appearanceRefresh)
     panel:HookScript("OnSizeChanged",LayoutAppearance)
@@ -734,7 +758,10 @@ local function BuildAppearance(root)
                 ["Fond"] = pickers.bg, ["Texte"] = pickers.text, ["Bordure et accents"] = pickers.accent }
             for _, field in pairs(fields) do targets[field.title] = field.slider end
             local target = targets[L(source)] or targets[source]
-            if source ~= "Thème" and source ~= "Taille du texte des modules" then advanced = true end
+            local sections = { ["Thème"] = "general", ["Taille du texte des modules"] = "general", ["Police"] = "general", ["Échelle (%)"] = "general",
+                ["Type de bordure"] = "style", ["Opacité du fond (%)"] = "style", ["Fond"] = "style", ["Texte"] = "style", ["Bordure et accents"] = "style" }
+            section = sections[source] or "dimensions"
+            scroll:SetVerticalScroll(0)
             LayoutAppearance()
             UI.RevealControl(scroll, target)
         end,

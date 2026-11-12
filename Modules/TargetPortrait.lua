@@ -11,7 +11,7 @@ local events = {"PLAYER_ENTERING_WORLD", "PLAYER_TARGET_CHANGED", "PLAYER_REGEN_
 local db, driver, overlay, toggle, refreshSettings, category
 local anchoredPortrait, rejectedPortrait, paintedClass
 local revision, selectedUnit, previewClass = 0, "target", "MAGE"
-local sample, previewActive, settingsPanel
+local sample, previewActive, settingsPanel, previewButton
 local decorations = {target = {}, player = {}}
 local defaults = {enabled = true, intensity = "ornate", size = 100, borderSize = 2, gap = 0,
     opacity = 1, glow = .35, animated = false, classColor = true, color = {1, .82, .35}, x = 0, y = 0}
@@ -59,6 +59,7 @@ end
 local function StopDecoration(frame)
     if not frame then return end
     frame:Hide()
+    for _, ornament in ipairs(frame.ornaments) do ornament:Hide() end
     frame.pulse:Stop()
     frame.glowHost:SetAlpha(1)
 end
@@ -67,6 +68,14 @@ local function CreateDecoration(parent, name)
     local frame = CreateFrame("Frame", name, parent)
     frame:Hide()
     frame:EnableMouse(false)
+    -- The native portrait is BACKGROUND sublevel 1. Its opaque face covers the crest center.
+    -- Native ornamental edges have low alpha; repeated layers make their relief readable.
+    frame.ornaments = {}
+    for index = 1, 4 do
+        local ornament = parent:CreateTexture(nil, "BACKGROUND", nil, 0)
+        ornament:Hide()
+        frame.ornaments[index] = ornament
+    end
     frame.rings = {}
     for index = 1, 4 do
         local ring = frame:CreateTexture(nil, "BORDER")
@@ -106,9 +115,11 @@ local function CreateDecoration(parent, name)
         animation:SetFromAlpha(alphas[1])
         animation:SetToAlpha(alphas[2])
     end
-    frame.crest = frame:CreateTexture(nil, "OVERLAY")
-    frame.runes = {frame:CreateTexture(nil, "ARTWORK"), frame:CreateTexture(nil, "ARTWORK")}
+    frame:SetScript("OnShow", function()
+        for index, ornament in ipairs(frame.ornaments) do ornament:SetShown(index <= (frame.ornamentCount or 0)) end
+    end)
     frame:SetScript("OnHide", function()
+        for _, ornament in ipairs(frame.ornaments) do ornament:Hide() end
         frame.pulse:Stop()
         frame.glowHost:SetAlpha(1)
     end)
@@ -129,17 +140,12 @@ local function LayoutDecoration(frame, config, unit)
     if frame.glowMask then frame.glowMask:SetSize(side * 121 / 79, side * 121 / 79) end
     frame.glow:SetAlpha(config.glow)
     frame.glow:SetShown(frame.glow.available and config.glow > 0)
-    local radius = side / 2
-    local outward = unit == "player" and -1 or 1
-    frame.crest:ClearAllPoints()
-    frame.crest:SetPoint("CENTER", frame, "CENTER", 0, radius + 5)
-    frame.crest:SetSize(24, 24)
-    for index, rune in ipairs(frame.runes) do
-        rune:ClearAllPoints()
-        local x = index == 1 and outward * (radius + 5) or -outward * radius * .7
-        local y = index == 1 and 16 or radius * .8 + 8
-        rune:SetPoint("CENTER", frame, "CENTER", x, y)
-        rune:SetSize(config.intensity == "epic" and 22 or 16, config.intensity == "epic" and 22 or 16)
+    local ornamentSize = side * (config.intensity == "epic" and 1.5 or 1.32)
+    for _, ornament in ipairs(frame.ornaments) do
+        ornament:ClearAllPoints()
+        ornament:SetPoint("CENTER", frame, "CENTER")
+        ornament:SetSize(ornamentSize, ornamentSize)
+        ornament:SetAlpha(config.opacity)
     end
     frame.config, frame.paintedClass = Normalize(config), nil
 end
@@ -157,16 +163,15 @@ local function PaintDecoration(frame, class)
         end
         for _, ring in ipairs(frame.rings) do ring:SetVertexColor(unpack(color)) end
         frame.glow:SetVertexColor(unpack(color))
-        frame.crest:SetShown(config.intensity ~= "subtle" and Resource(frame.crest, artwork.emblem))
-        for index, rune in ipairs(frame.runes) do
-            rune:SetShown(config.intensity ~= "subtle" and (index == 1 or config.intensity == "epic") and Resource(rune, artwork.rune))
-        end
-        for _, ornament in ipairs({frame.crest, frame.runes[1], frame.runes[2]}) do
+        frame.ornamentCount = config.intensity == "subtle" and 0 or config.intensity == "epic" and 4 or 3
+        for _, ornament in ipairs(frame.ornaments) do
+            if not Resource(ornament, artwork.rune) then frame.ornamentCount = 0 end
             ornament:SetDesaturated(not config.classColor)
             if config.classColor then ornament:SetVertexColor(1, 1, 1) else ornament:SetVertexColor(unpack(color)) end
         end
         frame.paintedClass = class
     end
+    for index, ornament in ipairs(frame.ornaments) do ornament:SetShown(index <= frame.ornamentCount) end
     if config.animated and config.glow > 0 and frame.glow.available then
         if not frame.pulse:IsPlaying() then frame.pulse:Play() end
     else
@@ -326,6 +331,7 @@ local function StopPreview()
     previewActive = false
     StopDecoration(sample)
     if sample and sample.face then sample.face:Hide() end
+    if previewButton then previewButton:Show() end
     if UI.PreviewEnded then UI.PreviewEnded("targetPortrait") end
 end
 
@@ -336,7 +342,7 @@ local function RefreshPreview()
     end
     if not sample then
         sample = CreateDecoration(settingsPanel.previewHost, "ArkannsQOLClassPortraitPreview")
-        sample.face = settingsPanel.previewHost:CreateTexture(nil, "BACKGROUND")
+        sample.face = settingsPanel.previewHost:CreateTexture(nil, "BACKGROUND", nil, 1)
         sample.faceMask = sample.face:SetTexture(classTexture) and settingsPanel.previewHost.CreateMaskTexture
             and MaskCircle(settingsPanel.previewHost, sample.face, 58)
     end
@@ -344,9 +350,14 @@ local function RefreshPreview()
     LayoutDecoration(sample, db[selectedUnit], selectedUnit)
     sample:ClearAllPoints()
     sample:SetPoint("CENTER", settingsPanel.previewHost, "CENTER", db[selectedUnit].x, db[selectedUnit].y)
-    local slot = Art.classSlots[previewClass]
-    local x, y = (slot % 4) / 4, math.floor(slot / 4) / 4
-    sample.face:SetTexCoord(x + .5 / 256, x + .25 - .5 / 256, y + .5 / 256, y + .25 - .5 / 256)
+    if WoW.ReadValue(UnitExists, "player") == true and WoW.Read(SetPortraitTexture, sample.face, "player", true) == "ok" then
+        sample.face:SetTexCoord(0, 1, 0, 1)
+    else
+        sample.face:SetTexture(classTexture)
+        local slot = Art.classSlots[previewClass]
+        local x, y = (slot % 4) / 4, math.floor(slot / 4) / 4
+        sample.face:SetTexCoord(x + .5 / 256, x + .25 - .5 / 256, y + .5 / 256, y + .25 - .5 / 256)
+    end
     local portraitSize = selectedUnit == "player" and 60 or 58
     sample.face:SetSize(portraitSize, portraitSize)
     sample.faceMask:SetSize(portraitSize, portraitSize)
@@ -413,23 +424,20 @@ function ns.InitializeTargetPortrait(root)
     body:SetSize(500, 1)
     scroll:SetScrollChild(body)
     local rows, updates, targets = {}, {}, {}
-    local advanced, syncing, Layout = false, false
-    local function Track(control, kind, source, isAdvanced)
-        rows[#rows + 1] = {frame = control, kind = kind, advanced = isAdvanced}
+    local activeSection, syncing, Layout = "style", false
+    local function Track(control, kind, source)
+        rows[#rows + 1] = {frame = control, kind = kind, source = source}
         if source then targets[source] = control end
         return control
     end
-    local function Text(source, size)
-        return Track(UI.Label(body, L(source), 0, 0, size), "text")
+    local function Button(name, source, action)
+        return Track(UI.Button(body, "ArkannsQOLTargetPortrait" .. name, L(source), 0, 0, 330, action), "button", source)
     end
-    local function Button(name, source, action, isAdvanced)
-        return Track(UI.Button(body, "ArkannsQOLTargetPortrait" .. name, L(source), 0, 0, 330, action), "button", source, isAdvanced)
-    end
-    local function Check(name, source, getter, setter, isAdvanced)
+    local function Check(name, source, getter, setter)
         local control = Track(UI.Check(body, "ArkannsQOLTargetPortrait" .. name, L(source), 0, 0, function(value)
             setter(value)
             Changed()
-        end), "check", source, isAdvanced)
+        end), "check", source)
         updates[#updates + 1] = function() control:SetChecked(getter()) end
         return control
     end
@@ -445,14 +453,18 @@ function ns.InitializeTargetPortrait(root)
         end)
         updates[#updates + 1] = function()
             for _, item in ipairs(values) do
-                if getter() == item[1] then control:SetText(L("%s : %s"):format(L(source), L(item[2]))) end
+                if getter() == item[1] then
+                    control:SetText(L("%s : %s"):format(L(name == "Intensity" and "Ornements" or source), L(item[2])))
+                end
             end
         end
         return control
     end
     local function Slider(key, source, minimum, maximum, factor)
+        local short = ({size = "Taille (%)", borderSize = "Épaisseur", gap = "Écart du cadre",
+            opacity = "Opacité (%)", glow = "Halo (%)", x = "Horizontal", y = "Vertical"})[key]
         local caption = UI.Label(body, "", 0, 0)
-        local control = Track(CreateFrame("Slider", "ArkannsQOLTargetPortrait" .. key:sub(1, 1):upper() .. key:sub(2), body, "BackdropTemplate"), "slider", source, true)
+        local control = Track(CreateFrame("Slider", "ArkannsQOLTargetPortrait" .. key:sub(1, 1):upper() .. key:sub(2), body, "BackdropTemplate"), "slider", source)
         rows[#rows].caption = caption
         control:SetSize(330, 18)
         control:SetOrientation("HORIZONTAL")
@@ -470,30 +482,28 @@ function ns.InitializeTargetPortrait(root)
         updates[#updates + 1] = function()
             local value = math.floor(db[selectedUnit][key] * (factor or 1) + .5)
             control:SetValue(value)
-            caption:SetText(L("%s : %s"):format(L(source), tostring(value)))
+            caption:SetText(L("%s : %s"):format(L(short), tostring(value)))
         end
     end
-    Text("Portraits de classe", 18)
     toggle = Track(UI.Check(body, "ArkannsQOLTargetPortraitEnabled", L(toggleSource), 0, 0, SetEnabled), "check", toggleSource)
     updates[#updates + 1] = function() toggle:SetChecked(db.enabled) end
-    Choice("Unit", "Portrait à personnaliser", {{"target", "Cible"}, {"player", "Joueur"}},
+    local unitChoice = Choice("Unit", "Portrait à personnaliser", {{"target", "Cible"}, {"player", "Joueur"}},
         function() return selectedUnit end, function(value) selectedUnit = value end)
-    Check("UnitEnabled", "Afficher le cadre de ce portrait", function() return db[selectedUnit].enabled end,
+    local unitEnabled = Check("UnitEnabled", "Afficher le cadre de ce portrait", function() return db[selectedUnit].enabled end,
         function(value) db[selectedUnit].enabled = value end)
     Choice("Intensity", "Intensité des ornements", {{"subtle", "Sobre"}, {"ornate", "Ornée"}, {"epic", "Spectaculaire"}},
         function() return db[selectedUnit].intensity end, function(value) db[selectedUnit].intensity = value end)
     local classes = {}
     for _, class in ipairs(Art.order) do classes[#classes + 1] = {class, Art.classes[class].label} end
-    Choice("PreviewClass", "Classe de l’aperçu", classes, function() return previewClass end, function(value) previewClass = value end)
-    Button("Preview", "Afficher l’aperçu", function() UI.PreviewModule("targetPortrait") end)
-    panel.previewHost = Track(CreateFrame("Frame", nil, body), "preview")
-    panel.previewHost:SetSize(250, 250)
-    Text("Les changements du cadre s’appliquent après le combat.")
-    rows[#rows].combat = true
-    local advancedButton = Button("Advanced", "Personnalisation avancée", function()
-        advanced = not advanced
+    local previewChoice = Choice("PreviewClass", "Classe de l’aperçu", classes, function() return previewClass end, function(value) previewClass = value end)
+    previewButton = Button("Preview", "Afficher l’aperçu", function()
+        previewActive = true
+        RefreshPreview()
         Layout()
     end)
+    panel.previewHost = CreateFrame("Frame", nil, panel)
+    panel.previewHost:SetSize(250, 250)
+    local pending = Track(UI.Label(body, L("Les changements du cadre s’appliquent après le combat."), 0, 0), "text")
     Slider("size", "Taille du cadre (%)", 80, 140)
     Slider("borderSize", "Épaisseur de bordure", 1, 4)
     Slider("gap", "Distance autour du portrait", 0, 10)
@@ -502,7 +512,7 @@ function ns.InitializeTargetPortrait(root)
     Slider("x", "Décalage horizontal", -40, 40)
     Slider("y", "Décalage vertical", -40, 40)
     Check("ClassColor", "Utiliser la couleur de classe", function() return db[selectedUnit].classColor end,
-        function(value) db[selectedUnit].classColor = value end, true)
+        function(value) db[selectedUnit].classColor = value end)
     local colorButton = Button("Color", "Couleur personnalisée", function()
         if not ColorPickerFrame or not ColorPickerFrame.SetupColorPickerAndShow then return end
         local unit, config = selectedUnit, db[selectedUnit]
@@ -519,7 +529,7 @@ function ns.InitializeTargetPortrait(root)
                 Changed()
             end,
         })
-    end, true)
+    end)
     local swatch = colorButton:CreateTexture(nil, "OVERLAY")
     swatch:SetSize(18, 12)
     swatch:SetPoint("RIGHT", -8, 0)
@@ -528,57 +538,135 @@ function ns.InitializeTargetPortrait(root)
         swatch:SetColorTexture(unpack(db[selectedUnit].color))
     end
     Check("Animated", "Animer le halo", function() return db[selectedUnit].animated end,
-        function(value) db[selectedUnit].animated = value end, true)
-    Check("Medallion", "Afficher le médaillon de classe", function() return db.medallion end,
-        function(value) db.medallion = value end, true)
-    Track(UI.Label(body, L("Le médaillon supplémentaire concerne uniquement la cible."), 0, 0), "text", nil, true)
-    Button("Reset", "Réinitialiser ce portrait", function()
+        function(value) db[selectedUnit].animated = value end)
+    local medallion = Check("Medallion", "Afficher le médaillon de classe", function() return db.medallion end,
+        function(value) db.medallion = value end)
+    local medallionHelp = Track(UI.Label(body, L("Le médaillon supplémentaire concerne uniquement la cible."), 0, 0), "text")
+    local reset = Button("Reset", "Réinitialiser ce portrait", function()
         local unit, config = selectedUnit, db[selectedUnit]
         UI.Confirm(L("Rétablir l’apparence par défaut de ce portrait ?"), function()
             if db[unit] ~= config then return end
             db[unit] = Normalize()
             Changed()
         end)
-    end, true)
-    Track(UI.Label(body, L("Si WoW remplace le portrait par l’icône de classe, désactive ce réglage dans les options de WoW pour retrouver le visage."), 0, 0), "text")
+    end)
+    local sectionButtons = {}
+    for _, entry in ipairs({{"style", "Style", "Style"}, {"placement", "Placement", "Advanced"}, {"effects", "Effets", "Effects"}}) do
+        local id = entry[1]
+        sectionButtons[id] = UI.Button(panel, "ArkannsQOLTargetPortrait" .. entry[3], L(entry[2]), 0, 0, 100, function()
+            activeSection = id
+            scroll:SetVerticalScroll(0)
+            Layout()
+        end)
+    end
+    targets["Personnalisation avancée"] = sectionButtons.placement
+    local pinned = {[toggle] = true, [unitChoice] = true, [unitEnabled] = true, [previewChoice] = true,
+        [previewButton] = true, [pending] = true, [reset] = true}
+    for control in pairs(pinned) do control:SetParent(panel) end
+    local sourceSections = {
+        ["Intensité des ornements"] = "style", ["Épaisseur de bordure"] = "style",
+        ["Utiliser la couleur de classe"] = "style", ["Couleur personnalisée"] = "style",
+        ["Taille du cadre (%)"] = "placement", ["Distance autour du portrait"] = "placement",
+        ["Décalage horizontal"] = "placement", ["Décalage vertical"] = "placement",
+        ["Opacité (%)"] = "effects", ["Intensité du halo (%)"] = "effects", ["Animer le halo"] = "effects",
+        ["Afficher le médaillon de classe"] = "effects",
+    }
     Layout = function()
-        local width = math.max(250, panel:GetWidth() - 54)
-        local y = 0
-        advancedButton:SetText(advanced and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
+        local width = math.max(250, panel:GetWidth() - 32)
+        local height = panel:GetHeight()
+        local paired = width >= 500
+        local previewWidth = paired and 204 or 122
+        local controlWidth = paired and width - previewWidth - 24 or width - 18
+        local top = paired and 50 or 182
+        local function Place(control, x, y, w)
+            control:ClearAllPoints()
+            control:SetPoint("TOPLEFT", panel, "TOPLEFT", x, -y)
+            if w then control:SetWidth(w) end
+        end
+        Place(toggle, 16, 12)
+        toggle.label:SetText(L("Activer"))
+        toggle.label:SetWidth(80)
+        Place(unitChoice, paired and 104 or 16, paired and 12 or 48, paired and 96 or math.max(120, width - previewWidth - 16))
+        unitChoice:SetText(selectedUnit == "player" and L("Joueur") or L("Cible"))
+        Place(unitEnabled, paired and 208 or 16, paired and 12 or 106)
+        unitEnabled.label:SetText(L("Afficher"))
+        unitEnabled.label:SetWidth(paired and 72 or width - 38)
+        local tabWidth = (controlWidth - 12) / 3
+        for index, id in ipairs({"style", "placement", "effects"}) do
+            local button = sectionButtons[id]
+            Place(button, 16 + (index - 1) * (tabWidth + 6), top, tabWidth)
+            button:SetEnabled(activeSection ~= id)
+        end
+        scroll:ClearAllPoints()
+        scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -top - 38)
+        scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", paired and -previewWidth - 40 or -34, 54)
+        local previewX = width - previewWidth + 16
+        local previewTop = 10
+        local previewScale = previewWidth / 250
+        Place(previewChoice, previewX, previewTop, previewWidth)
+        previewChoice:SetText(L(Art.classes[previewClass].label))
+        panel.previewHost:ClearAllPoints()
+        panel.previewHost:SetPoint("TOPLEFT", panel, "TOPLEFT", previewX / previewScale, -(previewTop + 34) / previewScale)
+        panel.previewHost:SetScale(previewScale)
+        Place(previewButton, previewX, previewTop + previewWidth + 40, previewWidth)
+        previewButton:SetShown(not previewActive)
+        Place(reset, 16, math.max(top + 40, height - 40), math.min(controlWidth, 250))
+        pending:SetShown(WoW.ReadValue(InCombatLockdown) ~= false)
+        Place(pending, paired and previewX or 16, paired and previewTop + previewWidth + 80 or height - 80, paired and previewWidth or controlWidth)
+        local visibleRows = {}
         for _, row in ipairs(rows) do
             local control = row.frame
-            local visible = (not row.advanced or advanced) and (not row.combat or WoW.ReadValue(InCombatLockdown) ~= false)
-            control:SetShown(visible)
+            local section = sourceSections[row.source] or "effects"
+            local visible = not pinned[control] and section == activeSection
+            if control == colorButton and db[selectedUnit].classColor then visible = false end
+            if (control == medallion or control == medallionHelp) and selectedUnit ~= "target" then visible = false end
+            if not pinned[control] then control:SetShown(visible) end
             if row.caption then row.caption:SetShown(visible) end
-            if visible then
-                control:ClearAllPoints()
-                local height = 26
-                if row.kind == "text" then
-                    control:SetWidth(width)
-                    height = math.max(20, control:GetStringHeight())
-                elseif row.kind == "check" then
-                    control.label:SetWidth(width - 38)
-                    height = math.max(28, control.label:GetStringHeight() + 8)
-                elseif row.kind == "preview" then
-                    height = 250
-                    control:SetSize(width, height)
-                elseif row.kind == "slider" then
-                    row.caption:ClearAllPoints()
-                    row.caption:SetPoint("TOPLEFT", body, "TOPLEFT", 4, -y)
-                    row.caption:SetWidth(width - 8)
-                    local captionHeight = math.max(20, row.caption:GetStringHeight())
-                    control:SetWidth(math.min(330, width - 8))
-                    control:SetPoint("TOPLEFT", body, "TOPLEFT", 4, -y - captionHeight)
-                    height = captionHeight + 24
-                else
-                    control:SetWidth(math.min(330, width))
-                end
-                if row.kind ~= "slider" then control:SetPoint("TOPLEFT", body, "TOPLEFT", 0, -y) end
-                y = y + height + 10
+            if visible then visibleRows[#visibleRows + 1] = row end
+        end
+        local function PlaceRow(row, x, y, space)
+            local control = row.frame
+            control:ClearAllPoints()
+            if row.kind == "slider" then
+                row.caption:ClearAllPoints()
+                row.caption:SetPoint("TOPLEFT", body, "TOPLEFT", x + 4, -y)
+                row.caption:SetWidth(space - 8)
+                local captionHeight = math.max(20, row.caption:GetStringHeight())
+                control:SetWidth(space - 8)
+                control:SetPoint("TOPLEFT", body, "TOPLEFT", x + 4, -y - captionHeight)
+                return captionHeight + 24
+            end
+            control:SetPoint("TOPLEFT", body, "TOPLEFT", x, -y)
+            if row.kind == "check" then
+                control.label:SetWidth(space - 38)
+                return math.max(28, control.label:GetStringHeight() + 8)
+            end
+            control:SetWidth(space)
+            if row.kind == "text" then return math.max(20, control:GetStringHeight()) end
+            local text = control:GetFontString()
+            text:SetWidth(space - 24)
+            text:SetWordWrap(true)
+            control:SetHeight(math.max(26, text:GetStringHeight() + 10))
+            return control:GetHeight()
+        end
+        local y, index = 0, 1
+        while index <= #visibleRows do
+            local row, nextRow = visibleRows[index], visibleRows[index + 1]
+            local beside = controlWidth >= 260 and row.kind == "slider" and nextRow and nextRow.kind == "slider"
+            if beside then
+                local column = (controlWidth - 16) / 2
+                local leftHeight = PlaceRow(row, 0, y, column)
+                local rightHeight = PlaceRow(nextRow, column + 16, y, column)
+                y = y + math.max(leftHeight, rightHeight) + 8
+                index = index + 2
+            else
+                y = y + PlaceRow(row, 0, y, controlWidth) + 8
+                index = index + 1
             end
         end
-        body:SetSize(width, y + 6)
+        body:SetSize(controlWidth, y + 6)
         UI.ClampScroll(scroll, body:GetHeight())
+        if scroll.ScrollBar then scroll.ScrollBar:SetShown(body:GetHeight() > scroll:GetHeight() + 1) end
     end
     refreshSettings = function()
         syncing = true
@@ -615,9 +703,11 @@ function ns.InitializeTargetPortrait(root)
         StopPreview = StopPreview,
         OpenSettings = function(source)
             local target = targets[source]
-            for _, row in ipairs(rows) do if row.frame == target and row.advanced then advanced = true end end
+            if source == "Afficher le médaillon de classe" then selectedUnit = "target" end
+            if target == colorButton and db[selectedUnit].classColor then target = targets["Utiliser la couleur de classe"] end
+            activeSection = sourceSections[source] or (source == "Personnalisation avancée" and "placement") or activeSection
             refreshSettings()
-            if target and UI.RevealControl then UI.RevealControl(scroll, target) end
+            if target and not pinned[target] and sourceSections[source] and UI.RevealControl then UI.RevealControl(scroll, target) end
         end,
         ExportSettings = function()
             return {enabled = db.enabled, medallion = db.medallion, target = Normalize(db.target), player = Normalize(db.player)}

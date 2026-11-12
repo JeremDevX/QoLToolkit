@@ -31,6 +31,7 @@ function methods:SetWidth(w) self.width=w end
 function methods:SetHeight(h) self.height=h end
 function methods:GetWidth() return self.width end
 function methods:GetHeight() return self.height end
+function methods:SetParent(parent) self.parent=parent end
 function methods:GetScale() return self.scale or 1 end
 methods.GetEffectiveScale = methods.GetScale
 function methods:GetTop() return self.top end
@@ -166,27 +167,44 @@ local panel=frames.ArkannsQOLCommonAppearance
 panel:SetSize(400,600)
 panel.scripts.OnShow()
 local scroll=frames.ArkannsQOLCommonTheme.parent.parent
-local collapsedHeight=scroll.child:GetHeight()
 assert(frames.ArkannsQOLCommon_fontSize:IsShown() and frames.ArkannsQOLCommonPreview:IsShown())
-assert(not frames.ArkannsQOLCommonBorder:IsShown(), "Border type belongs with its advanced adjustments")
-assert(not frames.ArkannsQOLCommon_borderSize:IsShown(),"Detailed appearance starts collapsed")
+assert(not frames.ArkannsQOLCommonBorder:IsShown(), "General settings show theme and typography first")
+assert(not frames.ArkannsQOLCommon_borderSize:IsShown(),"Each appearance section shows its own controls")
 frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
-assert(frames.ArkannsQOLCommon_borderSize:IsShown())
-assert(frames.ArkannsQOLCommon_borderSize:GetWidth()<=350,"Appearance controls fit a narrow panel")
-panel:SetWidth(619); panel.scripts.OnSizeChanged()
-local font, border=frames.ArkannsQOLCommonFont, frames.ArkannsQOLCommonBorder
-assert(font.points.TOPLEFT[2]>border.points.TOPLEFT[2])
+assert(frames.ArkannsQOLCommonBorder:IsShown() and frames.ArkannsQOLCommonColor_bg:IsShown())
+assert(not frames.ArkannsQOLCommonFont:IsShown() and not frames.ArkannsQOLCommon_fontSize:IsShown())
 local oneColumnHeight=scroll.child:GetHeight()
-panel:SetWidth(620); panel.scripts.OnSizeChanged()
-assert(font.points.TOPLEFT[2]==border.points.TOPLEFT[2] and border.points.TOPLEFT[1]>font.points.TOPLEFT[1])
+local specimen=frames.ArkannsQOLCommonSample
+assert(specimen.parent==scroll.child, "Narrow layouts use one scroll surface for preview and controls")
+panel:SetWidth(700); panel.scripts.OnSizeChanged()
+assert(specimen.parent==panel, "The common appearance preview stays beside controls at a comfortable width")
 assert(scroll.child:GetHeight()<oneColumnHeight)
-assert(frames.ArkannsQOLCommon_fontSize.points.TOPLEFT[1]>frames.ArkannsQOLCommonTheme.points.TOPLEFT[1],
-    "Theme and text size share the primary row when both groups fit")
+assert(scroll.child:GetHeight()<=scroll:GetHeight(), "The style section fits without scrolling at the normal panel size")
+frames.ArkannsQOLCommonDimensions.scripts.OnClick()
+assert(frames.ArkannsQOLCommon_borderSize:IsShown() and not frames.ArkannsQOLCommonColor_bg:IsShown())
+assert(frames.ArkannsQOLCommon_borderSize:GetWidth()<=scroll.child:GetWidth(),"Appearance controls fit their content column")
 panel:SetWidth(400); panel.scripts.OnSizeChanged()
-scroll:SetHeight(400); scroll:SetVerticalScroll(250)
-frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
-assert(scroll:GetVerticalScroll()==0 and scroll.child:GetHeight()==collapsedHeight)
+scroll:SetVerticalScroll(250)
+frames.ArkannsQOLCommonGeneral.scripts.OnClick()
+assert(scroll:GetVerticalScroll()==0 and frames.ArkannsQOLCommon_fontSize:IsShown())
 assert(not frames.ArkannsQOLCommonColor_bg:IsShown())
+panel:SetSize(576,276); panel.scripts.OnSizeChanged()
+assert(not specimen:IsShown() and frames.ArkannsQOLCommonPreview:IsShown(),
+    "The minimum window keeps the journal preview action and releases the inline specimen space")
+assert(scroll.child:GetHeight()==156 and scroll:GetHeight()==190,
+    "General appearance controls fit in the minimum window without scrolling")
+frames.ArkannsQOLCommonDimensions.scripts.OnClick()
+assert(scroll.child:GetHeight()==138 and scroll.child:GetHeight()<=scroll:GetHeight(),
+    "Dimensions fit in the minimum window without scrolling")
+frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
+assert(scroll.child:GetHeight()==202 and scroll:GetHeight()==190,
+    "Colors need only twelve units of scrolling in the minimum window")
+assert(UI.OpenSettings("appearance",nil,"talents"))
+frames.ArkannsQOLCommonGeneral.scripts.OnClick()
+assert(frames.ArkannsQOLAppearanceBack:IsShown() and scroll.child:GetHeight()==156 and scroll:GetHeight()==160,
+    "The module return stays available while general settings still fit the minimum window")
+frames.ArkannsQOLAppearanceBack.scripts.OnClick()
+panel:SetSize(400,600); panel.scripts.OnSizeChanged()
 frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
 local appearance=UI.ExportSettings(); appearance.pins.talents=true; UI.ImportSettings(appearance)
 local card=frames.ArkannsQOLHomeTalents
@@ -520,8 +538,8 @@ assert(settingsWindow:IsShown() and root:IsShown() and not env.SettingsPanel:IsS
 assert(root.parent.parent==settingsWindow and settingsWindow.resizable and settingsWindow.resizeBounds[1]==600)
 local navigation=frames.ArkannsQOLSettingsNavigation
 assert(navigation:IsShown() and not panels.talents:IsShown())
-assert(frames.ArkannsQOLSettingsSubTab_talents:IsShown(),"Wide navigation exposes every page directly")
-assert(not frames.ArkannsQOLSettingsTab_character:IsShown())
+assert(not frames.ArkannsQOLSettingsSubTab_talents:IsShown(),"Navigation expands the selected group only")
+assert(frames.ArkannsQOLSettingsTab_character:IsShown())
 frames.ArkannsQOLSettingsTab_character.scripts.OnClick()
 assert(panels.talents:IsShown() and not root:IsShown())
 assert(frames.ArkannsQOLSettingsSubTab_talents.marker:IsShown() and not frames.ArkannsQOLSettingsSubTab_talents.enabled)
@@ -559,8 +577,10 @@ for _,english in ipairs({false,true}) do
     UI.RefreshSettingsWindow()
     for id in pairs(pageLabels) do
         local button=frames["ArkannsQOLSettingsSubTab_"..id]
-        assert(button:GetHeight()>=button.label:GetStringHeight()+12,"Localized sidebar labels fit their click target")
-        assert(button.points.TOPLEFT[1]+button:GetWidth()<=navigation.child:GetWidth())
+        if button:IsShown() then
+            assert(button:GetHeight()>=button.label:GetStringHeight()+12,"Localized sidebar labels fit their click target")
+            assert(button.points.TOPLEFT[1]+button:GetWidth()<=navigation.child:GetWidth())
+        end
     end
     settingsWindow:SetSize(600,480)
     for _,id in ipairs({"tooltips","targetPortrait","bags"}) do
@@ -585,20 +605,21 @@ for _,id in ipairs({"talents","session","reminders","ranks"}) do
 end
 local compactHeight=panels.talents:GetHeight()
 settingsWindow:SetSize(980,740)
-assert(navigation:IsShown() and subTab.parent==navigation.child and not mainTab:IsShown())
+assert(navigation:IsShown() and subTab.parent==navigation.child and mainTab:IsShown())
 assert(panels.talents:GetWidth()>=600 and panels.talents:GetHeight()>compactHeight,
     "Wide navigation leaves useful canvas width and removes stacked tab rows")
--- The sidebar itself scrolls on short windows, including its last page.
+-- Collapsing inactive groups keeps navigation within the short window.
 settingsWindow:SetSize(980,480)
 navigation:SetVerticalScroll(900)
 UI.RefreshSettingsWindow()
 assert(navigation:GetVerticalScroll()<=math.max(0,navigation.child:GetHeight()-navigation:GetHeight()))
+assert(navigation.child:GetHeight()<=navigation:GetHeight(), "Only the selected group expands, so short sidebars fit")
 navigation:SetVerticalScroll(0)
 navigation.child.top=1000
 frames.ArkannsQOLSettingsSubTab_diagnostics.top=400
 frames.ArkannsQOLSettingsSubTab_diagnostics.scripts.OnClick()
 assert(panels.diagnostics:IsShown() and not panels.talents:IsShown())
-assert(navigation:GetVerticalScroll()>0,"A destination opened from a shortcut becomes visible in short sidebars")
+assert(navigation:GetVerticalScroll()==0,"Opening another group keeps the complete compact sidebar visible")
 navigation:SetVerticalScroll(0); UI.RefreshSettingsWindow()
 assert(navigation:GetVerticalScroll()==0,"Theme refresh does not pull the sidebar away from the user's scroll position")
 for _,theme in ipairs({"modern","blizzard","warm"}) do

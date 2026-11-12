@@ -107,16 +107,14 @@ Layout = function()
     for _, tab in ipairs(mainTabs) do
         local available = false
         for _, id in ipairs(tab.group.pages) do if pages[id] then available = true end end
-        tab.button:SetShown(available and not sidebar)
+        tab.button:SetShown(available)
         if available then visibleMain[#visibleMain + 1] = tab end
-        Update(tab, tab.group == group)
-        tab.heading:SetShown(available and sidebar and tab.group.id ~= "home")
-        tab.heading:SetTextColor(style.accent[1], style.accent[2], style.accent[3], .85)
+        Update(tab, tab.group == group, sidebar)
     end
     local count = 0
     for _, id in ipairs(group.pages) do if pages[id] then count = count + 1 end end
     for _, tab in ipairs(subTabs) do
-        local visible = sidebar or (count > 1 and PageGroup(tab.id) == group)
+        local visible = PageGroup(tab.id) == group and (count > 1 or (sidebar and group.id ~= "home"))
         tab.button:SetShown(visible)
         if visible then visibleSub[#visibleSub + 1] = tab end
         Update(tab, tab.id == active, sidebar)
@@ -126,28 +124,33 @@ Layout = function()
         navigation:SetSize(navigationWidth - 24, math.max(1, window:GetHeight() - 104))
         local top, buttonWidth, activeButton = 0, navigationWidth - 24
         for _, tab in ipairs(visibleMain) do
-            if tab.group.id ~= "home" then
-                tab.heading:ClearAllPoints(); tab.heading:SetPoint("TOPLEFT", 8, -top)
-                tab.heading:SetWidth(buttonWidth - 8)
-                top = top + tab.heading:GetStringHeight() + 6
-            end
-            for _, item in ipairs(subTabs) do
-                if PageGroup(item.id) == tab.group then
+            local groupButton = tab.button
+            groupButton:SetParent(navigationBody)
+            groupButton.label:SetJustifyH("LEFT")
+            groupButton:SetWidth(buttonWidth)
+            local groupHeight = math.max(30, groupButton.label:GetStringHeight() + 12)
+            groupButton:ClearAllPoints(); groupButton:SetPoint("TOPLEFT", 0, -top)
+            groupButton:SetSize(buttonWidth, groupHeight)
+            top = top + groupHeight + 4
+            if tab.group == group then
+                activeButton = groupButton
+                for _, item in ipairs(visibleSub) do
                     local button = item.button
                     button:SetParent(navigationBody)
                     button.label:SetJustifyH("LEFT")
-                    button:SetWidth(buttonWidth)
+                    button:SetWidth(buttonWidth - 12)
                     local height = math.max(30, button.label:GetStringHeight() + 12)
-                    button:ClearAllPoints(); button:SetPoint("TOPLEFT", 0, -top)
-                    button:SetSize(buttonWidth, height)
+                    button:ClearAllPoints(); button:SetPoint("TOPLEFT", 12, -top)
+                    button:SetSize(buttonWidth - 12, height)
                     if item.id == active then activeButton = button end
                     top = top + height + 2
                 end
             end
-            top = top + 12
+            top = top + 4
         end
         navigationBody:SetSize(buttonWidth, top)
         UI.ClampScroll(navigation, top)
+        if navigation.ScrollBar then navigation.ScrollBar:SetShown(top > navigation:GetHeight() + 1) end
         if sidebarPage ~= active then UI.RevealControl(navigation, activeButton) end
         sidebarPage = active
         x = navigationWidth + 24
@@ -212,7 +215,7 @@ local function BuildWindow()
     navigationBody:SetSize(1, 1); navigation:SetScrollChild(navigationBody)
     for _, group in ipairs(groups) do
         local owner = group
-        mainTabs[#mainTabs + 1] = {group = owner, heading = UI.Label(navigationBody, owner.label, 0, 0, 12), button = CreateTab("ArkannsQOLSettingsTab_" .. owner.id, owner.label, function()
+        mainTabs[#mainTabs + 1] = {group = owner, button = CreateTab("ArkannsQOLSettingsTab_" .. owner.id, owner.label, function()
             local id = selected[owner.id]
             if not id then for _, candidate in ipairs(owner.pages) do if pages[candidate] then id = candidate; break end end end
             if id then UI.OpenSettings(id) end

@@ -452,6 +452,8 @@ local function CreateModernSettings(root)
         end)
     end)
     local a=bodies.appearance
+    local placementHeading=UI.Label(a,L("Infobulles"),0,0,15)
+    local appearanceHeading=UI.Label(a,L("Apparence"),0,0,15)
     local generalEnabled=UI.Check(a,"ArkannsQOLTooltipGeneralEnabled",L("Personnaliser les infobulles"),0,0,function(value)
         db.enabled=value; HideTooltip(); RefreshSettings()
     end)
@@ -541,6 +543,9 @@ local function CreateModernSettings(root)
     LayoutSettings=function()
         local width=math.max(320,panel:GetWidth())
         local bodyWidth=width-50
+        local wide=bodyWidth>=808
+        local columnWidth=wide and (bodyWidth-24)/2 or bodyWidth
+        local right=wide and columnWidth+24 or 0
         local columns=math.max(1,math.min(3,math.floor((width-32)/175)))
         local tabWidth=(width-32)/columns
         intro:SetWidth(width-32)
@@ -554,7 +559,9 @@ local function CreateModernSettings(root)
         local function Place(control,x,y)
             control:ClearAllPoints(); control:SetPoint("TOPLEFT",x,-y)
         end
-        for _,check in ipairs({enabled,custom,cursor,own,hideCombat,generalEnabled,generalCursor}) do check.label:SetWidth(bodyWidth-36) end
+        for _,check in ipairs({enabled,custom,cursor,own,hideCombat,generalEnabled,generalCursor}) do check.label:SetWidth(columnWidth-36) end
+        kindButton:SetWidth(math.min(270,columnWidth))
+        Place(kindButton,0,0); Place(custom,0,38)
         local options=Current()
         local canEdit=context=="general" or options.custom==true
         local fixed=canEdit and options.enabled and not options.cursor
@@ -569,44 +576,52 @@ local function CreateModernSettings(root)
             Place(enabled,0,y); y=y+math.max(32,enabled.label:GetStringHeight()+8)
             if options.enabled then Place(cursor,0,y); y=y+32 end
         else
-            inherited:SetWidth(bodyWidth-4); Place(inherited,4,y); y=y+inherited:GetStringHeight()+12
+            inherited:SetWidth(columnWidth-4); Place(inherited,4,y); y=y+inherited:GetStringHeight()+12
         end
         if fixed then
-            positionHelp:SetWidth(bodyWidth-4); Place(positionHelp,4,y); y=y+positionHelp:GetStringHeight()+10
+            positionHelp:SetWidth(columnWidth-4); Place(positionHelp,4,y); y=y+positionHelp:GetStringHeight()+10
             Place(place,0,y)
-            if bodyWidth<352 then y=y+32; Place(center,0,y) else Place(center,182,y) end
+            if columnWidth<352 then y=y+32; Place(center,0,y) else Place(center,182,y) end
             y=y+36
         elseif followsCursor then
             Place(advancedButton,0,y); y=y+34
-            if advanced then Place(advancedBody,0,y); advancedBody:SetSize(bodyWidth,62); y=y+68 end
+            if advanced then Place(advancedBody,0,y); advancedBody:SetSize(columnWidth,62); y=y+68 end
         end
         typeDefaults:SetShown(canEdit); Place(typeDefaults,0,y)
         y=y+(canEdit and 42 or 12)
-        Place(typeSizeLabel,0,y); Place(typeSize,4,y+25); typeSize:SetWidth(math.min(330,bodyWidth-8)); y=y+64
-        Place(hideCombat,0,y); y=y+math.max(36,hideCombat.label:GetStringHeight()+10)
-        combatHelp:SetWidth(bodyWidth); Place(combatHelp,0,y)
+        local placementHeight=y
+        if wide then y=0 end
+        Place(typeSizeLabel,right,y); Place(typeSize,right+4,y+25); typeSize:SetWidth(columnWidth-8); y=y+64
+        Place(hideCombat,right,y); y=y+math.max(36,hideCombat.label:GetStringHeight()+10)
+        combatHelp:SetWidth(columnWidth); Place(combatHelp,right,y)
         y=y+combatHelp:GetStringHeight()+14
-        Place(visibilityDefaults,0,y); body:SetHeight(y+42)
+        Place(visibilityDefaults,right,y); body:SetHeight(math.max(placementHeight,y+42))
 
         generalCursor:SetShown(db.enabled)
         generalPlace:SetShown(db.enabled and not db.cursor); generalCenter:SetShown(db.enabled and not db.cursor)
-        local mainY=math.max(36,generalEnabled.label:GetStringHeight()+12)
-        Place(generalEnabled,0,0); Place(generalCursor,0,mainY)
+        placementHeading:SetShown(wide); appearanceHeading:SetShown(wide)
+        Place(placementHeading,0,0); placementHeading:SetWidth(columnWidth)
+        Place(appearanceHeading,right,0); appearanceHeading:SetWidth(columnWidth)
+        local start=wide and 30 or 0
+        local mainY=start+math.max(36,generalEnabled.label:GetStringHeight()+12)
+        Place(generalEnabled,0,start); Place(generalCursor,0,mainY)
         if db.enabled then mainY=mainY+math.max(36,generalCursor.label:GetStringHeight()+12) end
         if db.enabled and not db.cursor then
             Place(generalPlace,0,mainY)
-            if bodyWidth<352 then mainY=mainY+34; Place(generalCenter,0,mainY) else Place(generalCenter,182,mainY) end
+            if columnWidth<352 then mainY=mainY+34; Place(generalCenter,0,mainY) else Place(generalCenter,182,mainY) end
             mainY=mainY+42
         end
-        Place(own,0,mainY); mainY=mainY+math.max(36,own.label:GetStringHeight()+12)
-        Place(sizeLabel,0,mainY); Place(size,4,mainY+25)
-        size:SetWidth(math.min(330,bodyWidth-8)); mainY=mainY+64
-        Place(preview,0,mainY)
-        if bodyWidth>=392 then Place(appearanceDefaults,172,mainY)
-        else mainY=mainY+34; Place(appearanceDefaults,0,mainY) end
+        local generalHeight=mainY
+        if wide then mainY=start end
+        Place(own,right,mainY); mainY=mainY+math.max(36,own.label:GetStringHeight()+12)
+        Place(sizeLabel,right,mainY); Place(size,right+4,mainY+25)
+        size:SetWidth(columnWidth-8); mainY=mainY+64
+        Place(preview,right,mainY)
+        if columnWidth>=392 then Place(appearanceDefaults,right+172,mainY)
+        else mainY=mainY+34; Place(appearanceDefaults,right,mainY) end
         mainY=mainY+38
-        if appearanceLink then Place(appearanceLink,0,mainY); mainY=mainY+38 end
-        a:SetHeight(mainY)
+        if appearanceLink then Place(appearanceLink,right,mainY); mainY=mainY+38 end
+        a:SetHeight(math.max(generalHeight,mainY))
         for _,name in ipairs(order) do if bodies[name] then UI.ClampScroll(pages[name],bodies[name]:GetHeight()) end end
     end
     if UI.AddAppearanceLink then appearanceLink=UI.AddAppearanceLink(a,"tooltips",0,0,270) end

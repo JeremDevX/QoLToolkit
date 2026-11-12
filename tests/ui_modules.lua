@@ -56,7 +56,14 @@ function methods:GetChecked() return self.checked end
 function methods:SetValue(value) self.value = value end
 function methods:GetFontString() self.fontString = rawget(self, "fontString") or Frame(); return self.fontString end
 function methods:CreateFontString(name) return Frame(name, self) end
-function methods:CreateTexture(name) return Frame(name, self) end
+function methods:CreateTexture(name, layer, _, sublevel)
+    local texture = Frame(name, self)
+    texture.layer, texture.sublevel = layer, sublevel
+    return texture
+end
+function methods:SetTexture(value) self.texture = value end
+function methods:SetAlpha(value) self.alpha = value end
+function methods:SetBlendMode(value) self.blendMode = value end
 function methods:CreateLine(name) return Frame(name, self) end
 function methods:GetThumbTexture() return Frame() end
 function methods:HasFocus() return false end
@@ -69,6 +76,7 @@ env.UIParent = Frame(); env.UIParent:SetSize(1440, 900)
 env.UISpecialFrames, env.SlashCmdList = {}, {}
 env.InCombatLockdown = function() return combat end
 env.UnitIsDeadOrGhost = function() return dead end
+env.UnitFactionGroup = false -- Override any faction stub inherited from earlier suites.
 env.GetTime = function() return 0 end
 env.C_Timer = {After = noop, NewTicker = function() return {Cancel = noop} end}
 env.Settings = {RegisterCanvasLayoutSubcategory = function() return {GetID = function() return 1 end} end}
@@ -173,6 +181,33 @@ assert(frames.ArkannsQOLSession_compact.parent == frames.ArkannsQOLSession_enabl
     "Compact mode and window visibility share the display group")
 modules.session.OpenSettings("Largeur min.")
 assert(frames.ArkannsQOLSessionAppearance.shown and revealed.control == frames.ArkannsQOLSession_width)
+do
+    local page = frames.ArkannsQOLSessionAppearance
+    local visibility = frames.ArkannsQOLSession_enabled.parent
+    local appearance = frames.ArkannsQOLSession_fontSize.parent
+    page.scripts.OnSizeChanged(page, 819)
+    local stacked = page.child:GetHeight()
+    assert(appearance.points[1][3] < 0, "Session display stacks on a narrow canvas")
+    page.scripts.OnSizeChanged(page, 820)
+    assert(appearance.points[1][2] > visibility:GetWidth() and appearance.points[1][3] == 0,
+        "Session display places visibility and appearance side by side")
+    assert(page.child:GetHeight() < stacked, "Two session groups reduce vertical scrolling")
+    page:SetVerticalScroll(900)
+    frames.ArkannsQOLSessionAdvanced.scripts.OnClick(frames.ArkannsQOLSessionAdvanced)
+    assert(page:GetVerticalScroll() <= math.max(0, page.child:GetHeight() - page:GetHeight()),
+        "Collapsing advanced appearance clamps the two-column display")
+    frames.ArkannsQOLSessionAdvanced.scripts.OnClick(frames.ArkannsQOLSessionAdvanced)
+    page.scripts.OnSizeChanged(page, 620)
+    local operation = frames.ArkannsQOLSessionMetric1.parent
+    local scroll = operation.parent
+    scroll.scripts.OnSizeChanged(scroll, 779)
+    local stackedOperation = operation:GetHeight()
+    scroll.scripts.OnSizeChanged(scroll, 780)
+    assert(frames.ArkannsQOLSessionMetric1.points[1][2] > frames.ArkannsQOLSessionTracking.points[1][2],
+        "Session statistics use a separate column from tracking controls")
+    assert(operation:GetHeight() < stackedOperation, "Tracking and metrics share the available height")
+    scroll.scripts.OnSizeChanged(scroll, 620)
+end
 modules.session.OpenSettings(nil)
 assert(frames.ArkannsQOLSessionAppearance.shown, "Layout return preserves session display tab")
 modules.session.OpenSettings("XP gagnée")
@@ -199,6 +234,7 @@ ns.UI.GetStyle = function(id)
 end
 modules.session.Refresh()
 assert(frames.ArkannsQOLSession_fontSize.value == 19 and frames.ArkannsQOLSession_opacity.value == 72)
+assert(math.abs(frames.ArkannsQOLSessionFactionEmblem.alpha - .072) < .0001, "Watermark follows shared background opacity")
 assert(env.ArkannsQOLSessionDB.fontSize == 13 and env.ArkannsQOLSessionDB.opacity == 85, "Inherited values leave the local settings intact")
 ns.UI.GetStyle = previousStyle
 local compact = frames.ArkannsQOLSession_compact
@@ -235,6 +271,48 @@ local function JournalEvent(event, ...) journalEvents.scripts.OnEvent(journalEve
 JournalEvent("PLAYER_ENTERING_WORLD", true, false)
 local journalDB = env.ArkannsQOLSessionDB
 assert(journalDB.session.startedAt == wall)
+local emblem, journalWindow = frames.ArkannsQOLSessionFactionEmblem, frames.ArkannsQOLSessionWindow
+assert(not emblem.shown and rawget(emblem, "texture") == nil, "Absent faction API leaves the background undecorated")
+assert(emblem.parent == journalWindow and emblem.layer == "ARTWORK" and emblem.sublevel == -1 and emblem.blendMode == "BLEND")
+local faction = "Horde"
+env.UnitFactionGroup = function(unit) assert(unit == "player"); return faction end
+JournalEvent("UNIT_FACTION", "player")
+assert(emblem.shown and emblem.texture == "Interface\\Timer\\Horde-Logo")
+faction = "Alliance"; JournalEvent("UNIT_FACTION", "target")
+assert(emblem.texture == "Interface\\Timer\\Horde-Logo", "Other units never replace the player's emblem")
+JournalEvent("UNIT_FACTION", "player")
+assert(emblem.texture == "Interface\\Timer\\Alliance-Logo")
+for _, layout in ipairs({"vertical", "horizontal"}) do
+    for _, theme in ipairs({"warm", "dark", "light"}) do
+        assert(modules.session.ImportSettings({layout = layout, theme = theme, compact = true, width = 240, opacity = 85}))
+        assert(emblem.width == emblem.height)
+        assert(math.abs(emblem.height - math.min(journalWindow.height * .88, journalWindow.width - 24)) < .0001,
+            "Watermark fills 88% of the journal height, bounded only by available width")
+        assert(math.abs(emblem.alpha - .085) < .0001)
+        local anchor = emblem.points[1]
+        assert(#emblem.points == 1 and anchor[1] == "RIGHT" and anchor[2] == journalWindow and anchor[4] == -12 and anchor[5] == 0)
+    end
+end
+assert(modules.session.ImportSettings({layout = "vertical", theme = "warm", compact = false, width = 300, opacity = 0}))
+assert(math.abs(emblem.height - journalWindow.height * .88) < .0001 and emblem.height > 128,
+    "Expanded journal uses its height without the old 128-unit cap")
+assert(emblem.alpha == 0, "Transparent journal also hides its watermark")
+assert(modules.session.ImportSettings({opacity = 85}))
+for _, unavailable in ipairs({"Neutral", "unknown", {}}) do
+    faction = unavailable; JournalEvent("UNIT_FACTION", "player")
+    assert(not emblem.shown and rawget(emblem, "texture") == nil, "Unknown faction clears the previous emblem")
+end
+env.UnitFactionGroup = function() error("unavailable") end
+JournalEvent("UNIT_FACTION", "player"); assert(not emblem.shown)
+local secret = {}
+env.issecretvalue = function(value) return value == secret end
+env.UnitFactionGroup = function() return secret end
+JournalEvent("UNIT_FACTION", "player"); assert(not emblem.shown)
+env.issecretvalue = nil
+env.UnitFactionGroup = function() return "Horde" end
+JournalEvent("PLAYER_ENTERING_WORLD", false, true)
+assert(emblem.shown and emblem.texture == "Interface\\Timer\\Horde-Logo", "Entering the world restores the current faction")
+print("PASS: faction watermark selection, unavailable API, compact layouts, themes, opacity, and recovery")
 clock, wall, xp, cash = 120, wall + 120, 200, 110000
 JournalEvent("PLAYER_XP_UPDATE", "player"); JournalEvent("PLAYER_MONEY")
 env.SlashCmdList.ARKANNSQOLSESSION("stop")
@@ -315,6 +393,14 @@ assert(wideHeight > collapsedHeight, "The expanded colors extend the scroll cont
 talentOptions:SetWidth(340); talentOptions.scripts.OnSizeChanged()
 assert(talentScroll.child:GetWidth() == 290 and talentScroll.child:GetHeight() > wideHeight)
 assert(frames.ArkannsQOLTalentColorfutureColor.points[1][3] < frames.ArkannsQOLTalentColornextColor.points[1][3], "Narrow talent colors stack")
+
+local stackedHeight = talentScroll.child:GetHeight()
+talentOptions:SetWidth(760); talentOptions.scripts.OnSizeChanged()
+assert(frames.ArkannsQOLTalentCompact.points[1][2] > frames.ArkannsQOLTalentMove.points[1][2],
+    "Wide talent settings keep appearance beside behavior and placement")
+assert(talentScroll.child:GetHeight() < stackedHeight, "Independent talent groups reduce scrolling")
+assert(frames.ArkannsQOLTalentAdvanced.width <= (talentScroll.child.width - 24) / 2)
+talentOptions:SetWidth(340); talentOptions.scripts.OnSizeChanged()
 talentScroll:SetVerticalScroll(300)
 frames.ArkannsQOLTalentAdvancedToggle.scripts.OnClick()
 assert(not frames.ArkannsQOLTalentAdvanced.shown and talentScroll:GetVerticalScroll() < 300)

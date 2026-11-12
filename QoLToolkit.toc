@@ -4,7 +4,7 @@
 ## Notes: Tooltips, effect reminders, session journal, talents, spell ranks, target distance and portraits, bags, flight times, and advanced settings. /qt
 ## Notes-frFR: Infobulles, rappels, journal, talents, rangs de sorts, distance et portraits de cible, sacs, temps de vol et réglages avancés. /qt
 ## Author: Arkann
-## Version: 0.1.4
+## Version: 0.1.5
 ## SavedVariables: ForeverTooltipLibreDB, ArkannsQOLFlightsDB
 ## SavedVariablesPerCharacter: ArkannsQOLRemindersDB, ArkannsQOLSessionDB, ArkannsQOLTalentsDB
 
@@ -32,6 +32,7 @@ Modules\AdvancedSettingsData.lua
 Modules\AdvancedSettings.lua
 Modules\RankGuard.lua
 Modules\TargetDistance.lua
+Modules\TargetPortraitArt.lua
 Modules\TargetPortrait.lua
 Modules\BagSort.lua
 Modules\FlightTimesData.lua

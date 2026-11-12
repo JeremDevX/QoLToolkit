@@ -1,16 +1,20 @@
-QoL Toolkit 0.1.4 for WoW Forever 1.60.1
+QoL Toolkit 0.1.5 for WoW Forever 1.60.1
 
 Added
 
-- Standalone settings window. Open every module from the minimap icon or /qt, with grouped tabs and subtabs, a draggable title, resizing, and Escape to close.
-- Flight Times. Measure complete taxi routes, show personal durations and available community estimates, and export measurements without character names.
-- Target Portrait. Show a circular class medallion with a class-colored border beside the native target portrait.
+- Class Portraits. Decorate the native player and target portraits with class-themed ornaments. Choose Subtle, Ornate, or Spectacular styling; adjust colors, glow, size, and placement; and preview each class. Keep the additional target class medallion optional.
+- Flight Times. Show a faction-themed flight timer with elapsed time, an estimated arrival countdown and progress when a duration is known, and an early-landing status.
+- Session Journal. Add a subtle faction watermark that follows the journal's height.
 
 Improved
 
-- Bags. Customize colors for each rarity, quest items, and crafting reagents. Enable each category separately and match item glows to its color.
+- Settings navigation. List all module pages in the wide sidebar and search from the current page without returning to Home. Keep the search query for repeated lookups.
+- Settings layout. Use more of the available screen width and place independent groups side by side in tooltips, distance, journal, talents, and spell rank settings. Compact windows return to one column.
+- Home. Align feature card dimensions and actions across modules and favorites. Keep Appearance, Layout, Profiles, and Diagnostics above the cards.
+- Appearance and bags. Simplify customization sections and improve responsive panel layouts.
 
 Fixed
 
-- Flight Times. Discard interrupted routes even when early landing is requested before the first periodic taxi-state check.
-- Settings search. Include Flight Times and its recording and export controls.
+- Target Distance. Use public fallback anchors when the target name is restricted and preserve the selected name-relative placement in instances.
+- Portraits. Integrate ornaments behind the native portrait and preserve a disabled module and existing local customization when importing older profiles.
+- Settings search. Open the minimap visibility control from any module page.

@@ -498,17 +498,15 @@ local function BuildAppearance(root)
     ns.appearancePanel = panel
     panel:Hide(); UI.StylePanel(panel)
     local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 16, -16); scroll:SetPoint("BOTTOMRIGHT", -34, 16)
     local body = CreateFrame("Frame", nil, scroll); body:SetSize(1, 1); scroll:SetScrollChild(body)
-    local heading=Label(body, L("Apparence générale"), 0, 0, 18)
-    local back=Button(body,"ArkannsQOLAppearanceBack",L("Retour au module"),0,0,240,function()
+    local heading=Label(panel, L("Apparence générale"), 0, 0, 18)
+    local back=Button(panel,"ArkannsQOLAppearanceBack",L("Retour au module"),0,0,240,function()
         local id = appearanceBack
         appearanceBack = nil
         if id then UI.OpenSettings(id) end
     end)
-    local description=Label(body, L("Les modules qui suivent l’apparence commune changent immédiatement."), 0, 0)
-    local previewHint=Label(body, L("Le journal utilise sa propre apparence."), 0, 0)
-    local fields, syncing, advanced = {}, false, false
+    local description=Label(panel, L("Les modules qui suivent l’apparence commune changent immédiatement."), 0, 0)
+    local fields, syncing, section = {}, false, "general"
     local LayoutAppearance
     local themeButton = Button(body, "ArkannsQOLCommonTheme", "", 0, 0, 330, function(self)
         if not MenuUtil or not MenuUtil.CreateContextMenu then return end
@@ -560,9 +558,17 @@ local function BuildAppearance(root)
     Slider("borderSize", L("Épaisseur de bordure"), 1, 24)
     Slider("padding", L("Marge intérieure"), 4, 24)
     Slider("gap", L("Espacement"), 0, 20)
-    local advancedButton = Button(body, "ArkannsQOLCommonAdvanced", L("Personnalisation avancée"), 0, 0, 260, function()
-        advanced = not advanced; LayoutAppearance()
-    end)
+    local tabs = {}
+    for _, spec in ipairs({{"general", "ArkannsQOLCommonGeneral", "Général"},
+        {"style", "ArkannsQOLCommonAdvanced", "Couleurs et bordure"},
+        {"dimensions", "ArkannsQOLCommonDimensions", "Dimensions"}}) do
+        local id = spec[1]
+        tabs[#tabs + 1] = {id = id, button = Button(panel, spec[2], L(spec[3]), 0, 0, 150, function()
+            section = id
+            scroll:SetVerticalScroll(0)
+            LayoutAppearance()
+        end)}
+    end
     local fontButton = Button(body, "ArkannsQOLCommonFont", "", 0, 0, 330, function(self)
         if not MenuUtil or not MenuUtil.CreateContextMenu then return end
         MenuUtil.CreateContextMenu(self, function(_, menu)
@@ -595,14 +601,21 @@ local function BuildAppearance(root)
         end)
     end
     local colorHint=Label(body, L("Couleurs · code hexadécimal (#RRGGBB)"), 0, 0)
-    local reset=Button(body, "ArkannsQOLCommonDefaults", L("Rétablir Chaleureux"), 0, 0, 220, function()
+    local reset=Button(panel, "ArkannsQOLCommonDefaults", L("Rétablir Chaleureux"), 0, 0, 220, function()
         UI.Confirm(L("Rétablir tous les réglages de l’apparence commune sur Chaleureux ?"), function()
             local value = Copy(defaults)
             value.overrides, value.pins, value.grid, value.snap = config.overrides, config.pins, config.grid, config.snap
             UI.ImportSettings(value)
         end)
     end)
-    local preview=Button(body, "ArkannsQOLCommonPreview", L("Aperçu du journal"), 0, 0, 200, function() UI.PreviewModule("session") end)
+    local preview=Button(panel, "ArkannsQOLCommonPreview", L("Aperçu du journal"), 0, 0, 200, function() UI.PreviewModule("session") end)
+    local specimen = CreateFrame("Frame", "ArkannsQOLCommonSample", panel, "BackdropTemplate")
+    local specimenTitle = Label(specimen, L("Aperçu"), 12, -12, 15)
+    local specimenText = Label(specimen, L("Texte"), 12, -44)
+    local specimenLine = specimen:CreateTexture(nil, "ARTWORK")
+    specimenLine:SetPoint("BOTTOMLEFT", 12, 14)
+    specimenLine:SetPoint("BOTTOMRIGHT", -12, 14)
+    specimenLine:SetHeight(3)
     appearanceRefresh = function()
         syncing = true
         themeButton:SetText(L("Thème : %s"):format(themes[config.theme].label))
@@ -623,86 +636,116 @@ local function BuildAppearance(root)
             end
         end
         fontButton:SetText(L("Police : ") .. ({standard=L("Classique"),narrow="Arial",fantasy="Morpheus"})[config.font])
+        UI.StyleFrame(specimen)
+        specimenTitle:SetFont(fonts[config.font], config.fontSize + 2, "")
+        specimenTitle:SetTextColor(unpack(config.accent))
+        specimenText:SetFont(fonts[config.font], config.fontSize, "")
+        specimenText:SetTextColor(unpack(config.text))
+        specimenLine:SetColorTexture(unpack(config.accent))
         syncing = false
         LayoutAppearance()
     end
     LayoutAppearance = function()
         local width = math.max(1, panel:GetWidth() - 50)
-        local controlWidth = math.min(330, width)
-        local function SliderRow(key, x, y, space, shown)
+        local short = panel:GetHeight() < 420
+        local beside = width >= 620
+        local contentWidth = beside and width - 238 or width
+        local function SliderRow(key, y, shown)
             local field = fields[key]
             field.caption:SetShown(shown); field.slider:SetShown(shown)
             if not shown then return y end
-            Place(field.caption, x, y, space)
+            Place(field.caption, 0, y, contentWidth)
             local captionHeight = field.caption:GetStringHeight()
-            Place(field.slider, x + 4, y + captionHeight + 8, math.max(1, math.min(330, space - 8)))
-            return y + captionHeight + 38
+            Place(field.slider, 4, y + captionHeight + (short and 4 or 6), math.max(1, contentWidth - 8))
+            return y + captionHeight + (short and 26 or 34)
         end
-
-        heading:SetWidth(width)
-        local y = heading:GetStringHeight() + 8
+        local function MenuRow(button, y, shown)
+            button:SetShown(shown)
+            if not shown then return y end
+            local buttonWidth = contentWidth
+            Place(button, 0, y, buttonWidth)
+            local text = button:GetFontString()
+            text:SetWidth(math.max(1, buttonWidth - 24)); text:SetWordWrap(true)
+            button:SetHeight(math.max(26, text:GetStringHeight() + (short and 6 or 10)))
+            return y + button:GetHeight() + (short and 6 or 10)
+        end
+        heading:SetShown(not short)
+        description:SetShown(not short)
+        local top = 8
+        if not short then
+            Place(heading, 16, 16, width)
+            top = heading:GetStringHeight() + 24
+        end
         back:SetShown(appearanceBack ~= nil)
         if appearanceBack then
-            Place(back, 0, y, math.min(240, width))
-            y = y + 34
+            Place(back, 16, top, math.min(240, width))
+            top = top + (short and 30 or 34)
         end
-        Place(description, 0, y, width)
-        y = y + description:GetStringHeight() + 14
-        Place(themeButton, 0, y, controlWidth)
-        y = SliderRow("fontSize", 0, y + 36, width, true)
-        Place(preview, 0, y, math.min(200, width))
-        y = y + 34
-        local separatePreview = UI.IsOverride("session")
-        previewHint:SetShown(separatePreview)
-        if separatePreview then
-            Place(previewHint, 0, y, width)
-            y = y + previewHint:GetStringHeight() + 8
+        if not short then
+            Place(description, 16, top, width)
+            top = top + description:GetStringHeight() + 12
         end
-        advancedButton:SetText(advanced and L("Masquer la personnalisation avancée") or L("Personnalisation avancée"))
-        Place(advancedButton, 0, y, controlWidth)
-        y = y + 36
-
-        borderButton:SetShown(advanced); fontButton:SetShown(advanced)
-        colorHint:SetShown(advanced); reset:SetShown(advanced)
-        local paired = width >= 570
-        local columnWidth = paired and (width - 18) / 2 or width
-        if advanced then
-            Place(borderButton, 0, y, controlWidth)
-            y = y + 34
+        local tabX, tabY = 16, top
+        local equalTabs = width >= 420
+        local tabWidth = (width - 12) / 3
+        for _, tab in ipairs(tabs) do
+            local button = tab.button
+            local needed = equalTabs and tabWidth or math.min(width, button:GetFontString():GetUnboundedStringWidth() + 24)
+            if tabX > 16 and tabX + needed > width + 16 then tabX, tabY = 16, tabY + 34 end
+            Place(button, tabX, tabY, needed)
+            button:SetHeight(28)
+            button:SetEnabled(tab.id ~= section)
+            tabX = tabX + needed + 6
         end
-        y = SliderRow("borderSize", 0, y, width, advanced and config.border ~= "none")
-        if advanced then
-            Place(fontButton, 0, y, controlWidth)
-            y = y + 36
+        top = tabY + (short and 36 or 42)
+        local footerHeight = width >= 440 and (short and 42 or 48) or (short and 76 or 82)
+        scroll:ClearAllPoints()
+        scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -top)
+        scroll:SetSize(contentWidth, math.max(1, panel:GetHeight() - top - footerHeight))
+        specimen:SetParent(beside and panel or body)
+        specimen:SetShown(beside or not short)
+        if beside then
+            Place(specimen, 16 + contentWidth + 24, top, 214)
+        else
+            Place(specimen, 0, 0, contentWidth)
         end
-        for _, keys in ipairs({{"scale", "opacity"}, {"padding", "gap"}}) do
-            local leftBottom = SliderRow(keys[1], 0, y, columnWidth, advanced)
-            local rightBottom = SliderRow(keys[2], paired and columnWidth + 18 or 0, paired and y or leftBottom, columnWidth, advanced)
-            y = math.max(leftBottom, rightBottom)
-        end
-        if advanced then
-            Place(colorHint, 0, y, width)
-            y = y + colorHint:GetStringHeight() + 8
+        specimen:SetHeight(110)
+        specimenTitle:SetWidth(specimen:GetWidth() - 24)
+        specimenText:SetWidth(specimen:GetWidth() - 24)
+        local y = (beside or short) and 0 or 126
+        y = MenuRow(themeButton, y, section == "general")
+        y = MenuRow(fontButton, y, section == "general")
+        y = SliderRow("fontSize", y, section == "general")
+        y = SliderRow("scale", y, section == "general")
+        y = MenuRow(borderButton, y, section == "style")
+        y = SliderRow("opacity", y, section == "style")
+        y = SliderRow("borderSize", y, section == "dimensions" and config.border ~= "none")
+        y = SliderRow("padding", y, section == "dimensions")
+        y = SliderRow("gap", y, section == "dimensions")
+        colorHint:SetShown(section == "style")
+        if section == "style" then
+            Place(colorHint, 0, y, contentWidth)
+            y = y + colorHint:GetStringHeight() + (short and 8 or 10)
         end
         for _, key in ipairs({"bg", "text", "accent"}) do
-            pickers[key]:SetShown(advanced); colors[key]:SetShown(advanced); colorButtons[key]:SetShown(advanced)
-            if advanced then
-                Place(pickers[key], 0, y, math.min(144, width))
-                local sameRow = width >= 334
-                if not sameRow then y = y + 30 end
-                Place(colors[key], sameRow and 156 or 4, y)
-                Place(colorButtons[key], sameRow and 244 or 92, y)
-                y = y + 34
+            local visible = section == "style"
+            pickers[key]:SetShown(visible); colors[key]:SetShown(visible); colorButtons[key]:SetShown(visible)
+            if visible then
+                local sameRow = contentWidth >= 334
+                Place(pickers[key], 0, y, sameRow and contentWidth - 190 or contentWidth)
+                if not sameRow then y = y + 34 end
+                Place(colors[key], sameRow and contentWidth - 182 or 4, y)
+                Place(colorButtons[key], sameRow and contentWidth - 94 or 92, y)
+                y = y + (short and 32 or 36)
             else
                 colors[key]:ClearFocus()
             end
         end
-        if advanced then
-            Place(reset, 0, y + 6, math.min(220, width))
-            y = y + 40
-        end
-        body:SetSize(width, y)
+        Place(reset, 16, panel:GetHeight() - footerHeight + 8, math.min(220, width))
+        Place(preview, width >= 440 and width - 184 or 16, panel:GetHeight() - (width >= 440 and footerHeight - 8 or 40), math.min(200, width))
+        body:SetSize(contentWidth, y)
         UI.ClampScroll(scroll, y)
+        if scroll.ScrollBar then scroll.ScrollBar:SetShown(y > scroll:GetHeight() + 1) end
     end
     panel:SetScript("OnShow", appearanceRefresh)
     panel:HookScript("OnSizeChanged",LayoutAppearance)
@@ -715,7 +758,10 @@ local function BuildAppearance(root)
                 ["Fond"] = pickers.bg, ["Texte"] = pickers.text, ["Bordure et accents"] = pickers.accent }
             for _, field in pairs(fields) do targets[field.title] = field.slider end
             local target = targets[L(source)] or targets[source]
-            if source ~= "Thème" and source ~= "Taille du texte des modules" then advanced = true end
+            local sections = { ["Thème"] = "general", ["Taille du texte des modules"] = "general", ["Police"] = "general", ["Échelle (%)"] = "general",
+                ["Type de bordure"] = "style", ["Opacité du fond (%)"] = "style", ["Fond"] = "style", ["Texte"] = "style", ["Bordure et accents"] = "style" }
+            section = sections[source] or "dimensions"
+            scroll:SetVerticalScroll(0)
             LayoutAppearance()
             UI.RevealControl(scroll, target)
         end,
@@ -736,7 +782,7 @@ function UI.BuildHome(panel)
     local scroll=CreateFrame("ScrollFrame","ArkannsQOLHomeScroll",home,"UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT",16,-16); scroll:SetPoint("BOTTOMRIGHT",-34,18)
     local body=CreateFrame("Frame",nil,scroll); body:SetSize(1,1); scroll:SetScrollChild(body)
-    local heading=Label(body, "QoL Toolkit",0,0,20)
+    local heading=Label(body, L("Accueil"),0,0,18)
     local searchLabel=Label(body,L("Rechercher dans tous les réglages"),0,0)
     local search=Input(body,"ArkannsQOLHomeSearch",6,0)
     search:SetMaxLetters(80)
@@ -744,7 +790,7 @@ function UI.BuildHome(panel)
         search:SetText(""); search:ClearFocus(); home.Refresh()
     end)
     local searchStatus=Label(body,"",0,0)
-    local resultButtons, matches = {}, {}
+    local resultButtons, matches, minimap = {}, {}, nil
     -- Index settings, never session values, player names, or generated preview labels.
     local settingLabels = {
         tooltips = {"Personnaliser les infobulles", "Suivre le curseur", "Position fixe", "Échelle", "Réglages propres à ce type", "Décalage du curseur",
@@ -764,7 +810,7 @@ function UI.BuildHome(panel)
         distance = {"Afficher le badge de la cible", "Afficher la distance au survol", "Arrondir les estimations par pas de 5 m",
             "Ancrer au portrait plutôt qu’au nom", "Placement et couleurs", "Décalage X / Y", "Réinitialiser le placement",
             "Fond et bordure", "Fond seul", "Texte seul", "Couleur du texte"},
-        flights = {"Chronométrer les vols", "Exporter mes temps de vol"},
+    flights = {"Chronométrer les vols", "Exporter les durées"},
         bags = {"Trier à l’ouverture manuelle", "Bordure selon la rareté", "Personnaliser les bordures", "Transmos manquantes",
             "Couleurs de rareté", "Objets de quête", "Composants d’artisanat", "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
         appearance = {"Thème", "Taille du texte des modules", "Type de bordure", "Épaisseur de bordure", "Police", "Échelle (%)",
@@ -789,7 +835,10 @@ function UI.BuildHome(panel)
             result[#result+1]={label=label,Open=open}
         end
         if ns.IsMinimapVisible then
-            Add(L("Afficher le bouton de minicarte"),"",function() search:SetText(""); home.Refresh() end)
+            Add(L("Afficher le bouton de minicarte"),"",function()
+                search:SetText(""); home.Refresh(); UI.OpenSettings("home")
+                UI.RevealControl(scroll, minimap)
+            end)
         end
         for _,id in ipairs({"tooltips","reminders","session","talents","ranks","distance","targetPortrait","bags","flights","appearance"}) do
             local module=ns.modules[id]
@@ -844,7 +893,7 @@ function UI.BuildHome(panel)
     toolbar[4]=Button(body,"ArkannsQOLHomeDiagnostics",L("Diagnostics"),0,0,130,function()
         UI.OpenSettings("diagnostics")
     end)
-    local minimap = Check(body,"ArkannsQOLShowMinimap",L("Afficher le bouton de minicarte"),0,0,function(value)
+    minimap = Check(body,"ArkannsQOLShowMinimap",L("Afficher le bouton de minicarte"),0,0,function(value)
         if ns.SetMinimapVisible then ns.SetMinimapVisible(value) end
     end)
     local function IsPinned(id, module)
@@ -907,8 +956,7 @@ function UI.BuildHome(panel)
     local groups = {
         {label=L("Personnage"),ids={"talents","session","reminders","ranks"}},
         {label=L("Interface"),ids={"tooltips","distance","targetPortrait","bags"}},
-        {label=L("Personnalisation"),ids={},buttons={toolbar[1],toolbar[2]}},
-        {label=L("Outils"),ids={"flights","advanced"},buttons={toolbar[3],toolbar[4]}},
+        {label=L("Outils"),ids={"flights","advanced"}},
     }
     for _,group in ipairs(groups) do group.title=Label(body,group.label,0,0,16) end
     local function Pinned(card)
@@ -945,17 +993,42 @@ function UI.BuildHome(panel)
             body:SetSize(width,y); UI.ClampScroll(scroll,y); return
         end
         matches={}
+        -- Frequent actions stay above module cards, regardless of favorites or module count.
+        local actionColumns = math.max(1, math.min(#toolbar, math.floor((width + 8) / 138)))
+        local actionWidth = (width - (actionColumns - 1) * 8) / actionColumns
+        for index, button in ipairs(toolbar) do
+            button:Show()
+            Place(button, ((index - 1) % actionColumns) * (actionWidth + 8),
+                y + math.floor((index - 1) / actionColumns) * 34, actionWidth)
+        end
+        y = y + math.ceil(#toolbar / actionColumns) * 34 + 8
         for _,card in ipairs(cards) do card:Show() end
         minimap:SetShown(ns.IsMinimapVisible ~= nil)
         if ns.IsMinimapVisible then
-            Place(minimap, 0, y)
             minimap.label:SetWidth(math.max(1,width-32))
             minimap:SetChecked(ns.IsMinimapVisible())
-            y=y+math.max(32,minimap.label:GetStringHeight()+12)
         end
-        y=y+8
-        local columns=width>=540 and 2 or 1
+        local columns=width>=900 and 3 or width>=540 and 2 or 1
         local cardWidth=(width-12*(columns-1))/columns
+        local titleHeight, summaryHeight, toggleHeight, stackedPreview = 44, 0, 0, false
+        -- Measure every module before placing groups, so favorites share the same card size.
+        for _, card in ipairs(cards) do
+            card:SetWidth(cardWidth)
+            card.title:SetWidth(math.max(1,cardWidth-64))
+            titleHeight=math.max(titleHeight,card.title:GetStringHeight()+18)
+            card.summary:SetText(card.module.Summary and card.module.Summary() or L("Options et préférences."))
+            card.summary:SetWidth(math.max(1,cardWidth-24))
+            summaryHeight=math.max(summaryHeight,card.summary:GetStringHeight())
+            if card.enabled then
+                card.enabled:SetChecked(card.module.IsEnabled())
+                card.enabled.label:SetWidth(math.max(1,cardWidth-48))
+                toggleHeight=math.max(toggleHeight,32,card.enabled.label:GetStringHeight()+12)
+            end
+            stackedPreview=stackedPreview or (card.preview ~= nil and cardWidth<244)
+        end
+        local toggleY=titleHeight+summaryHeight+6
+        local actionY=toggleY+toggleHeight
+        local cardHeight=actionY+36+(stackedPreview and 32 or 0)
         local entries={}
         local advanced=ns.modules.advanced
         if advanced and advanced.Favorites then
@@ -989,32 +1062,20 @@ function UI.BuildHome(panel)
         for index=#entries+1,#favoriteButtons do favoriteButtons[index]:Hide() end
         if #entries>0 then y=y+8 end
         local function DrawCards(list)
-            local rowHeight=0
             for index,card in ipairs(list) do
                 Place(card,((index-1)%columns)*(cardWidth+12),y,cardWidth)
                 UI.StyleFrame(card)
                 UI.SetFavoriteIcon(card.pin,Pinned(card))
-                card.title:SetWidth(math.max(1,cardWidth-64))
-                card.summary:SetText(card.module.Summary and card.module.Summary() or L("Options et préférences."))
-                local cardY=math.max(44,card.title:GetStringHeight()+18)
-                Place(card.summary,12,cardY,math.max(1,cardWidth-24))
-                cardY=cardY+card.summary:GetStringHeight()+6
-                if card.enabled then
-                    Place(card.enabled,8,cardY)
-                    card.enabled:SetChecked(card.module.IsEnabled())
-                    card.enabled.label:SetWidth(math.max(1,cardWidth-48))
-                    cardY=cardY+math.max(32,card.enabled.label:GetStringHeight()+12)
-                end
-                Place(card.configure,12,cardY)
-                Place(card.pin,cardWidth-44,cardY)
+                Place(card.summary,12,titleHeight)
+                if card.enabled then Place(card.enabled,8,toggleY) end
+                Place(card.configure,12,actionY)
+                Place(card.pin,cardWidth-44,actionY)
                 if card.preview then
                     local inline=cardWidth>=244
-                    Place(card.preview,inline and 120 or 12,inline and cardY or cardY+32)
-                    if not inline then cardY=cardY+32 end
+                    Place(card.preview,inline and 120 or 12,inline and actionY or actionY+32)
                 end
-                card:SetHeight(cardY+36)
-                rowHeight=math.max(rowHeight,card:GetHeight())
-                if index%columns==0 or index==#list then y=y+rowHeight+12; rowHeight=0 end
+                card:SetHeight(cardHeight)
+                if index%columns==0 or index==#list then y=y+cardHeight+12 end
             end
         end
         DrawCards(favoriteCards)
@@ -1025,22 +1086,17 @@ function UI.BuildHome(panel)
                     if card.id==id and not Pinned(card) then list[#list+1]=card end
                 end
             end
-            local visible=#list>0 or group.buttons~=nil
+            local visible=#list>0
             group.title:SetShown(visible)
             if visible then
                 Place(group.title,0,y,width); y=y+group.title:GetStringHeight()+8
                 DrawCards(list)
-                if group.buttons then
-                    local buttonColumns=width>=350 and 2 or 1
-                    local buttonWidth=(width-10*(buttonColumns-1))/buttonColumns
-                    for index,button in ipairs(group.buttons) do
-                        button:Show()
-                        Place(button,((index-1)%buttonColumns)*(buttonWidth+10),y+math.floor((index-1)/buttonColumns)*34,buttonWidth)
-                    end
-                    y=y+math.ceil(#group.buttons/buttonColumns)*34
-                end
                 y=y+12
             end
+        end
+        if ns.IsMinimapVisible then
+            Place(minimap, 0, y + 8)
+            y=y+math.max(32,minimap.label:GetStringHeight()+12)+16
         end
         body:SetSize(width,y)
         UI.ClampScroll(scroll,y)
@@ -1051,6 +1107,10 @@ function UI.BuildHome(panel)
     search:SetScript("OnEnterPressed",function() if matches[1] then OpenResult(matches[1]) end end)
     search:SetScript("OnEscapePressed",function() search:SetText(""); search:ClearFocus(); home.Refresh() end)
     home:SetScript("OnHide",function() search:ClearFocus(); ns.StopAllPreviews() end)
+    function UI.FocusSettingsSearch()
+        scroll:SetVerticalScroll(0)
+        search:SetFocus()
+    end
     home.Refresh()
 end
 

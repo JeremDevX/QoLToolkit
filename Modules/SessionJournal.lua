@@ -10,6 +10,12 @@ local refreshHistory
 local rateTooltip, hovered
 local moveHint
 local trackingToggle, trackingTooltip
+local factionEmblem
+-- Native logos used by InspectPaperDollFrame.lua, Forever 1.60.1 (70888), 4cd0ab7.
+local factionTextures = {
+    Alliance = "Interface\\Timer\\Alliance-Logo",
+    Horde = "Interface\\Timer\\Horde-Logo",
+}
 local trackingToggleSize = 20
 local hoverRows = {}
 local horizontalTexts = {}
@@ -71,6 +77,13 @@ end
 
 local function SharedStyle()
     return ns.UI and ns.UI.GetStyle and ns.UI.GetStyle("session")
+end
+
+local function RefreshFactionEmblem()
+    local status, faction = WoW.Read(UnitFactionGroup, "player")
+    local texture = status == "ok" and type(faction) == "string" and factionTextures[faction] or nil
+    factionEmblem:SetTexture(texture)
+    factionEmblem:SetShown(texture ~= nil)
 end
 
 local function Elapsed()
@@ -435,6 +448,12 @@ Draw = function()
     -- Movement help is an independent overlay: unlocking never reserves space
     -- inside the journal or changes its screen-clamping rectangle.
     window:SetHeight(top + contentHeight + padding + 2)
+    -- Fill 88% of the journal height, preserving the logo's square ratio within narrow layouts.
+    local emblemSize = math.max(1, math.min(window:GetHeight() * 0.88, width - padding * 2))
+    factionEmblem:SetSize(emblemSize, emblemSize)
+    factionEmblem:ClearAllPoints()
+    factionEmblem:SetPoint("RIGHT", window, "RIGHT", -padding, 0)
+    factionEmblem:SetAlpha(0.10 * (style and style.opacity or db.opacity / 100))
     window:Show()
     RefreshRateTooltip()
     SyncTicker()
@@ -485,6 +504,9 @@ function ns.InitializeSessionJournal(parentCategory)
     window:SetFrameStrata("MEDIUM"); window:SetMovable(true); window:SetClampedToScreen(true)
     window:RegisterForDrag("LeftButton")
     window:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 12, insets = {left = 3, right = 3, top = 3, bottom = 3}})
+    factionEmblem = window:CreateTexture("ArkannsQOLSessionFactionEmblem", "ARTWORK", nil, -1)
+    factionEmblem:SetBlendMode("BLEND")
+    RefreshFactionEmblem()
     title = window:CreateFontString("ArkannsQOLSessionTitle", "OVERLAY", "GameFontNormal")
     title:SetJustifyH("LEFT"); title:SetWordWrap(false)
     trackingToggle = CreateFrame("Button", "ArkannsQOLSessionTrackingToggle", window)
@@ -700,13 +722,14 @@ function ns.InitializeSessionJournal(parentCategory)
             Draw(); refreshSettings()
         end)
     end
-    Text(L("Suivi et statistiques"), -8, "GameFontNormalLarge")
+    local operationTitle = Text(L("Suivi et statistiques"), -8, "GameFontNormalLarge")
     local trackingStatus = Text("", -36)
     local trackingButton = Button("ArkannsQOLSessionTracking", "", 16, -76, function()
         SetTracking(ready and session.pause == "manual")
     end)
-    Check("pauseAFK", L("Mettre en pause pendant l’AFK"), -112, db, SyncAFK)
+    local pauseAFK = Check("pauseAFK", L("Mettre en pause pendant l’AFK"), -112, db, SyncAFK)
     local selectionStatus = Text("", -154)
+    local metricRows = {}
     for index = 1, #metrics do
         local rowIndex = index
         local box = CreateFrame("CheckButton", "ArkannsQOLSessionMetric" .. index, body, "UICheckButtonTemplate")
@@ -716,6 +739,8 @@ function ns.InitializeSessionJournal(parentCategory)
         label:SetPoint("TOPRIGHT", body, "TOPRIGHT", -92, -198 - (index - 1) * 32)
         label:SetJustifyH("LEFT"); label:SetWordWrap(false)
         box:SetFontString(label)
+        local row = {box = box, label = label, buttons = {}}
+        metricRows[#metricRows + 1] = row
         controls[#controls + 1] = function()
             local key = db.order[rowIndex]
             box:SetChecked(db.visible[key])
@@ -729,6 +754,7 @@ function ns.InitializeSessionJournal(parentCategory)
                 if target >= 1 and target <= #db.order then db.order[rowIndex], db.order[target] = db.order[target], db.order[rowIndex]; refreshSettings(); Draw() end
             end)
             button:SetWidth(30)
+            row.buttons[#row.buttons + 1] = button
             button:ClearAllPoints(); button:SetPoint("TOPRIGHT", delta == -1 and -54 or -16, -192 - (index - 1) * 32)
             -- Text arrows are missing from some WoW fonts. Keep the icon separate
             -- from the normal texture so common button styling cannot replace it.
@@ -774,15 +800,39 @@ function ns.InitializeSessionJournal(parentCategory)
     local help = Text(L("Survole XP gagnée ou Solde pour le taux horaire.\nLe démarrage reprend les compteurs. L’option AFK suspend le suivi jusqu’au retour.\nUne nouvelle connexion remet les compteurs à zéro et démarre le suivi.\n/reload conserve les compteurs et l’arrêt manuel. ≥ indique des données XP incomplètes."), -730)
     local function LayoutOperation()
         local width = operationBody:GetWidth()
-        local wide = width >= 460
-        local y = 460
-        showAll:ClearAllPoints(); showAll:SetPoint("TOPLEFT", 16, -y)
-        y = y + 40
-        behaviorDefaults:ClearAllPoints(); behaviorDefaults:SetPoint("TOPLEFT", 16, -y)
-        resetButton:ClearAllPoints(); resetButton:SetPoint("TOPLEFT", wide and 216 or 16, -y - (wide and 0 or 34))
-        y = y + (wide and 42 or 76)
-        help:ClearAllPoints(); help:SetPoint("TOPLEFT", 16, -y); help:SetWidth(math.max(1, width - 32))
-        local height = y + help:GetStringHeight() + 12
+        local columns = width >= 780
+        local columnWidth = columns and (width - 24) / 2 or width
+        local right = columns and columnWidth + 24 or 0
+        local function Place(control, x, y, size)
+            control:ClearAllPoints(); control:SetPoint("TOPLEFT", x, -y)
+            if size then control:SetWidth(math.max(1, size)) end
+        end
+        Place(operationTitle, 16, 8, columnWidth - 32)
+        Place(trackingStatus, 16, 36, columnWidth - 32)
+        local trackingY = math.max(76, 48 + trackingStatus:GetStringHeight())
+        Place(trackingButton, 16, trackingY)
+        Place(pauseAFK, 12, trackingY + 36)
+        pauseAFK:GetFontString():SetWidth(math.max(1, columnWidth - 52))
+        local selectionY = columns and 8 or math.max(154, trackingY + 78)
+        Place(selectionStatus, right + 16, selectionY, columnWidth - 32)
+        local metricY = selectionY + math.max(36, selectionStatus:GetStringHeight() + 12)
+        for index, row in ipairs(metricRows) do
+            local y = metricY + (index - 1) * 32
+            Place(row.box, right + 12, y)
+            Place(row.label, right + 46, y + 8, columnWidth - 138)
+            for buttonIndex, button in ipairs(row.buttons) do
+                Place(button, right + columnWidth - (buttonIndex == 1 and 84 or 46), y + 2)
+            end
+        end
+        local endMetrics = metricY + #metricRows * 32 + 14
+        Place(showAll, right + 16, endMetrics)
+        local y = columns and trackingY + math.max(80, pauseAFK:GetFontString():GetStringHeight() + 52) or endMetrics + 40
+        Place(behaviorDefaults, 16, y)
+        local paired = columnWidth >= 440
+        Place(resetButton, paired and 216 or 16, y + (paired and 0 or 34))
+        y = y + (paired and 42 or 76)
+        Place(help, 16, y, columnWidth - 32)
+        local height = math.max(y + help:GetStringHeight() + 12, endMetrics + 38)
         operationBody:SetHeight(height)
         ns.UI.ClampScroll(scroll, height)
     end
@@ -850,8 +900,14 @@ function ns.InitializeSessionJournal(parentCategory)
     local displayHelp = Text(L("Déplacer ouvre le mode Disposition.\nL'aperçu disparaît à la fermeture des réglages."), -226)
     LayoutDisplay = function()
         local width = math.max(1, displayBody:GetWidth())
-        local wide = width >= 450
-        visibilityBody:SetWidth(width); appearanceBody:SetWidth(width)
+        local columns = width >= 820
+        local columnWidth = columns and (width - 24) / 2 or width
+        local wide = columnWidth >= 450
+        visibilityBody:SetWidth(columnWidth); appearanceBody:SetWidth(columnWidth)
+        visibilityBody:ClearAllPoints(); visibilityBody:SetPoint("TOPLEFT", 0, 0)
+        for _, key in ipairs({"enabled", "hideCombat", "hideZero", "compact", "expandOnHover"}) do
+            _G["ArkannsQOLSession_" .. key]:GetFontString():SetWidth(math.max(1, columnWidth - 52))
+        end
         expandOnHover:SetShown(db.compact)
         local y = db.compact and 214 or 182
         layoutButton:ClearAllPoints(); layoutButton:SetPoint("TOPLEFT", 16, -y)
@@ -860,11 +916,11 @@ function ns.InitializeSessionJournal(parentCategory)
         visibilityDefaults:ClearAllPoints(); visibilityDefaults:SetPoint("TOPLEFT", 16, -y)
         previewButton:ClearAllPoints(); previewButton:SetPoint("TOPLEFT", wide and 216 or 16, -y - (wide and 0 or 34))
         y = y + (wide and 38 or 72)
-        displayHelp:ClearAllPoints(); displayHelp:SetPoint("TOPLEFT", 16, -y); displayHelp:SetWidth(math.max(1, width - 32))
+        displayHelp:ClearAllPoints(); displayHelp:SetPoint("TOPLEFT", 16, -y); displayHelp:SetWidth(math.max(1, columnWidth - 32))
         y = y + displayHelp:GetStringHeight() + 24
         visibilityBody:SetHeight(y)
-        appearanceBody:ClearAllPoints(); appearanceBody:SetPoint("TOPLEFT", 0, -y); appearanceBody:SetPoint("TOPRIGHT", 0, -y)
-        local height = y + appearanceBody:GetHeight()
+        appearanceBody:ClearAllPoints(); appearanceBody:SetPoint("TOPLEFT", columns and columnWidth + 24 or 0, columns and 0 or -y)
+        local height = columns and math.max(y, appearanceBody:GetHeight()) or y + appearanceBody:GetHeight()
         displayBody:SetHeight(height)
         ns.UI.ClampScroll(appearancePage, height)
     end
@@ -1005,15 +1061,19 @@ function ns.InitializeSessionJournal(parentCategory)
     end
 
     local events = CreateFrame("Frame", "ArkannsQOLSessionEvents")
-    for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_FLAGS_CHANGED", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_MONEY", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST", "PLAYER_LOGOUT", "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}) do events:RegisterEvent(event) end
+    for _, event in ipairs({"PLAYER_ENTERING_WORLD", "UNIT_FACTION", "PLAYER_FLAGS_CHANGED", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_MONEY", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST", "PLAYER_LOGOUT", "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED"}) do events:RegisterEvent(event) end
     events:SetScript("OnEvent", function(_, event, first, reloading)
         if event == "PLAYER_ENTERING_WORLD" then
+            RefreshFactionEmblem()
             if not ready or (WoW.IsPublic(first) and first) then
                 BeginSession(WoW.IsPublic(reloading) and reloading == true and db.session)
             else
                 SyncAFK()
             end
             refreshSettings()
+        elseif event == "UNIT_FACTION" then
+            if not WoW.IsPublic(first) or first ~= "player" then return end
+            RefreshFactionEmblem()
         elseif event == "PLAYER_FLAGS_CHANGED" then
             if not db.pauseAFK or not ready or session.pause == "manual" or not WoW.IsPublic(first) or first ~= "player" then return end
             SyncAFK(); refreshSettings()

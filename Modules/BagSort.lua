@@ -506,6 +506,7 @@ local function Refresh()
         else reagentEvents:UnregisterEvent("ITEM_DATA_LOAD_RESULT") end
     end
     if refreshAppearance then refreshAppearance() end
+    if panel.Layout then panel.Layout() end
     if refreshQuick and quick:IsShown() then refreshQuick() end
 end
 
@@ -639,7 +640,7 @@ local function BuildAppearance(body, compact)
     local UI = ns.UI
     local prefix = compact and "ArkannsQOLBagQuick" or "ArkannsQOLBag"
     local syncing
-    local targets, checks = {}, {}
+    local targets, checks, sliders, palette = {}, {}, {}, {}
     local function Slider(key, name, y)
         local isThickness = key == "qualityThickness"
         local label = UI.Label(body, "", 20, y)
@@ -663,6 +664,7 @@ local function BuildAppearance(body, compact)
         end)
         local source = ({qualityOpacity = "Opacité du contour", qualityThickness = "Épaisseur du contour", qualityInnerGlow = "Halo intérieur"})[key]
         targets[source] = slider
+        sliders[#sliders + 1] = {label = label, control = slider}
         return function() slider:SetValue(db[key]); Caption() end
     end
     local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -119 or 0)
@@ -670,7 +672,7 @@ local function BuildAppearance(body, compact)
     local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -211 or -112)
     targets["Couleurs de rareté"] = UI.Label(body, L("Couleurs et aperçu"), 20, compact and -256 or -162, 15)
     local toggleHelp = L("Cochez pour appliquer la couleur.")
-    UI.Label(body, toggleHelp, 20, compact and -278 or -186)
+    local help = UI.Label(body, toggleHelp, 20, compact and -278 or -186)
     local size, top = 28, compact and -300 or -210
     local categories = {0, 1, 2, 3, 4, 5, "quest", "reagent"}
     for index, quality in ipairs(categories) do
@@ -711,13 +713,16 @@ local function BuildAppearance(body, compact)
         for _, widget in ipairs({sample, control}) do
             widget:SetScript("OnEnter", Tooltip)
             widget:SetScript("OnLeave", HideTooltip)
+            widget:SetScript("OnHide", HideTooltip)
         end
         if source then targets[source] = sample end
         checks[quality], samples[sample] = control, quality
+        palette[#palette + 1] = {sample = sample, control = control}
     end
     local footerY = top - 76
+    local reset
     if not compact then
-        UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
+        reset = UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
             UI.Confirm(L("Rétablir les bordures de rareté et leurs couleurs par défaut ?"), function()
                 for key, value in pairs(defaults) do
                     if key ~= "enabled" and key ~= "transmogIcons" then db[key] = value end
@@ -728,6 +733,38 @@ local function BuildAppearance(body, compact)
             end)
         end)
     end
+    local function Layout(width)
+        local paired = width >= 560
+        local columnWidth = paired and (width - 24) / 2 or width
+        local function Place(widget, x, y, available)
+            widget:ClearAllPoints(); widget:SetPoint("TOPLEFT", x, -y)
+            if available then widget:SetWidth(available) end
+        end
+        local y = 0
+        for _, field in ipairs(sliders) do
+            Place(field.label, 0, y, columnWidth)
+            y = y + field.label:GetStringHeight() + 10
+            Place(field.control, 4, y, math.max(1, math.min(330, columnWidth - 8)))
+            y = y + 38
+        end
+        local rightX, paletteY = paired and columnWidth + 24 or 0, paired and 0 or y + 8
+        local title = targets["Couleurs de rareté"]
+        Place(title, rightX, paletteY, columnWidth)
+        paletteY = paletteY + title:GetStringHeight() + 8
+        Place(help, rightX, paletteY, columnWidth)
+        paletteY = paletteY + help:GetStringHeight() + 12
+        local columns = math.max(1, math.min(4, math.floor(columnWidth / 58)))
+        for index, item in ipairs(palette) do
+            local x = rightX + ((index - 1) % columns) * 58
+            local rowY = paletteY + math.floor((index - 1) / columns) * 40
+            Place(item.sample, x, rowY)
+            Place(item.control, x + size + 1, rowY + 2)
+        end
+        paletteY = paletteY + math.ceil(#palette / columns) * 40
+        local bottom = math.max(y, paletteY) + 8
+        Place(reset, 0, bottom, math.min(220, width))
+        body:SetSize(width, bottom + 38)
+    end
     return function()
         syncing = true
         for quality, control in pairs(checks) do control:SetChecked(not db.qualityHidden[quality]) end
@@ -736,7 +773,7 @@ local function BuildAppearance(body, compact)
         innerGlow()
         syncing = false
         RefreshSamples()
-    end, footerY, targets
+    end, footerY, targets, not compact and Layout or nil
 end
 
 local function SetEnabled(value)
@@ -895,34 +932,34 @@ function ns.InitializeBagSort(rootCategory)
     panel:Hide()
     ns.UI.StylePanel(panel)
     local scroll = CreateFrame("ScrollFrame", "ArkannsQOLBagsScroll", panel, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -4)
-    scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -30, 10)
+    scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -16)
+    scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -34, 16)
     local body = CreateFrame("Frame", nil, scroll)
     body:SetSize(282, 253)
     scroll:SetScrollChild(body)
-    ns.UI.Label(body, L("Sacs"), 16, -16, 20)
+    local heading = ns.UI.Label(body, L("Sacs"), 0, 0, 20)
+    local sortTitle = ns.UI.Label(body, L("Tri à l’ouverture"), 0, 0, 15)
+    local displayTitle = ns.UI.Label(body, L("Affichage"), 0, 0, 15)
     check = ns.UI.Check(body, "ArkannsQOLBagsEnabled", L("Trier à l’ouverture manuelle"), 16, -54, SetEnabled)
-    ns.UI.Label(body, L("Hors combat et hors banque."), 20, -89)
+    local sortHelp = ns.UI.Label(body, L("Hors combat et hors banque."), 20, -89)
     status = ns.UI.Label(body, "", 20, -112)
     transmogCheck = CreateTransmogCheck(body, "ArkannsQOLBagTransmog", 16, -140)
-    ns.UI.Label(body, L("Bordures de rareté"), 20, -168, 15)
     qualityCheck = ns.UI.Check(body, "ArkannsQOLBagQualityBorders", L("Bordure selon la rareté"), 16, -191, SetQualityBorders)
     local searchTargets = {["Trier à l’ouverture manuelle"] = check, ["Bordure selon la rareté"] = qualityCheck,
         ["Transmos manquantes"] = transmogCheck}
-    local advanced, advancedButton, ShowAppearance
+    local advanced, advancedButton, ShowAppearance, layoutAppearance, unavailable
     if qualityListening then
         advanced = CreateFrame("Frame", nil, body)
         advanced:SetPoint("TOPLEFT", 0, -264)
         local footerY, appearanceTargets
-        refreshAppearance, footerY, appearanceTargets = BuildAppearance(advanced)
+        refreshAppearance, footerY, appearanceTargets, layoutAppearance = BuildAppearance(advanced)
         for key, target in pairs(appearanceTargets) do searchTargets[key] = target end
         advanced:SetSize(282, -footerY + 36)
         advanced:Hide()
         ShowAppearance = function(opened)
             advanced:SetShown(opened)
             advancedButton:SetText(opened and L("Masquer les réglages de bordure") or L("Personnaliser les bordures"))
-            body:SetHeight(opened and 264 + advanced:GetHeight() or 264)
-            ns.UI.ClampScroll(scroll, body:GetHeight())
+            panel.Layout()
         end
         advancedButton = ns.UI.Button(body, "ArkannsQOLBagAdvanced", L("Personnaliser les bordures"), 18, -228, 245,
             function() ShowAppearance(not advanced:IsShown()) end)
@@ -930,8 +967,54 @@ function ns.InitializeBagSort(rootCategory)
         body:SetHeight(264)
     else
         qualityCheck:Disable()
-        ns.UI.Label(body, L("Bordures indisponibles sur ce client."), 20, -224)
+        unavailable = ns.UI.Label(body, L("Bordures indisponibles sur ce client."), 20, -224)
     end
+    panel.Layout = function()
+        local width = math.max(1, panel:GetWidth() - 50)
+        local paired = width >= 580
+        local columnWidth = paired and (width - 24) / 2 or width
+        local function Place(widget, x, y, available)
+            widget:ClearAllPoints(); widget:SetPoint("TOPLEFT", x, -y)
+            if available then widget:SetWidth(available) end
+        end
+        local function Text(label, x, y, available)
+            Place(label, x, y, available)
+            return y + label:GetStringHeight()
+        end
+        local function Check(control, x, y)
+            control.label:SetWidth(math.max(1, columnWidth - 32))
+            Place(control, x - 4, y)
+            return y + math.max(32, control.label:GetStringHeight() + 12)
+        end
+        local y = Text(heading, 0, 0, width) + 20
+        local top = y
+        y = Text(sortTitle, 0, y, columnWidth) + 10
+        y = Check(check, 0, y)
+        y = Text(sortHelp, 0, y, columnWidth) + 8
+        local hasStatus = status:GetText() ~= ""
+        status:SetShown(hasStatus)
+        if hasStatus then y = Text(status, 0, y, columnWidth) + 8 end
+        local displayX = paired and columnWidth + 24 or 0
+        local displayY = paired and top or y + 12
+        displayY = Text(displayTitle, displayX, displayY, columnWidth) + 10
+        displayY = Check(transmogCheck, displayX, displayY)
+        displayY = Check(qualityCheck, displayX, displayY)
+        if advancedButton then
+            Place(advancedButton, displayX, displayY, math.min(295, columnWidth))
+            displayY = displayY + 36
+        elseif unavailable then
+            displayY = Text(unavailable, displayX, displayY, columnWidth) + 8
+        end
+        y = math.max(y, displayY) + 12
+        if advanced and advanced:IsShown() then
+            Place(advanced, 0, y)
+            layoutAppearance(width)
+            y = y + advanced:GetHeight()
+        end
+        body:SetSize(width, y)
+        ns.UI.ClampScroll(scroll, y)
+    end
+    panel:HookScript("OnSizeChanged", panel.Layout)
     panel:SetScript("OnShow", function() CloseQuickSettings(); Refresh() end)
     category = ns.UI.RegisterSettingsPanel(rootCategory, panel, L("Sacs"), "bags")
     AttachShortcut(ContainerFrameCombinedBags)

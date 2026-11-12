@@ -5,17 +5,21 @@ L’addon utilise la langue du client. Français pour le client français, angla
 
 ACCUEIL
 Clique sur l’icône de minicarte ou saisis /qt pour ouvrir la fenêtre de réglages.
-Les onglets regroupent Personnage, Interface, Personnalisation et Outils.
-Les sous-onglets donnent accès aux réglages de chaque module.
+La navigation regroupe Personnage, Interface, Personnalisation et Outils.
+En fenêtre large, toutes les rubriques restent visibles dans la colonne latérale, accessibles en un clic.
+En fenêtre compacte, les onglets donnent accès aux réglages de chaque module.
+Les groupes indépendants des panneaux longs se placent côte à côte quand la largeur le permet.
 Glisse le titre pour déplacer la fenêtre, utilise Taille pour la redimensionner.
 Fermer ou Échap ferme la fenêtre et ses aperçus. Les catégories Blizzard y donnent aussi accès.
-La recherche ouvre la section concernée, développe ses options si nécessaire
+Rechercher, en haut de la fenêtre, s’ouvre au-dessus du panneau courant.
+Retour ou Échap retrouve ce panneau ; la recherche reste disponible pour une nouvelle consultation.
+Un résultat ouvre la section concernée, développe ses options si nécessaire
 et fait défiler jusqu’au contrôle. Un réglage dépendant conduit à son prérequis.
-Effacer ou Échap réaffiche les cartes ; Entrée ouvre le premier résultat.
+Dans la recherche de l’accueil, Effacer ou Échap réaffiche les cartes ; Entrée ouvre le premier résultat.
 /qt : rubriques Personnage, Interface, Personnalisation et Outils, accessibles directement.
 L’étoile épingle un module. Les favoris des réglages avancés apparaissent aussi ici.
 Les cartes favorites passent en tête sans doublon. Apparence, Disposition, Profils et Diagnostics
-sont accessibles depuis l'accueil. Le bouton de minicarte peut être déplacé ou masqué.
+sont accessibles en tête de l’accueil. Le bouton de minicarte peut être déplacé ou masqué.
 
 THÈME CHALEUREUX
 Le fond, le texte et la bordure reprennent exactement le thème Chaleureux du journal.

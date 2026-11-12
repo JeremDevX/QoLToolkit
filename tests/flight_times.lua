@@ -1,9 +1,24 @@
 local frames, hooks, buttons, badges = {}, {}, {}, {}
 local noop = function() end
 local methods = {}
-for _, name in ipairs({"SetPoint", "ClearAllPoints", "SetClampedToScreen", "SetWordWrap", "SetMultiLine",
+for _, name in ipairs({"ClearAllPoints", "SetClampedToScreen", "SetWordWrap", "SetMultiLine", "SetJustifyH", "SetAllPoints",
     "SetAutoFocus", "SetFontObject", "SetScrollChild", "SetVerticalScroll", "ClearFocus"}) do
     methods[name] = noop
+end
+function methods:SetPoint(...) self.point = {...} end
+function methods:EnableMouse(enabled) self.mouse = enabled end
+function methods:SetTexture(texture) self.texture = texture end
+function methods:SetAtlas(atlas) self.atlas = atlas end
+function methods:SetColorTexture(...) self.color = {...} end
+function methods:SetStatusBarTexture(texture) self.texture = texture end
+function methods:SetStatusBarColor(...) self.color = {...} end
+function methods:SetMinMaxValues(minimum, maximum) self.minimum, self.maximum = minimum, maximum end
+function methods:SetValue(value) self.value = value end
+function methods:CreateTexture(_, layer)
+    local texture = CreateFrame("Texture", nil, self)
+    texture.layer = layer
+    self.textures[#self.textures + 1] = texture
+    return texture
 end
 function methods:SetScript(name, callback) self.scripts[name] = callback end
 function methods:SetSize(width, height) self.width, self.height = width, height end
@@ -21,8 +36,9 @@ function methods:HighlightText() self.selected = true end
 function methods:RegisterEvent(event) self.events[event] = true end
 function methods:UnregisterAllEvents() self.events = {} end
 
-CreateFrame = function(_, name)
-    local frame = setmetatable({scripts = {}, events = {}, width = 360, height = 240, shown = true}, {__index = methods})
+CreateFrame = function(kind, name, parent)
+    local frame = setmetatable({scripts = {}, events = {}, textures = {}, kind = kind, parent = parent,
+        width = 360, height = 240, shown = true}, {__index = methods})
     if name then frames[name] = frame end
     return frame
 end
@@ -35,7 +51,7 @@ ns.UI = {
     Label = function(parent, text)
         local frame = CreateFrame("FontString")
         frame:SetText(text)
-        if parent == frames.ArkannsQOLFlightTimer then badges[#badges + 1] = frame end
+        if parent == frames.ArkannsQOLFlightTimerPanel then badges[#badges + 1] = frame end
         return frame
     end,
     Button = function(_, _, label, _, _, _, callback) buttons[label] = callback; return CreateFrame("Button") end,
@@ -54,6 +70,8 @@ issecretvalue = function(value) return value == secret end
 GetTime = function() return now end
 GetBuildInfo = function() return "1.60.1", build, "", 16001 end
 UnitOnTaxi = function(unit) assert(unit == "player"); return onTaxi end
+UnitFactionGroup = function(unit) assert(unit == "player"); return "Alliance" end
+C_Texture = {GetAtlasInfo = function() return {width = 240, height = 140} end}
 InCombatLockdown = function() return combat end
 Constants = {LegacyConsts = {LEGACY_TREE_ADVENTURE_ID = 1188}}
 C_Traits = {
@@ -110,11 +128,11 @@ local function Begin()
 end
 
 assert(module.IsEnabled() and module.category().label == "Flight times")
-buttons["Export my flight times"]()
+buttons["Export durations"]()
 assert(not frames.ArkannsQOLFlightExport.selected, "An empty export does not expose copyable data")
 Event("TAXIMAP_OPENED")
 hooks.TaxiNodeOnButtonEnter(destination)
-assert(tooltipText == "Community estimate · ≈ 1:42")
+assert(tooltipText == "Shared duration · ≈ 1:42")
 combat, tooltipText = true, nil
 hooks.OnMouseEnter(destination)
 assert(not tooltipText, "The native tooltip is untouched in combat")
@@ -123,20 +141,22 @@ Event("TAXIMAP_CLOSED")
 canReadRoute = false
 hooks.TakeTaxiNode(3)
 PollAt(2, true)
-assert(badges[1].text == "Destination" and badges[2].text == "Estimated time remaining · 1:42")
+assert(badges[1].text == "Destination" and badges[2].text == "≈ 1:42" and badges[3].text == "Estimated arrival")
+local progress = frames.ArkannsQOLFlightProgress
+assert(progress.shown and progress.minimum == 0 and progress.maximum == 1 and progress.value == 0)
 PollAt(62, true)
-assert(badges[2].text == "Estimated time remaining · 0:42")
+assert(badges[2].text == "≈ 0:42" and math.abs(progress.value - 60 / 102) < .0001)
 PollAt(102, false)
 assert(ArkannsQOLFlightsDB[route][1] == 100 and not driver.scripts.OnUpdate and not frames.ArkannsQOLFlightTimer.shown)
 
 canReadRoute = true
 Event("TAXIMAP_OPENED")
 hooks.OnMouseEnter(destination)
-assert(tooltipText == "Measured time · 1:40", "Personal measurements have priority")
+assert(tooltipText == "Measured duration · 1:40", "Personal measurements have priority")
 local start = Begin()
 hooks.TaxiRequestEarlyLanding()
 PollAt(start + 25, true)
-assert(badges[2].text == "Elapsed time · 0:25")
+assert(badges[2].text == "0:25" and badges[3].text == "Landing requested" and not progress.shown)
 PollAt(start + 26, false)
 assert(#ArkannsQOLFlightsDB[route] == 1)
 
@@ -147,13 +167,13 @@ hooks.TakeTaxiNode(3)
 now, onTaxi = now + .1, true
 hooks.TaxiRequestEarlyLanding()
 PollAt(now + .1, true)
-assert(badges[2].text == "Elapsed time · 0:00", "An interrupted pending flight must discard its estimate")
+assert(badges[2].text == "0:00" and badges[3].text == "Landing requested", "An interrupted pending flight must discard its estimate")
 PollAt(now + 30, false)
 assert(#ArkannsQOLFlightsDB[route] == 1, "An interrupted pending flight must not add a complete-route sample")
 
 rank = 1
 start = Begin()
-assert(badges[2].text == "Elapsed time · 0:00")
+assert(badges[2].text == "0:00" and badges[3].text == "Elapsed time" and not progress.shown)
 PollAt(start + 82, false)
 assert(ArkannsQOLFlightsDB["70888,1,101>303>202"][1] == 82)
 
@@ -164,7 +184,7 @@ assert(ArkannsQOLFlightsDB["70888,0,101>202"][1] == 75, "Different stop sequence
 
 build, chain = "70999", {1, 2, 3}
 start = Begin()
-assert(badges[2].text == "Elapsed time · 0:00", "A different build must not reuse the community value")
+assert(badges[2].text == "0:00" and badges[3].text == "Elapsed time", "A different build must not reuse the community value")
 Event("PLAYER_LEAVING_WORLD")
 assert(not driver.scripts.OnUpdate and not ArkannsQOLFlightsDB["70999,0,101>303>202"])
 onTaxi = false
@@ -177,7 +197,7 @@ rank = 0
 local getTaxiMapID = GetTaxiMapID
 GetTaxiMapID = nil
 start = Begin()
-assert(badges[1].text == "Flight in progress")
+assert(badges[1].text == "In flight")
 PollAt(start + 100, false)
 assert(not ArkannsQOLFlightsDB["70999,0,101>303>202"], "Missing taxi data only allows elapsed time")
 GetTaxiMapID = getTaxiMapID
@@ -192,10 +212,66 @@ assert(not driver.scripts.OnUpdate and not driver.events.TAXIMAP_OPENED and not 
 assert(module.ImportSettings({enabled = true}) and module.ExportSettings().enabled)
 assert(not module.ExportSettings().records)
 
-buttons["Export my flight times"]()
+buttons["Export durations"]()
 local output = frames.ArkannsQOLFlightExport
 assert(output.focus and output.selected)
 assert(output.text == "QTF1\n70888,0,101>202,75\n70888,0,101>303>202,100\n70888,1,101>303>202,82")
 module.category().panel.scripts.OnHide()
 assert(output.text == "")
-print("PASS: taxi state, tooltip, route and speed isolation, rejected samples, account export, and profiles")
+
+-- Recreate the module as on another character, with both native art variants and missing APIs.
+local function CheckFactionArt(faction, creature, atlasInfo)
+    frames, hooks, buttons, badges = {}, {}, {}, {}
+    UnitFactionGroup = faction and function() return faction end or nil
+    C_Texture = atlasInfo and {GetAtlasInfo = function() return atlasInfo end} or nil
+    Load("Modules/FlightTimes.lua")
+    ns.InitializeFlightTimes({})
+    module.SetEnabled(true)
+    driver = frames.ArkannsQOLFlightEvents
+    ns.FlightTimesData["70999,0,101>303>202"] = 90
+    local started = Begin()
+    local frame, panel = frames.ArkannsQOLFlightTimer, frames.ArkannsQOLFlightTimerPanel
+    assert(frame.mouse == false and panel.mouse == false, "Flight decorations allow game clicks through")
+    assert(frame.width == 512 and panel.width == 320 and panel.height == 104)
+    assert(#frame.textures == 2, "Reuse two ornaments per flight window")
+    for index, side in ipairs({"Left", "Right"}) do
+        local ornament = frame.textures[index]
+        assert(ornament.point[2] == panel and ornament.width <= 96 and ornament.height <= 84)
+        if creature then
+            assert(ornament.atlas == "UI-HUD-ActionBar-" .. creature .. "-" .. side)
+            assert(math.abs(ornament.width / ornament.height - atlasInfo.width / atlasInfo.height) < .0001)
+        else
+            assert(ornament.texture == "Interface\\TaxiFrame\\UI-Taxi-Icon-Green" and ornament.width == ornament.height)
+        end
+    end
+    progress = frames.ArkannsQOLFlightProgress
+    if faction == "Horde" then
+        assert(progress.color[1] > progress.color[3], "Horde uses a red accent")
+    elseif faction == "Alliance" then
+        assert(progress.color[3] > progress.color[1], "Alliance uses a blue accent")
+    end
+    PollAt(started + 89, true)
+    assert(badges[2].text == "≈ 0:01" and progress.shown)
+    PollAt(started + 90, true)
+    assert(badges[2].text == "1:30" and badges[3].text == ns.L("Temps écoulé") and not progress.shown,
+        "An exceeded estimate returns to elapsed time")
+    module.SetEnabled(false)
+    assert(not frame.shown and not driver.scripts.OnUpdate)
+    module.SetEnabled(true)
+    Begin()
+    assert(#frame.textures == 2 and progress.shown and progress.value == 0,
+        "Reopening resets the display without allocating more ornaments")
+    module.SetEnabled(false)
+end
+CheckFactionArt("Alliance", "Gryphon", {width = 240, height = 140})
+CheckFactionArt("Horde", "Wyvern", {width = 178, height = 167})
+CheckFactionArt("Alliance", nil, {width = secret, height = 140})
+CheckFactionArt("Horde", nil, nil)
+CheckFactionArt(secret, nil, {width = 240, height = 140})
+CheckFactionArt(nil, nil, nil)
+GetLocale = function() return "frFR" end
+Load("Locales/Locale.lua")
+Load("Locales/enUS-Flights.lua")
+CheckFactionArt("Alliance", "Gryphon", {width = 240, height = 140})
+CheckFactionArt("Horde", "Wyvern", {width = 240, height = 140})
+print("PASS: flight timing, route isolation, export, profiles, faction art, native fallbacks, and FR/EN display lifecycle")

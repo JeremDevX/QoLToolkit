@@ -309,8 +309,9 @@ local function RegisterSettings(rootCategory)
     local panel = CreateFrame("Frame", nil, scroll)
     panel:SetSize(540, 1000); scroll:SetScrollChild(panel)
     local items, advanced, appearanceSection, Layout = {}, false, false
+    local section = "behavior"
     local function Track(frame, kind, width)
-        items[#items + 1] = {frame = frame, kind = kind, width = width, advanced = appearanceSection}
+        items[#items + 1] = {frame = frame, kind = kind, width = width, advanced = appearanceSection, section = section}
         return frame
     end
     local updates = {}
@@ -357,6 +358,7 @@ local function RegisterSettings(rootCategory)
     local restCheck = Check("Rest", L("Hors combat"), "showRest")
     items[#items].pair = true
 
+    section = "exceptions"
     Text(L("Rangs inférieurs volontaires"), 15)
     Text(L("Ajoute un sort signalé ou saisis son identifiant exact de rang."))
     Button("AddException", L("Ignorer un sort signalé"), 240, function(self)
@@ -407,6 +409,7 @@ local function RegisterSettings(rootCategory)
     end)
     status = Text("")
     items[#items].condition = function() return (status:GetText() or "") ~= "" end
+    section = "behavior"
     Button("ResetBehavior", L("Fonctionnement par défaut"), 235, function()
         UI.Confirm(L("Réactiver les avertissements de rang ?"), function()
             db.interval = defaults.interval; SetEnabled(defaults.enabled)
@@ -418,6 +421,7 @@ local function RegisterSettings(rootCategory)
             Changed()
         end)
     end)
+    section = "appearance"
     local appearanceToggle = Button("AppearanceToggle", L("Apparence du badge"), 280, function(self)
         advanced = not advanced
         self:SetText(advanced and L("Masquer l’apparence du badge") or L("Apparence du badge"))
@@ -433,6 +437,7 @@ local function RegisterSettings(rootCategory)
     local style = Choice("Style", L("Badge"), "style", {{"mark", "!"}, {"dot", L("Point")}, {"border", L("Bordure")}})
     local corner = Choice("Corner", L("Coin"), "corner", {{"BOTTOMLEFT", L("Bas gauche")}, {"BOTTOMRIGHT", L("Bas droite")}, {"TOPLEFT", L("Haut gauche")}, {"TOPRIGHT", L("Haut droite")}})
     items[#items].condition = function() return db.style ~= "border" end
+    items[#items].pair = true
     local size = Choice("Size", L("Taille"), "size", {{10, "10"}, {14, "14"}, {18, "18"}, {24, "24"}, {32, "32"}})
     local opacity = Choice("Opacity", L("Opacité"), "opacity", {{0.25, L("25 %")}, {0.5, L("50 %")}, {0.75, L("75 %")}, {1, L("100 %")}})
     items[#items].pair = true
@@ -460,37 +465,48 @@ local function RegisterSettings(rootCategory)
             Changed()
         end)
     end)
+    items[#items].pair = true
 
     Layout = function()
         local width = math.max(240, canvas:GetWidth() - 50)
-        local y, rowY, rowHeight = 0, 0, 0
-        local paired = width >= 540
-        local columnWidth = math.floor((width - 12) / 2)
-        for index, item in ipairs(items) do
-            local control = item.frame
-            local visible = (not item.advanced or advanced) and (not item.condition or item.condition())
-            control:SetShown(visible)
-            if visible then
-                local besidePrevious = paired and item.pair
-                local pairWithNext = paired and items[index+1] and items[index+1].pair
-                local available = (besidePrevious or pairWithNext) and columnWidth or width
-                local x = besidePrevious and columnWidth + 12 or item.kind == "input" and 6 or 0
-                control:ClearAllPoints(); control:SetPoint("TOPLEFT", panel, "TOPLEFT", x, -(besidePrevious and rowY or y))
-                local height = 26
-                if item.kind == "text" then
-                    control:SetWidth(width); height = math.max(20, control:GetStringHeight())
-                elseif item.kind == "check" then
-                    control.label:SetWidth(available - 38)
-                    height = math.max(28, control.label:GetStringHeight() + 8)
-                else control:SetWidth(math.min(item.width or 280, available - 6)) end
-                if besidePrevious then
-                    y = rowY + math.max(rowHeight, height) + 10
-                else
-                    rowY, rowHeight = y, height
-                    y = y + height + 10
+        local columns = width >= 660
+        local laneWidth = columns and math.floor((width - 24) / 2) or width
+        local function PlaceSection(name, x, top, availableWidth)
+            local y, rowY, rowHeight = top, top, 0
+            local paired = availableWidth >= 540
+            local columnWidth = math.floor((availableWidth - 12) / 2)
+            for index, item in ipairs(items) do
+                if item.section == name then
+                    local control = item.frame
+                    local visible = (not item.advanced or advanced) and (not item.condition or item.condition())
+                    control:SetShown(visible)
+                    if visible then
+                        local besidePrevious = paired and item.pair
+                        local pairWithNext = paired and items[index+1] and items[index+1].section == name and items[index+1].pair
+                        local available = (besidePrevious or pairWithNext) and columnWidth or availableWidth
+                        local offset = besidePrevious and columnWidth + 12 or item.kind == "input" and 6 or 0
+                        control:ClearAllPoints(); control:SetPoint("TOPLEFT", panel, "TOPLEFT", x + offset, -(besidePrevious and rowY or y))
+                        local height = 26
+                        if item.kind == "text" then
+                            control:SetWidth(availableWidth); height = math.max(20, control:GetStringHeight())
+                        elseif item.kind == "check" then
+                            control.label:SetWidth(available - 38)
+                            height = math.max(28, control.label:GetStringHeight() + 8)
+                        else control:SetWidth(math.min(item.width or 280, available - 6)) end
+                        if besidePrevious then
+                            y = rowY + math.max(rowHeight, height) + 10
+                        else
+                            rowY, rowHeight = y, height
+                            y = y + height + 10
+                        end
+                    end
                 end
             end
+            return y
         end
+        local y = PlaceSection("behavior", 0, 0, laneWidth)
+        local exceptionsBottom = PlaceSection("exceptions", columns and laneWidth + 24 or 0, columns and 0 or y + 12, laneWidth)
+        y = PlaceSection("appearance", 0, math.max(y, exceptionsBottom) + 16, width)
         panel:SetSize(width, y + 12)
         UI.ClampScroll(scroll, panel:GetHeight())
     end

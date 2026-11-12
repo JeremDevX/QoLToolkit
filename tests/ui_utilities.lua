@@ -197,6 +197,23 @@ modules.tooltips.SetEnabled(false)
 assert(modules.tooltips.Summary() == "Placement WoW" and ns.GetMouseoverDistanceSetting(),
     "The tooltip switch describes placement while mouseover distance remains independent")
 modules.tooltips.SetEnabled(true)
+do
+    local panel = frames.ForeverTooltipLibreSettings
+    local main = frames.ArkannsQOLTooltipGeneralEnabled.parent
+    panel:SetWidth(857); panel.scripts.OnSizeChanged()
+    local narrowMain, narrowBehavior = main:GetHeight(), behavior:GetHeight()
+    assert(frames.ArkannsQOLTooltipOwnStyle.points[1][2] == 0)
+    panel:SetWidth(858); panel.scripts.OnSizeChanged()
+    assert(frames.ArkannsQOLTooltipOwnStyle.points[1][2] > 0,
+        "Tooltip placement and appearance use separate columns")
+    assert(frames.ArkannsQOLTooltipCombat.points[1][2] > 0,
+        "Tooltip scale and combat behavior remain beside type placement")
+    assert(main:GetHeight() < narrowMain and behavior:GetHeight() < narrowBehavior,
+        "Both tooltip tabs need less scrolling when groups fit side by side")
+    assert(frames.ForeverTooltipLibreSize:GetWidth() > 330, "Tooltip sliders use the available column width")
+    panel:SetWidth(600); panel.scripts.OnSizeChanged()
+    assert(frames.ArkannsQOLTooltipOwnStyle.points[1][2] == 0)
+end
 
 env.TargetFrame = Widget("Frame"); env.TargetFrame:Show(); env.TargetFrame:SetScale(.8); env.TargetFrame:SetAlpha(.6)
 env.TargetFrame:SetFrameStrata("LOW"); env.TargetFrame:SetFrameLevel(4)
@@ -208,6 +225,35 @@ for _, widget in ipairs(widgets) do
 end
 assert(badge and badge.clamped and not badge.mouse and badge.scale == .8 and badge.alpha == .6)
 assert(badge.strata == "LOW" and badge.level == 5, "The badge must follow the target frame's presentation")
+-- Dungeon names can have secret geometry while the portrait and target frame stay public.
+do
+    local frame, driver = env.TargetFrame, frames.ArkannsQOLTargetDistanceEvents
+    local name, portrait = frame.name, Widget("Texture")
+    portrait:Show(); frame.portrait = portrait
+    frame.TargetFrameContent = {TargetFrameContentMain = {Name = name}}
+    local nameSecret, portraitSecret, frameSecret = true, false, false
+    name.IsAnchoringSecret = function() return nameSecret end
+    portrait.IsAnchoringSecret = function() return portraitSecret end
+    frame.IsAnchoringSecret = function() return frameSecret end
+    local function Tick() driver.scripts.OnUpdate(nil, .2) end
+    Tick()
+    assert(badge.shown and badge.points[1][2] == frame and badge.points[1][3] == "TOPRIGHT"
+        and badge.points[1][4] == -136 and badge.points[1][5] == -18,
+        "A secret native name must retain its above-name position using the public frame")
+    portraitSecret = true
+    Tick()
+    assert(badge.shown and badge.points[1][2] == frame,
+        "A public target frame remains usable when both child anchors are restricted")
+    frameSecret = true
+    Tick()
+    assert(not badge.shown, "Never anchor a badge when all target anchors are secret")
+    nameSecret = false
+    Tick()
+    assert(badge.shown and badge.points[1][2] == name,
+        "Restore the selected name anchor when it becomes public again")
+    name.IsAnchoringSecret, frame.IsAnchoringSecret, frame.portrait = nil, nil, nil
+    frame.TargetFrameContent = nil
+end
 -- The same hostile unit must use the target's permitted probes in both displays.
 do
     local combat, same, instance, player, calls = true, true, false, false, 0
@@ -276,6 +322,12 @@ panel:SetWidth(330); panel.scripts.OnSizeChanged()
 local narrowColorHeight = colorReset.parent.height
 panel:SetWidth(580); panel.scripts.OnSizeChanged()
 assert(colorReset.parent.height < narrowColorHeight, "Wide color controls use a table")
+local tableHeight = colorReset.parent.height
+panel:SetWidth(840); panel.scripts.OnSizeChanged()
+assert(colorReset.points[1][4] > frames.ArkannsQOLDistanceResetPosition.points[1][4],
+    "Wide distance settings place colors beside placement")
+assert(colorReset.parent.height < tableHeight, "Independent distance groups reduce scrolling")
+panel:SetWidth(580); panel.scripts.OnSizeChanged()
 colorReset.parent.parent:SetVerticalScroll(550)
 Click("ArkannsQOLDistanceAdvanced")
 assert(not colorReset.shown and colorReset.parent.parent:GetVerticalScroll() == 0)
@@ -317,6 +369,13 @@ local narrowRankHeight = frames.ArkannsQOLRankStyle.parent.height
 rankPanel:SetWidth(600); rankPanel.scripts.OnSizeChanged()
 assert(frames.ArkannsQOLRankStyle.parent.height < narrowRankHeight, "Wide independent rank controls share rows")
 assert(frames.ArkannsQOLRankCombat.points[1][5] == frames.ArkannsQOLRankRest.points[1][5])
+local stackedRankHeight = frames.ArkannsQOLRankStyle.parent.height
+rankPanel:SetWidth(760); rankPanel.scripts.OnSizeChanged()
+assert(frames.ArkannsQOLRankAddException.points[1][4] > frames.ArkannsQOLRankPreview.points[1][4],
+    "Wide rank settings place exceptions beside activation and visibility")
+assert(frames.ArkannsQOLRankStyle.parent.height < stackedRankHeight,
+    "Independent rank groups reduce scrolling")
+rankPanel:SetWidth(600); rankPanel.scripts.OnSizeChanged()
 local style = frames.ArkannsQOLRankStyle
 Click("ArkannsQOLRankStyle"); menu["Bordure"]()
 assert(not frames.ArkannsQOLRankCorner.shown and style.parent.height < narrowRankHeight)
@@ -408,7 +467,10 @@ do
         assert(name == "ReplaceOtherPlayerPortraits")
         return replacement
     end}
-    function methods:SetParent(parent) assert(not combat); self.parent = parent end
+    function methods:SetParent(parent)
+        if parent == container then assert(not combat) end
+        self.parent = parent
+    end
     function methods:RegisterEvent(event)
         self.events = self.events or {}; self.events[event] = true
     end
@@ -456,6 +518,8 @@ do
     end
     function methods:SetTexCoord(...) self.coords = {...} end
 
+    Load("Modules/TargetPortraitArt.lua")
+    env.ForeverTooltipLibreDB.targetPortrait = {medallion = true, target = {enabled = false}, player = {enabled = false}}
     local nextWidget = #widgets + 1
     Load("Modules/TargetPortrait.lua")
     ns.InitializeTargetPortrait({})
@@ -537,21 +601,431 @@ do
     assert(profiles.Undo() and not toggle.checked and not frame.shown)
 
     atlasAvailable = false
-    env.ForeverTooltipLibreDB.targetPortrait = nil
+    env.ForeverTooltipLibreDB.targetPortrait = {medallion = true, target = {enabled = false}, player = {enabled = false}}
     Load("Modules/TargetPortrait.lua")
     ns.InitializeTargetPortrait({})
     local fallback = assert(Overlay())
     assert(fallback ~= frame and fallback.shown and fallback.icon.mask.texture == maskTexture
         and fallback.rim.mask.texture == maskTexture, "Use the native texture when CircleMask is unavailable")
     maskAvailable = false
-    env.ForeverTooltipLibreDB.targetPortrait = nil
+    env.ForeverTooltipLibreDB.targetPortrait = {medallion = true, target = {enabled = false}, player = {enabled = false}}
     Load("Modules/TargetPortrait.lua")
     ns.InitializeTargetPortrait({})
     assert(not Overlay().shown, "Hide the medallion if its circular mask cannot load")
     atlasAvailable, maskAvailable, iconAvailable = true, true, false
-    env.ForeverTooltipLibreDB.targetPortrait = nil
+    env.ForeverTooltipLibreDB.targetPortrait = {medallion = true, target = {enabled = false}, player = {enabled = false}}
     Load("Modules/TargetPortrait.lua")
     ns.InitializeTargetPortrait({})
     assert(not Overlay().shown, "Hide the medallion if the class icon cannot load")
 end
 print("PASS: target class medallion geometry, circular masks, protected anchors, class changes, native portrait setting, and profiles")
+
+do
+    local combat, targetClass, playerClass, targetPlayer = true, "MAGE", "PALADIN", true
+    local secretAnchor, forbidden, atlasesAvailable = false, false, true
+    local fallbackAvailable, classAvailable = true, true
+    local targetContainer = env.TargetFrame.TargetFrameContainer
+    local targetPortrait = targetContainer.Portrait
+    env.PlayerFrame = Widget("Frame"); env.PlayerFrame:Show()
+    local playerContainer = Widget("Frame", nil, env.PlayerFrame)
+    local playerPortrait = Widget("Texture", nil, playerContainer); playerPortrait:Show()
+    env.PlayerFrame.PlayerFrameContainer, playerContainer.PlayerPortrait = playerContainer, playerPortrait
+    targetContainer:SetFrameLevel(4); playerContainer:SetFrameLevel(4)
+    targetPortrait.IsAnchoringSecret = function() return secretAnchor end
+    playerPortrait.IsAnchoringSecret = function() return secretAnchor end
+    env.TargetFrame.IsForbidden = function() return forbidden end
+    env.PlayerFrame.IsForbidden = function() return forbidden end
+    env.InCombatLockdown = function() return combat end
+    env.UnitIsPlayer = function(unit) return unit == "player" or targetPlayer end
+    env.UnitClassBase = function(unit)
+        if not classAvailable then return end
+        return unit == "player" and playerClass or targetClass
+    end
+    env.UnitIsUnit = function() return false end
+    env.C_CVar = {GetCVarBool = function() return false end}
+    ui.OpenCategory = function(category) category.frame:Show() end
+    env.C_ClassColor = {GetClassColor = function(token)
+        if not ns.TargetPortraitArt.classes[token] then return end
+        local slot = ns.TargetPortraitArt.classSlots[token]
+        return {r = .2 + slot / 20, g = .7, b = .9 - slot / 20}
+    end}
+    local atlasInfo, fileTextures = {CircleMask = {width = 64, height = 64}}, {}
+    local function RegisterAsset(asset)
+        atlasInfo[asset.atlas] = {width = asset.width, height = asset.height}
+        fileTextures[asset.texture] = true
+    end
+    RegisterAsset(ns.TargetPortraitArt.ring); RegisterAsset(ns.TargetPortraitArt.glow)
+    if ns.TargetPortraitArt.glowMask then RegisterAsset(ns.TargetPortraitArt.glowMask) end
+    for _, art in pairs(ns.TargetPortraitArt.classes) do
+        RegisterAsset(art.rune)
+    end
+    env.C_Texture = {GetAtlasInfo = function(atlas)
+        assert(atlasInfo[atlas], "An atlas used by the portrait must have a verified resource entry")
+        if atlasesAvailable then return atlasInfo[atlas] end
+    end}
+    function methods:SetAtlas(atlas, useAtlasSize, filter, resetCoords, wrapH, wrapV)
+        assert(self ~= targetPortrait and self ~= playerPortrait, "Never repaint the native portrait")
+        assert(atlasesAvailable and atlasInfo[atlas], "Only set an available atlas")
+        if self.kind == "MaskTexture" then
+            assert(not useAtlasSize and filter == "LINEAR" and resetCoords)
+            assert(wrapH == "CLAMPTOBLACKADDITIVE" and wrapV == "CLAMPTOBLACKADDITIVE")
+        end
+        self.atlas, self.texture = atlas, nil
+    end
+    function methods:SetTexture(texture, wrapH, wrapV)
+        assert(self ~= targetPortrait and self ~= playerPortrait, "Never replace the native portrait texture")
+        assert(fileTextures[texture] or texture == "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+            or texture == "Interface\\WorldStateFrame\\Icons-Classes", "Only use verified native fallback textures")
+        self.texture, self.atlas = texture, nil
+        return fallbackAvailable
+    end
+    local function IsGameplay(widget)
+        while widget do
+            if widget == targetContainer or widget == playerContainer then return true end
+            widget = widget.parent
+        end
+        return false
+    end
+    local geometryWrites = 0
+    function methods:CreateTexture(_, layer, _, sublevel)
+        assert(not combat or not IsGameplay(self), "Create native-container ornaments outside combat")
+        local texture = Widget("Texture", nil, self)
+        texture.layer, texture.sublevel = layer, sublevel or 0
+        return texture
+    end
+    function methods:GetHeight()
+        if self.kind == "ScrollFrame" then
+            local top, bottom
+            for _, point in ipairs(self.points) do
+                if point[1] == "TOPLEFT" and point[2] == self.parent then top = point[5] end
+                if point[1] == "BOTTOMRIGHT" and point[2] == self.parent then bottom = point[5] end
+            end
+            if top and bottom then return math.max(0, self.parent:GetHeight() + top - bottom) end
+        end
+        return self.height
+    end
+    function methods:SetParent(parent)
+        assert(not combat or not IsGameplay(parent), "Never parent a decoration to Blizzard frames during combat")
+        self.parent = parent
+    end
+    function methods:SetPoint(...)
+        if self.kind == "Frame" and IsGameplay(self) then
+            assert(not combat, "Never reanchor a gameplay decoration in combat")
+            geometryWrites = geometryWrites + 1
+        end
+        self.points[#self.points + 1] = {...}
+    end
+    function methods:CreateMaskTexture() assert(not combat); return Widget("MaskTexture", nil, self) end
+    function methods:CreateAnimationGroup()
+        assert(not combat, "Create animation resources outside combat")
+        return Widget("AnimationGroup", nil, self)
+    end
+    function methods:CreateAnimation(kind) return Widget(kind, nil, self) end
+    function methods:SetLooping(value) self.looping = value end
+    function methods:SetOrder(value) self.order = value end
+    function methods:SetDuration(value) self.duration = value end
+    function methods:SetFromAlpha(value) self.fromAlpha = value end
+    function methods:SetToAlpha(value) self.toAlpha = value end
+    function methods:SetSmoothing(value) self.smoothing = value end
+    function methods:Play() self.playing = true end
+    function methods:Stop() self.playing = false end
+    function methods:IsPlaying() return self.playing == true end
+    function methods:SetRotation(value) self.rotation = value end
+    function methods:SetBlendMode(value) self.blendMode = value end
+    function methods:SetValue(value)
+        self.value = value
+        if self.scripts.OnValueChanged then self.scripts.OnValueChanged(self, value) end
+    end
+    local function Event(driver, event, unit) driver.scripts.OnEvent(driver, event, unit) end
+    local function TextureFor(frame, atlas)
+        for _, widget in ipairs(widgets) do
+            if widget.atlas == atlas and (widget.parent == frame or (frame.ornaments and widget == frame.ornaments[1])) then return widget end
+        end
+    end
+    local function AssertOrnaments(frame, token, count)
+        assert(#frame.ornaments == 4)
+        for index, ornament in ipairs(frame.ornaments) do
+            assert(ornament.parent == frame.parent and ornament.layer == "BACKGROUND" and ornament.sublevel == 0,
+                "Class relief shares the native container below its sublevel-one portrait")
+            assert(ornament.shown == (index <= count), "Only the requested relief layers are visible")
+            if index <= count then
+                assert(ornament.atlas == ns.TargetPortraitArt.classes[token].rune.atlas)
+                assert(ornament.width > 80 and ornament.width == ornament.height,
+                    "Class artwork surrounds the portrait as one proportionate ornament")
+            end
+        end
+    end
+    local function AssertHiddenOrnaments(frame)
+        for _, ornament in ipairs(frame.ornaments) do assert(not ornament.shown, "Hidden frames release sibling ornaments") end
+    end
+    local function Check(name, value)
+        local control = assert(frames["ArkannsQOLTargetPortrait" .. name])
+        control:SetChecked(value); control.scripts.OnClick(control)
+    end
+    local function Change(name, value)
+        local control = assert(frames["ArkannsQOLTargetPortrait" .. name])
+        assert(control.scripts.OnValueChanged, name .. " must update its saved setting")(control, value)
+    end
+    local function Choose(name, caption)
+        Click("ArkannsQOLTargetPortrait" .. name)
+        local callback = menu[caption]
+        if not callback then
+            for text, item in pairs(menu) do if text:find(caption, 1, true) then callback = item; break end end
+        end
+        assert(callback, "Missing portrait choice: " .. caption)()
+    end
+    env.ForeverTooltipLibreDB.targetPortrait = {enabled = true}
+    local nextWidget = #widgets + 1
+    Load("Modules/TargetPortrait.lua")
+    ns.InitializeTargetPortrait({})
+    local module, driver = modules.targetPortrait, widgets[nextWidget]
+    ns.modules.targetPortrait = module
+    local config = module.ExportSettings()
+    assert(config.target.enabled and config.player.enabled and not config.medallion,
+        "Old saved activation gains independent player and target decorations")
+    assert(config.target ~= config.player and config.target.color ~= config.player.color,
+        "Player and target settings own independent tables")
+    local untouched = module.ExportSettings()
+    config.target.color[1], config.target.size = 0, 140
+    assert(module.ExportSettings().target.size == untouched.target.size
+        and module.ExportSettings().target.color[1] == untouched.target.color[1], "Exports cannot mutate live settings")
+    assert(not frames.ArkannsQOLClassPortraitTarget and not frames.ArkannsQOLClassPortraitPlayer,
+        "Loading during combat defers creation of gameplay ornaments")
+    combat = false
+    Event(driver, "PLAYER_REGEN_ENABLED")
+    local target = assert(frames.ArkannsQOLClassPortraitTarget)
+    local player = assert(frames.ArkannsQOLClassPortraitPlayer)
+    assert(target.shown and player.shown and not target.mouse and not player.mouse)
+    assert(target.parent == targetContainer and player.parent == playerContainer)
+    assert(target.points[1][2] == targetPortrait and player.points[1][2] == playerPortrait)
+    assert(TextureFor(target, ns.TargetPortraitArt.ring.atlas), "The frame surrounds the native portrait with a ring")
+    AssertOrnaments(target, "MAGE", 3)
+    AssertOrnaments(player, "PALADIN", 3)
+    local playerEmblem = player.ornaments[1]
+    local widgetCount, geometryCount = #widgets, geometryWrites
+    combat, targetClass = true, "DRUID"
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(target.shown and player.shown and TextureFor(target, ns.TargetPortraitArt.classes.DRUID.rune.atlas))
+    assert(playerEmblem.atlas == ns.TargetPortraitArt.classes.PALADIN.rune.atlas,
+        "Changing target class leaves the player's class artwork intact")
+    assert(#widgets == widgetCount and geometryWrites == geometryCount,
+        "Changing class in combat only repaints existing resources")
+    targetClass = "secret"
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(not target.shown and player.shown, "A secret target class hides only its own ornament")
+    AssertHiddenOrnaments(target)
+    targetClass, targetPlayer = "MAGE", false
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(not target.shown and player.shown, "Creature targets never inherit the previous player's class")
+    AssertHiddenOrnaments(target)
+    targetPlayer, classAvailable = true, false
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(not target.shown and not player.shown, "Unavailable class data hides stale artwork")
+    classAvailable, combat = true, false
+    Event(driver, "PLAYER_REGEN_ENABLED")
+    assert(target.shown and player.shown)
+    local readClass = env.UnitClassBase
+    env.UnitClassBase = nil
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(not target.shown and not player.shown, "An absent class API clears both ornaments")
+    env.UnitClassBase = readClass
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(target.shown and player.shown)
+    forbidden = true
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(not target.shown and not player.shown)
+    forbidden = false
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(target.shown and player.shown)
+    secretAnchor = true
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(not target.shown and not player.shown, "Secret native anchors hide both owned decorations")
+    AssertHiddenOrnaments(target); AssertHiddenOrnaments(player)
+    secretAnchor = false
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(target.shown and player.shown, "Public anchors restore their class relief")
+
+    local setPoint, rejectAnchor = methods.SetPoint, true
+    function methods:SetPoint(...)
+        if self == target and rejectAnchor then error("Restricted portrait anchor") end
+        return setPoint(self, ...)
+    end
+    local anchored = module.ExportSettings()
+    local rejected = module.ExportSettings(); rejected.target.x = 7
+    assert(module.ImportSettings(rejected))
+    assert(not target.shown and #target.points == 0, "A rejected reanchor leaves its ornament hidden")
+    combat = true
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(not target.shown, "Combat refresh cannot revive an ornament whose anchor was rejected")
+    combat, rejectAnchor = false, false
+    Event(driver, "PLAYER_ENTERING_WORLD")
+    assert(target.shown and target.points[1][4] == 7, "Entering the world retries a previously rejected anchor")
+    methods.SetPoint = setPoint
+    assert(module.ImportSettings(anchored))
+
+    local portraitCalls = 0
+    env.SetPortraitTexture = function(texture, unit, disableMasking)
+        assert(texture ~= targetPortrait and texture ~= playerPortrait)
+        assert(unit == "player" and disableMasking == true)
+        texture.portraitUnit = unit
+        portraitCalls = portraitCalls + 1
+    end
+    local panel = frames.ArkannsQOLTargetPortraitSettings
+    panel:SetSize(576, 276); panel:Show(); panel.scripts.OnShow(panel)
+    local placement = frames.ArkannsQOLTargetPortraitSize
+    local body, scroll = placement.parent, placement.parent.parent
+    assert(body:GetHeight() <= scroll:GetHeight(), "The default portrait style fits a compact page without scrolling")
+    assert(panel.previewHost.parent == panel and frames.ArkannsQOLTargetPortraitPreviewClass.parent == panel,
+        "The class preview stays outside the settings scroll")
+    module.OpenSettings("Couleur personnalisée")
+    assert(revealed == frames.ArkannsQOLTargetPortraitClassColor and not frames.ArkannsQOLTargetPortraitColor.shown,
+        "Searching for a custom color reveals its controlling class-color setting while automatic color is active")
+    Choose("Unit", "Joueur")
+    module.OpenSettings("Afficher le médaillon de classe")
+    assert(frames.ArkannsQOLTargetPortraitUnit:GetText() == "Cible" and frames.ArkannsQOLTargetPortraitMedallion.shown,
+        "Searching for the target medallion selects its portrait and shows the matching Effects setting")
+    Click("ArkannsQOLTargetPortraitStyle")
+    Click("ArkannsQOLTargetPortraitAdvanced")
+    assert(placement.shown and not frames.ArkannsQOLTargetPortraitBorderSize.shown)
+    local gap = frames.ArkannsQOLTargetPortraitGap
+    assert(placement.points[1][5] == gap.points[1][5] and placement.points[1][4] < gap.points[1][4],
+        "Compact placement pairs related sliders instead of growing a long column")
+    assert(body:GetHeight() <= scroll:GetHeight(), "All placement controls fit the compact page")
+    scroll:SetVerticalScroll(80)
+    Click("ArkannsQOLTargetPortraitStyle")
+    assert(scroll:GetVerticalScroll() == 0 and not placement.shown and frames.ArkannsQOLTargetPortraitBorderSize.shown)
+    Choose("Intensity", "Sobre")
+    AssertOrnaments(target, "MAGE", 0)
+    Choose("Intensity", "Spectaculaire")
+    AssertOrnaments(target, "MAGE", 4)
+    Choose("Intensity", "Ornée")
+    AssertOrnaments(target, "MAGE", 3)
+    panel:SetSize(740, 600); panel.scripts.OnSizeChanged(panel)
+    assert(body:GetHeight() <= scroll:GetHeight(), "Style controls fit a comfortable page")
+    Click("ArkannsQOLTargetPortraitAdvanced")
+    Change("Size", 120)
+    Change("BorderSize", 1)
+    Change("Opacity", 65)
+    Check("ClassColor", false)
+    local changed = module.ExportSettings()
+    assert(changed.target.size == 120 and changed.target.opacity == .65 and not changed.target.classColor)
+    assert(target.alpha == .65 and target.rings[1].shown and not target.rings[2].shown,
+        "Appearance controls change the actual decoration")
+    assert(changed.player.size == untouched.player.size and changed.player.opacity == untouched.player.opacity,
+        "Target appearance controls preserve the player's appearance")
+    local picker
+    env.ColorPickerFrame = {
+        SetupColorPickerAndShow = function(_, options) picker = options end,
+        GetColorRGB = function() return .12, .34, .56 end,
+    }
+    local originalColor = module.ExportSettings().target.color[1]
+    Click("ArkannsQOLTargetPortraitColor")
+    picker.swatchFunc()
+    assert(module.ExportSettings().target.color[1] == .12)
+    Choose("Unit", "Joueur")
+    picker.cancelFunc()
+    assert(module.ExportSettings().target.color[1] == originalColor,
+        "Canceling a color edit restores its original portrait after changing the selected portrait")
+    Choose("Unit", "Cible")
+    Click("ArkannsQOLTargetPortraitColor")
+    local stalePicker = picker
+    local replacement = module.ExportSettings(); replacement.target.color = {.9, .1, .2}
+    assert(module.ImportSettings(replacement))
+    stalePicker.swatchFunc(); stalePicker.cancelFunc()
+    assert(module.ExportSettings().target.color[1] == .9,
+        "Callbacks from a replaced color configuration cannot overwrite an imported profile")
+    Choose("Unit", "Joueur")
+    Change("Size", 90)
+    assert(module.ExportSettings().player.size == 90 and module.ExportSettings().target.size == 120)
+    Check("Animated", true)
+    assert(player.pulse.playing and not target.pulse.playing, "Animation follows each portrait's own preference")
+    local beforePreview = module.ExportSettings()
+    assert(module.Preview())
+    Choose("PreviewClass", "Druide")
+    local preview = assert(frames.ArkannsQOLClassPortraitPreview)
+    assert(preview.shown and TextureFor(preview, ns.TargetPortraitArt.classes.DRUID.rune.atlas))
+    assert(preview.face.parent == panel.previewHost and preview.face.sublevel == 1,
+        "The preview face covers the relief through the same layer order as the native portrait")
+    assert(portraitCalls > 0 and preview.face.portraitUnit == "player",
+        "A public portrait API supplies the preview face while only the class relief changes")
+    assert(preview.face.width == 60 and preview.faceMask.width == 60,
+        "The player preview keeps portrait and circular mask at the same size")
+    assert(module.ExportSettings().target.size == beforePreview.target.size
+        and module.ExportSettings().player.size == beforePreview.player.size,
+        "Choosing an example class never saves it as the real class or changes appearance")
+    module.StopPreview()
+    assert(not preview.shown and not preview.face.shown and frames.ArkannsQOLTargetPortraitPreview.shown,
+        "Stopping the shared preview exposes the inline restart action immediately")
+    Click("ArkannsQOLTargetPortraitPreview")
+    assert(preview.shown and not frames.ArkannsQOLTargetPortraitPreview.shown,
+        "The inline restart action restores the preview and then releases its button space")
+    panel:Hide(); panel.scripts.OnHide(panel)
+    assert(not preview.shown and not preview.pulse.playing, "Closing settings releases the preview and its animation")
+    AssertHiddenOrnaments(preview)
+    assert(not preview.face.shown)
+    env.SetPortraitTexture = nil
+    assert(module.Preview())
+    assert(preview.face.texture == "Interface\\WorldStateFrame\\Icons-Classes",
+        "A missing preview portrait API uses the verified class-icon sample")
+    combat = true
+    Event(driver, "PLAYER_REGEN_DISABLED")
+    assert(not preview.shown, "Entering combat stops the shared preview")
+
+    geometryCount = geometryWrites
+    local pending = module.ExportSettings()
+    pending.target.size, pending.player.size, pending.target.x = 135, 110, 13
+    assert(module.ImportSettings(pending))
+    assert(geometryWrites == geometryCount, "Saved geometry changes wait until combat ends")
+    module.SetEnabled(false)
+    assert(not target.shown and not player.shown)
+    AssertHiddenOrnaments(target); AssertHiddenOrnaments(player)
+    combat = false
+    if driver:IsEventRegistered("PLAYER_REGEN_ENABLED") then Event(driver, "PLAYER_REGEN_ENABLED") end
+    assert(not target.shown and not player.shown, "Disabling during a pending change cannot revive ornaments")
+    module.SetEnabled(true)
+    assert(target.shown and player.shown and module.ExportSettings().target.x == 13)
+    assert(target.points[1][4] == 13, "Reactivation applies the latest requested geometry")
+    assert(not module.ImportSettings({enabled = "yes"}) and module.IsEnabled(),
+        "Invalid activation imports are rejected before changing live settings")
+
+    assert(profiles.Save("Class portrait appearance"))
+    pending = module.ExportSettings(); pending.target.size, pending.player.enabled = 85, false
+    assert(module.ImportSettings(pending))
+    assert(not player.shown)
+    assert(profiles.Apply(assert(profiles.Preview("Class portrait appearance", {targetPortrait = true}))))
+    assert(module.ExportSettings().target.size == 135 and player.shown)
+    assert(profiles.Undo() and module.ExportSettings().target.size == 85 and not player.shown)
+    local legacy = env.ForeverTooltipLibreDB.profiles["Class portrait appearance"]
+    legacy.modules.targetPortrait = {enabled = false}
+    legacy.moduleVersions.targetPortrait = nil
+    local prior = module.ExportSettings()
+    assert(profiles.Apply(assert(profiles.Preview("Class portrait appearance", {targetPortrait = true}))))
+    assert(not module.IsEnabled() and module.ExportSettings().target.size == prior.target.size
+        and module.ExportSettings().player.enabled == prior.player.enabled,
+        "Applying an old activation-only profile preserves the new appearance preferences")
+    assert(legacy.modules.targetPortrait.target == nil, "Legacy profile migration leaves saved profile data intact")
+    assert(profiles.Undo() and module.IsEnabled())
+
+    local baseline = module.ExportSettings()
+    baseline.player.enabled = true
+    assert(module.ImportSettings(baseline))
+    for _, token in ipairs(ns.TargetPortraitArt.order) do
+        targetClass = token
+        Event(driver, "PLAYER_TARGET_CHANGED")
+        assert(target.shown and TextureFor(target, ns.TargetPortraitArt.classes[token].rune.atlas),
+            "Each supported class has its own verified native ornament: " .. token)
+    end
+    atlasesAvailable = false
+    env.ForeverTooltipLibreDB.targetPortrait = {enabled = true}
+    nextWidget = #widgets + 1
+    Load("Modules/TargetPortrait.lua"); ns.InitializeTargetPortrait({})
+    module, driver = modules.targetPortrait, widgets[nextWidget]
+    target = assert(frames.ArkannsQOLClassPortraitTarget)
+    assert(target.shown and target.rings[1].texture == ns.TargetPortraitArt.ring.texture,
+        "Missing atlases use verified native file fallbacks")
+    fallbackAvailable = false
+    env.ForeverTooltipLibreDB.targetPortrait = {enabled = true}
+    Load("Modules/TargetPortrait.lua"); ns.InitializeTargetPortrait({})
+    assert(not frames.ArkannsQOLClassPortraitTarget.shown, "Missing artwork leaves the native portrait usable")
+end
+print("PASS: class portrait settings, class transitions, combat deferral, previews, legacy profiles, and native fallbacks")

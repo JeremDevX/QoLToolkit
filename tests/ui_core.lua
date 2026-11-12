@@ -31,6 +31,7 @@ function methods:SetWidth(w) self.width=w end
 function methods:SetHeight(h) self.height=h end
 function methods:GetWidth() return self.width end
 function methods:GetHeight() return self.height end
+function methods:SetParent(parent) self.parent=parent end
 function methods:GetScale() return self.scale or 1 end
 methods.GetEffectiveScale = methods.GetScale
 function methods:GetTop() return self.top end
@@ -52,6 +53,7 @@ function methods:GetText() return self.text or "" end
 function methods:GetStringHeight() return 20 end
 function methods:GetUnboundedStringWidth() return #self:GetText()*6 end
 function methods:SetChecked(value) self.checked=value end
+function methods:SetFocus() self.focused=true end
 function methods:GetChecked() return self.checked end
 function methods:SetEnabled(value) self.enabled=value end
 function methods:SetValue(value) self.value=value end
@@ -157,7 +159,8 @@ env.Settings={RegisterCanvasLayoutSubcategory=function() return {GetID=function(
 module.category=function() return {GetID=function() return 2 end} end
 ns.RegisterModule("session", {label="Journal"})
 ns.RegisterModule("tooltips", {label="Infobulles", category=function() return {GetID=function() return 3 end} end})
-ns.RegisterModule("bags", {label="Sacs", category=function() return {GetID=function() return 4 end} end})
+ns.RegisterModule("bags", {label="Sacs", category=function() return {GetID=function() return 4 end} end,
+    IsEnabled=function() return true end,SetEnabled=noop})
 ns.RegisterModule("advanced", {label="Réglages avancés", category=function() return {GetID=function() return 5 end} end})
 ns.home=Frame(); ns.home:SetSize(400,600)
 ns.InitializeInterface({})
@@ -165,24 +168,44 @@ local panel=frames.ArkannsQOLCommonAppearance
 panel:SetSize(400,600)
 panel.scripts.OnShow()
 local scroll=frames.ArkannsQOLCommonTheme.parent.parent
-local collapsedHeight=scroll.child:GetHeight()
 assert(frames.ArkannsQOLCommon_fontSize:IsShown() and frames.ArkannsQOLCommonPreview:IsShown())
-assert(not frames.ArkannsQOLCommonBorder:IsShown(), "Border type belongs with its advanced adjustments")
-assert(not frames.ArkannsQOLCommon_borderSize:IsShown(),"Detailed appearance starts collapsed")
+assert(not frames.ArkannsQOLCommonBorder:IsShown(), "General settings show theme and typography first")
+assert(not frames.ArkannsQOLCommon_borderSize:IsShown(),"Each appearance section shows its own controls")
 frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
-assert(frames.ArkannsQOLCommon_borderSize:IsShown())
-assert(frames.ArkannsQOLCommon_borderSize:GetWidth()<=350,"Appearance controls fit a narrow panel")
-panel:SetWidth(619); panel.scripts.OnSizeChanged()
-local scale, opacity=frames.ArkannsQOLCommon_scale, frames.ArkannsQOLCommon_opacity
-assert(scale.points.TOPLEFT[2]>opacity.points.TOPLEFT[2])
+assert(frames.ArkannsQOLCommonBorder:IsShown() and frames.ArkannsQOLCommonColor_bg:IsShown())
+assert(not frames.ArkannsQOLCommonFont:IsShown() and not frames.ArkannsQOLCommon_fontSize:IsShown())
 local oneColumnHeight=scroll.child:GetHeight()
-panel:SetWidth(620); panel.scripts.OnSizeChanged()
-assert(scale.points.TOPLEFT[2]==opacity.points.TOPLEFT[2] and opacity.points.TOPLEFT[1]>scale.points.TOPLEFT[1])
+local specimen=frames.ArkannsQOLCommonSample
+assert(specimen.parent==scroll.child, "Narrow layouts use one scroll surface for preview and controls")
+panel:SetWidth(700); panel.scripts.OnSizeChanged()
+assert(specimen.parent==panel, "The common appearance preview stays beside controls at a comfortable width")
 assert(scroll.child:GetHeight()<oneColumnHeight)
-scroll:SetHeight(400); scroll:SetVerticalScroll(250)
-frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
-assert(scroll:GetVerticalScroll()==0 and scroll.child:GetHeight()==collapsedHeight)
+assert(scroll.child:GetHeight()<=scroll:GetHeight(), "The style section fits without scrolling at the normal panel size")
+frames.ArkannsQOLCommonDimensions.scripts.OnClick()
+assert(frames.ArkannsQOLCommon_borderSize:IsShown() and not frames.ArkannsQOLCommonColor_bg:IsShown())
+assert(frames.ArkannsQOLCommon_borderSize:GetWidth()<=scroll.child:GetWidth(),"Appearance controls fit their content column")
+panel:SetWidth(400); panel.scripts.OnSizeChanged()
+scroll:SetVerticalScroll(250)
+frames.ArkannsQOLCommonGeneral.scripts.OnClick()
+assert(scroll:GetVerticalScroll()==0 and frames.ArkannsQOLCommon_fontSize:IsShown())
 assert(not frames.ArkannsQOLCommonColor_bg:IsShown())
+panel:SetSize(576,276); panel.scripts.OnSizeChanged()
+assert(not specimen:IsShown() and frames.ArkannsQOLCommonPreview:IsShown(),
+    "The minimum window keeps the journal preview action and releases the inline specimen space")
+assert(scroll.child:GetHeight()==156 and scroll:GetHeight()==190,
+    "General appearance controls fit in the minimum window without scrolling")
+frames.ArkannsQOLCommonDimensions.scripts.OnClick()
+assert(scroll.child:GetHeight()==138 and scroll.child:GetHeight()<=scroll:GetHeight(),
+    "Dimensions fit in the minimum window without scrolling")
+frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
+assert(scroll.child:GetHeight()==202 and scroll:GetHeight()==190,
+    "Colors need only twelve units of scrolling in the minimum window")
+assert(UI.OpenSettings("appearance",nil,"talents"))
+frames.ArkannsQOLCommonGeneral.scripts.OnClick()
+assert(frames.ArkannsQOLAppearanceBack:IsShown() and scroll.child:GetHeight()==156 and scroll:GetHeight()==160,
+    "The module return stays available while general settings still fit the minimum window")
+frames.ArkannsQOLAppearanceBack.scripts.OnClick()
+panel:SetSize(400,600); panel.scripts.OnSizeChanged()
 frames.ArkannsQOLCommonAdvanced.scripts.OnClick()
 local appearance=UI.ExportSettings(); appearance.pins.talents=true; UI.ImportSettings(appearance)
 local card=frames.ArkannsQOLHomeTalents
@@ -199,7 +222,9 @@ assert(card.parent.points.TOPLEFT[2]>journal.points.TOPLEFT[2], "Favorite cards 
 local groupTitles={}
 for _,child in ipairs(homeScroll.child.children) do groupTitles[child:GetText()]=child end
 assert(groupTitles.Favoris:IsShown() and groupTitles.Personnage:IsShown() and groupTitles.Interface:IsShown())
-assert(groupTitles.Personnalisation:IsShown() and groupTitles.Outils:IsShown() and not groupTitles.Modules)
+assert(groupTitles.Outils:IsShown() and not groupTitles.Modules)
+assert(frames.ArkannsQOLHomeAppearance.points.TOPLEFT[2] > groupTitles.Favoris.points.TOPLEFT[2],
+    "Shared appearance, layout, profiles and diagnostics stay above all module cards")
 appearance=UI.ExportSettings(); appearance.pins.session=true; UI.ImportSettings(appearance)
 ns.home:SetWidth(589); ns.home.Refresh()
 assert(journal.points.TOPLEFT[2]~=card.parent.points.TOPLEFT[2])
@@ -207,7 +232,49 @@ local narrowHomeHeight=homeScroll.child:GetHeight()
 ns.home:SetWidth(590); ns.home.Refresh()
 assert(journal.points.TOPLEFT[2]==card.parent.points.TOPLEFT[2] and journal.points.TOPLEFT[1]~=card.parent.points.TOPLEFT[1])
 assert(homeScroll.child:GetHeight()<narrowHomeHeight)
+appearance=UI.ExportSettings(); appearance.pins.bags=true; UI.ImportSettings(appearance)
+ns.home:SetWidth(949); ns.home.Refresh()
+local twoColumnHomeHeight=homeScroll.child:GetHeight()
+ns.home:SetWidth(950); ns.home.Refresh()
+assert(frames.ArkannsQOLHomeBags.parent.points.TOPLEFT[2]==card.parent.points.TOPLEFT[2],
+    "Large dashboards use three columns for independent module cards")
+assert(homeScroll.child:GetHeight()<twoColumnHomeHeight)
+appearance=UI.ExportSettings(); appearance.pins.bags=nil; UI.ImportSettings(appearance)
 appearance=UI.ExportSettings(); appearance.pins.session=nil; UI.ImportSettings(appearance)
+
+-- Different content and optional controls still share one size across groups and favorites.
+local homeCards={card.parent,journal,frames.ArkannsQOLHomeBags.parent,
+    frames.ArkannsQOLHomeTooltips.parent,frames.ArkannsQOLHomeAdvanced.parent}
+local originalStringHeight=methods.GetStringHeight
+function methods:GetStringHeight()
+    if self==homeCards[1].title then return 54 end
+    if self==homeCards[3].summary then return 72 end
+    if self==homeCards[3].enabled.label then return 42 end
+    return originalStringHeight(self)
+end
+for _,width in ipairs({280,589,590,949,950,1180}) do
+    ns.home:SetWidth(width); ns.home.Refresh()
+    local expected=homeCards[1]
+    for _,entry in ipairs(homeCards) do
+        assert(entry:GetWidth()==expected:GetWidth() and entry:GetHeight()==expected:GetHeight(),
+            "Every feature card has the same dimensions, including favorites")
+        assert(entry.configure.points.TOPLEFT[2]==expected.configure.points.TOPLEFT[2],
+            "Configure buttons align even when a module has no toggle or preview")
+        assert(entry.summary.points.TOPLEFT[2]==expected.summary.points.TOPLEFT[2])
+        local summaryBottom=-entry.summary.points.TOPLEFT[2]+entry.summary:GetStringHeight()
+        local actionTop=-entry.configure.points.TOPLEFT[2]
+        if entry.enabled then
+            local toggleTop=-entry.enabled.points.TOPLEFT[2]
+            assert(summaryBottom<toggleTop and toggleTop+entry.enabled.label:GetStringHeight()+12<=actionTop)
+        else assert(summaryBottom<actionTop) end
+        if entry.preview then
+            assert(-entry.preview.points.TOPLEFT[2]+entry.preview:GetHeight()<=entry:GetHeight()-8,
+                "Stacked previews stay inside the uniform narrow card")
+        end
+    end
+end
+methods.GetStringHeight=originalStringHeight
+ns.home:SetWidth(950); ns.home.Refresh()
 
 local openedSource, openedCalls=nil,0
 module.OpenSettings=function(source) openedSource=source; openedCalls=openedCalls+1 end
@@ -367,7 +434,7 @@ local function FlightSetting(query, label)
 end
 assert(#UI.SearchSettings("Temps de vol")==3, "Index the flight category and both settings")
 FlightSetting("Chronométrer les vols", "Chronométrer les vols")
-FlightSetting("Exporter mes temps de vol", "Exporter mes temps de vol")
+FlightSetting("Exporter les durées", "Exporter les durées")
 assert(#UI.SearchSettings("  ")==0)
 local results=UI.SearchSettings("ÉCHELLE infobulles")
 assert(#results==1 and results[1].label:find("Échelle",1,true))
@@ -414,7 +481,7 @@ JournalSetting("journal history", "Historique et progression")
 ns.modules.flights.label=ns.L("Temps de vol")
 assert(#UI.SearchSettings("Flight times")==3)
 FlightSetting("Time flight paths", "Chronométrer les vols")
-FlightSetting("Export my flight times", "Exporter mes temps de vol")
+FlightSetting("Export durations", "Exporter les durées")
 print("PASS: global settings search, accent folding, English labels, advanced navigation, and narrow results")
 
 -- Legacy distance favorites remain usable after their settings page is merged.
@@ -510,42 +577,127 @@ end
 -- The distance module shares the tooltip canvas in the real addon.
 ns.RegisterModule("distance",{label="Distance",category=function() return categories.tooltips end,
     OpenSettings=function() panels.tooltips.distanceSelected=true end})
+env.UIParent:SetSize(1400,900)
 frames.ArkannsQOLMinimapButton.scripts.OnClick()
 local settingsWindow=assert(frames.ArkannsQOLSettingsWindow)
+assert(settingsWindow:GetWidth()==1180 and settingsWindow:GetHeight()==780,
+    "The initial settings window uses available desktop width and height")
+env.UIParent:SetSize(1000,800); UI.FitSettingsWindow()
 assert(settingsWindow:IsShown() and root:IsShown() and not env.SettingsPanel:IsShown())
 assert(root.parent.parent==settingsWindow and settingsWindow.resizable and settingsWindow.resizeBounds[1]==600)
-assert(not panels.talents:IsShown() and not frames.ArkannsQOLSettingsSubTab_talents:IsShown())
+local navigation=frames.ArkannsQOLSettingsNavigation
+assert(navigation:IsShown() and not panels.talents:IsShown())
+assert(frames.ArkannsQOLSettingsSubTab_talents:IsShown()
+    and frames.ArkannsQOLSettingsSubTab_bags:IsShown(),"Every subsection is directly reachable in the sidebar")
+assert(frames.ArkannsQOLSettingsTab_character:IsShown())
 frames.ArkannsQOLSettingsTab_character.scripts.OnClick()
 assert(panels.talents:IsShown() and not root:IsShown())
 assert(frames.ArkannsQOLSettingsSubTab_talents.marker:IsShown() and not frames.ArkannsQOLSettingsSubTab_talents.enabled)
 local mainTab=frames.ArkannsQOLSettingsTab_character
 local subTab=frames.ArkannsQOLSettingsSubTab_talents
 for _,tab in ipairs({mainTab,subTab}) do
-    assert(tab.background.color[1]==.24 and tab.background.color[2]==.19 and tab.background.color[4]==.95)
-    assert(tab.label.color[1]==1 and tab.label.color[2]==.82 and tab.label.color[3]==.38)
-    assert(tab.marker.color[1]==1 and tab.marker.color[2]==.72 and tab.marker:GetHeight()==2)
+    local style=UI.GetStyle()
+    for i=1,3 do
+        assert(tab.label.color[i]==style.accent[i] and tab.marker.color[i]==style.accent[i])
+    end
+    assert(tab.background.color[4]==.16)
     assert(not tab.normal,"Flat navigation tabs must not use the themed button artwork")
 end
-assert(subTab:GetWidth()==frames.ArkannsQOLSettingsSubTab_session:GetWidth(),"Subtabs share the row width equally")
+assert(subTab:GetWidth()==frames.ArkannsQOLSettingsSubTab_session:GetWidth(),"Navigation rows share one width")
 frames.ArkannsQOLSettingsSubTab_session.scripts.OnClick()
 assert(panels.session:IsShown() and not panels.talents:IsShown())
-assert(subTab.background.color[1]==.09 and subTab.label.color[2]==.95 and not subTab.marker:IsShown())
+assert(subTab.background.color[4]==.035 and subTab.label.color[2]==UI.GetStyle().text[2] and not subTab.marker:IsShown())
 frames.ArkannsQOLSettingsTab_interface.scripts.OnClick()
 assert(panels.tooltips:IsShown() and not panels.session:IsShown())
 frames.ArkannsQOLSettingsTab_character.scripts.OnClick()
 assert(panels.session:IsShown(),"Returning to a group keeps its selected subsection")
 assert(UI.OpenSettings("distance") and panels.tooltips.distanceSelected and panels.tooltips:IsShown())
 assert(not frames.ArkannsQOLSettingsSubTab_distance,"The merged distance page has no duplicate tab")
+-- Approximate wrapping for both shipped languages; the client still owns glyph metrics.
+local nativeHeight=methods.GetStringHeight
+function methods:GetStringHeight()
+    local available=self.parent and self.points.TOPRIGHT and self.parent:GetWidth()-24 or self:GetWidth()
+    return math.max(12,math.ceil(self:GetUnboundedStringWidth()/math.max(1,available))*12)
+end
+for _,english in ipairs({false,true}) do
+    for id,label in pairs(pageLabels) do
+        frames["ArkannsQOLSettingsSubTab_"..id].label:SetText(english and (ns.English[label] or label) or label)
+    end
+    settingsWindow:SetSize(980,740)
+    UI.RefreshSettingsWindow()
+    for id in pairs(pageLabels) do
+        local button=frames["ArkannsQOLSettingsSubTab_"..id]
+        if button:IsShown() then
+            assert(button:GetHeight()>=button.label:GetStringHeight()+10,"Localized sidebar labels fit their click target")
+            assert(button.points.TOPLEFT[1]+button:GetWidth()<=navigation.child:GetWidth())
+        end
+    end
+    settingsWindow:SetSize(600,480)
+    for _,id in ipairs({"tooltips","targetPortrait","bags"}) do
+        local button=frames["ArkannsQOLSettingsSubTab_"..id]
+        assert(button:GetHeight()>=button.label:GetStringHeight()+12,"Localized compact labels fit their tab")
+    end
+end
+methods.GetStringHeight=nativeHeight
+for id,label in pairs(pageLabels) do frames["ArkannsQOLSettingsSubTab_"..id].label:SetText(label) end
+settingsWindow:SetSize(980,740)
 assert(UI.OpenSettings("appearance",nil,"talents"))
 assert(frames.ArkannsQOLAppearanceBack:IsShown())
 frames.ArkannsQOLAppearanceBack.scripts.OnClick()
 assert(panels.talents:IsShown())
 settingsWindow:SetSize(600,480)
 assert(panels.talents:GetWidth()==576 and panels.talents:GetHeight()>200)
+assert(not navigation:IsShown() and mainTab:IsShown() and subTab.parent==settingsWindow,
+    "Compact navigation releases sidebar width and reparents its visible buttons")
 for _,id in ipairs({"talents","session","reminders","ranks"}) do
     local button=frames["ArkannsQOLSettingsSubTab_"..id]
     assert(button.points.TOPLEFT[1]+button:GetWidth()<=settingsWindow:GetWidth()-16)
 end
+local compactHeight=panels.talents:GetHeight()
+settingsWindow:SetSize(980,740)
+assert(navigation:IsShown() and subTab.parent==navigation.child and mainTab:IsShown())
+assert(panels.talents:GetWidth()>=600 and panels.talents:GetHeight()>compactHeight,
+    "Wide navigation leaves useful canvas width and removes stacked tab rows")
+-- Short windows scroll the complete navigation and reveal the selected destination.
+settingsWindow:SetSize(980,480)
+navigation:SetVerticalScroll(900)
+UI.RefreshSettingsWindow()
+assert(navigation:GetVerticalScroll()<=math.max(0,navigation.child:GetHeight()-navigation:GetHeight()))
+assert(navigation.child:GetHeight()>navigation:GetHeight(), "All destinations remain available in short sidebars")
+navigation:SetVerticalScroll(0)
+navigation.child.top=1000
+frames.ArkannsQOLSettingsSubTab_diagnostics.top=400
+frames.ArkannsQOLSettingsSubTab_diagnostics.scripts.OnClick()
+assert(panels.diagnostics:IsShown() and not panels.talents:IsShown())
+assert(navigation:GetVerticalScroll()>0,"Opening the last destination reveals its navigation row")
+navigation:SetVerticalScroll(0); UI.RefreshSettingsWindow()
+assert(navigation:GetVerticalScroll()==0,"Theme refresh does not pull the sidebar away from the user's scroll position")
+for _,theme in ipairs({"modern","blizzard","warm"}) do
+    local value=UI.ExportSettings(); value.theme=theme; value.accent={.3,.6,.9}; value.text={.8,.85,.95}
+    UI.ImportSettings(value)
+    local tab=frames.ArkannsQOLSettingsSubTab_diagnostics
+    assert(tab.label.color[1]==.3 and tab.marker.color[3]==.9,
+        "Theme changes refresh navigation along with its canvas")
+end
+frames.ArkannsQOLSettingsSearch.scripts.OnClick()
+local searchLayer=frames.ArkannsQOLSettingsSearchPanel
+local query=frames.ArkannsQOLSettingsQuery
+assert(panels.diagnostics:IsShown() and searchLayer:IsShown() and query.focused,
+    "Global search opens above the current page without a trip through Home")
+query:SetText("talents"); query.scripts.OnTextChanged()
+assert(frames.ArkannsQOLSettingsResult1:IsShown())
+query.scripts.OnEscapePressed()
+assert(not searchLayer:IsShown() and panels.diagnostics:IsShown(),"Escape returns to the unchanged page")
+frames.ArkannsQOLSettingsSearch.scripts.OnClick()
+assert(query:GetText()=="talents","Search preserves its query for repeated lookups")
+frames.ArkannsQOLSettingsResult1.scripts.OnClick()
+assert(panels.talents:IsShown() and not searchLayer:IsShown(),"Search opens the exact destination and closes its overlay")
+frames.ArkannsQOLSettingsSearch.scripts.OnClick()
+query:SetText("minicarte"); query.scripts.OnTextChanged()
+query.scripts.OnEnterPressed()
+assert(root:IsShown() and not searchLayer:IsShown(),"Minimap search reaches its Home control from any module")
+assert(UI.OpenSettings("talents"))
+settingsWindow:SetSize(600,480)
 frames.ArkannsQOLSettingsResize.scripts.OnMouseDown(nil,"LeftButton")
 assert(settingsWindow.sizing=="BOTTOMRIGHT")
 frames.ArkannsQOLSettingsResize.scripts.OnMouseUp()
@@ -553,6 +705,11 @@ assert(not settingsWindow.sizing)
 env.UIParent:SetSize(560,420)
 UI.FitSettingsWindow()
 assert(settingsWindow:GetWidth()==536 and settingsWindow:GetHeight()==396)
+env.UIParent:SetSize(344,360)
+UI.FitSettingsWindow()
+assert(settingsWindow:GetWidth()==320 and not frames.ArkannsQOLSettingsSearch:IsShown(),
+    "Very narrow headers reserve room for the title and close button")
+assert(frames.ArkannsQOLSettingsTab_home:IsShown(),"Global search stays reachable through Home on very narrow windows")
 env.UIParent:SetSize(1000,800)
 env.GameTooltip=nil
 local previewRunning=false
@@ -584,4 +741,4 @@ local launcher=nativeCanvases[#nativeCanvases]
 launcher.children[#launcher.children].scripts.OnClick()
 assert(settingsWindow:IsShown() and panels.diagnostics:IsShown() and not env.SettingsPanel:IsShown(),
     "The Blizzard entry launches the same canvas in the standalone window")
-print("PASS: minimap and slash window, grouped tabs, shared distance, resize, close, and native launcher")
+print("PASS: settings sidebar and compact tabs, themed navigation, global search, shared distance, resize, close, and native launcher")

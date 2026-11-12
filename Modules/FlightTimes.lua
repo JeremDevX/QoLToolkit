@@ -3,12 +3,12 @@ local L, UI, WoW = ns.L, ns.UI, ns.WoW
 local moduleID = "flights"
 local title = L("Temps de vol")
 local toggleLabel = L("Chronométrer les vols")
-local exportLabel = L("Exporter mes temps de vol")
+local exportLabel = L("Exporter les durées")
 local minSeconds, maxSeconds = 5, 1800
 local maxLegs = 31
 local frequentFlierNode = 110300
 local events = {"TAXIMAP_OPENED", "TAXIMAP_CLOSED", "ADDON_LOADED", "PLAYER_LEAVING_WORLD", "PLAYER_DEAD", "PLAYER_LOGOUT"}
-local driver, config, records, category, check, badge, badgeTitle, badgeTime
+local driver, config, records, category, check, badge, badgeTitle, badgeTime, badgeCaption, badgeProgress
 local mapOpen, closedAt, nodes, origin, routes
 local pending, flight
 local takeoffHook, earlyLandingHook, taxiTooltipHook, flightMapTooltipHook
@@ -139,37 +139,96 @@ local function AddTaxiTooltip(owner, slot)
     local key = RouteKey(route)
     if not key then return end
     local seconds, community = Estimate(key)
-    local text = seconds and L(community and "Temps communautaire · ≈ %s" or "Temps mesuré · %s"):format(DurationText(seconds))
-        or L("Durée inconnue. Le prochain vol complet sera chronométré.")
+    local text = seconds and L(community and "Durée partagée · ≈ %s" or "Durée mesurée · %s"):format(DurationText(seconds))
+        or L("Durée inconnue")
     GameTooltip:AddLine(text, 1, .82, 0, true)
     GameTooltip:Show()
 end
 
 local function CreateBadge()
-    badge = CreateFrame("Frame", "ArkannsQOLFlightTimer", UIParent, "BackdropTemplate")
-    badge:SetSize(290, 59)
+    badge = CreateFrame("Frame", "ArkannsQOLFlightTimer", UIParent)
+    badge:SetSize(512, 112)
     badge:SetPoint("TOP", UIParent, "TOP", 0, -100)
     badge:SetClampedToScreen(true)
-    UI.StylePanel(badge)
-    badgeTitle = UI.Label(badge, "", 12, -9, 14)
-    badgeTitle:SetWidth(266)
-    badgeTitle:SetWordWrap(false)
-    badgeTime = UI.Label(badge, "", 12, -32)
+    badge:EnableMouse(false)
+
+    local panel = CreateFrame("Frame", "ArkannsQOLFlightTimerPanel", badge, "BackdropTemplate")
+    panel:SetSize(320, 104)
+    panel:SetPoint("CENTER")
+    panel:EnableMouse(false)
+    UI.StylePanel(panel)
+
+    local faction = WoW.ReadValue(UnitFactionGroup, "player")
+    local red, green, blue = .85, .65, .3
+    local creature
+    if faction == "Horde" then
+        red, green, blue, creature = .85, .22, .16, "Wyvern"
+    elseif faction == "Alliance" then
+        red, green, blue, creature = .22, .52, .95, "Gryphon"
+    end
+
+    -- Native end caps, Forever 4cd0ab7. Read atlas dimensions for the client's art variant.
+    for _, side in ipairs({"Left", "Right"}) do
+        local ornament = badge:CreateTexture(nil, "ARTWORK")
+        local atlas = creature and ("UI-HUD-ActionBar-%s-%s"):format(creature, side)
+        local info = atlas and C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, atlas)
+        if type(info) == "table" and WoW.IsFiniteNumber(info.width) and info.width > 0
+            and WoW.IsFiniteNumber(info.height) and info.height > 0 then
+            ornament:SetAtlas(atlas, false)
+            local width = math.min(96, 84 * info.width / info.height)
+            ornament:SetSize(width, width * info.height / info.width)
+        else
+            ornament:SetTexture("Interface\\TaxiFrame\\UI-Taxi-Icon-Green")
+            ornament:SetSize(32, 32)
+        end
+        if side == "Left" then
+            ornament:SetPoint("RIGHT", panel, "LEFT", 8, -3)
+        else
+            ornament:SetPoint("LEFT", panel, "RIGHT", -8, -3)
+        end
+    end
+
+    local accent = panel:CreateTexture(nil, "ARTWORK")
+    accent:SetColorTexture(red, green, blue, .9)
+    accent:SetSize(80, 2)
+    accent:SetPoint("TOP", 0, -3)
+    badgeTitle = UI.Label(panel, "", 18, -13, 14)
+    badgeTime = UI.Label(panel, "", 18, -34, 26)
+    badgeCaption = UI.Label(panel, "", 18, -66, 11)
+    for _, label in ipairs({badgeTitle, badgeTime, badgeCaption}) do
+        label:SetWidth(284)
+        label:SetWordWrap(false)
+        label:SetJustifyH("CENTER")
+    end
+    badgeProgress = CreateFrame("StatusBar", "ArkannsQOLFlightProgress", panel)
+    badgeProgress:SetPoint("BOTTOMLEFT", 18, 12)
+    badgeProgress:SetSize(284, 4)
+    badgeProgress:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    badgeProgress:SetStatusBarColor(red, green, blue)
+    badgeProgress:SetMinMaxValues(0, 1)
+    local track = badgeProgress:CreateTexture(nil, "BACKGROUND")
+    track:SetAllPoints()
+    track:SetColorTexture(red, green, blue, .2)
 end
 
 local function ShowTime(elapsed)
     if not badge then CreateBadge() end
     if not badge:IsShown() or flight.lastSecond == nil then
-        badgeTitle:SetText(flight.name or L("Vol en cours"))
+        badgeTitle:SetText(flight.name or L("En vol"))
         badge:Show()
     end
     local seconds = math.floor(elapsed)
     if flight.lastSecond == seconds then return end
     flight.lastSecond = seconds
     if flight.estimate and seconds < flight.estimate then
-        badgeTime:SetText(L("Temps restant estimé · %s"):format(DurationText(flight.estimate - seconds)))
+        badgeTime:SetText(L("≈ %s"):format(DurationText(flight.estimate - seconds)))
+        badgeCaption:SetText(L("Arrivée estimée"))
+        badgeProgress:SetValue(math.min(1, elapsed / flight.estimate))
+        badgeProgress:Show()
     else
-        badgeTime:SetText(L("Temps écoulé · %s"):format(DurationText(seconds)))
+        badgeTime:SetText(DurationText(seconds))
+        badgeCaption:SetText(L(flight.interrupted and "Escale demandée" or "Temps écoulé"))
+        badgeProgress:Hide()
     end
 end
 
@@ -297,7 +356,7 @@ local function RegisterSettings(root)
     UI.StylePanel(panel)
     UI.Label(panel, title, 16, -16, 18)
     check = UI.Check(panel, "ArkannsQOLFlightsEnabled", toggleLabel, 12, -44, SetEnabled)
-    local description = UI.Label(panel, L("Chronomètre les trajets des maîtres de vol et affiche les durées connues sur leur carte."), 16, 0)
+    local description = UI.Label(panel, L("Affiche la durée des trajets et le temps restant en vol."), 16, 0)
     description:ClearAllPoints()
     description:SetPoint("TOPLEFT", check, "BOTTOMLEFT", 4, -4)
     description:SetWordWrap(true)
@@ -323,7 +382,7 @@ local function RegisterSettings(root)
             scroll:Hide()
             return
         end
-        help:SetText(L("Copie le texte avec Ctrl+C et transmets-le en privé. L’export contient uniquement les trajets, les durées, la version du jeu et le bonus de vitesse."))
+        help:SetText(L("Ctrl+C pour copier les trajets et leurs durées."))
         scroll:Show()
         output:SetWidth(math.max(1, scroll:GetWidth() - 4))
         output:SetText("QTF1\n" .. table.concat(lines, "\n"))
@@ -371,7 +430,7 @@ function ns.InitializeFlightTimes(root)
         label = title,
         icon = "Interface\\TaxiFrame\\UI-Taxi-Icon-Green",
         category = function() return category end,
-        Summary = function() return L("Chronomètre les trajets des maîtres de vol et affiche les durées connues sur leur carte.") end,
+        Summary = function() return L("Affiche la durée des trajets et le temps restant en vol.") end,
         toggleLabel = toggleLabel,
         IsEnabled = function() return config.enabled end,
         SetEnabled = SetEnabled,

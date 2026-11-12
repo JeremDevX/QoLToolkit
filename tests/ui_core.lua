@@ -389,7 +389,7 @@ local function FlightSetting(query, label)
 end
 assert(#UI.SearchSettings("Temps de vol")==3, "Index the flight category and both settings")
 FlightSetting("Chronométrer les vols", "Chronométrer les vols")
-FlightSetting("Exporter mes temps de vol", "Exporter mes temps de vol")
+FlightSetting("Exporter les durées", "Exporter les durées")
 assert(#UI.SearchSettings("  ")==0)
 local results=UI.SearchSettings("ÉCHELLE infobulles")
 assert(#results==1 and results[1].label:find("Échelle",1,true))
@@ -436,7 +436,7 @@ JournalSetting("journal history", "Historique et progression")
 ns.modules.flights.label=ns.L("Temps de vol")
 assert(#UI.SearchSettings("Flight times")==3)
 FlightSetting("Time flight paths", "Chronométrer les vols")
-FlightSetting("Export my flight times", "Exporter mes temps de vol")
+FlightSetting("Export durations", "Exporter les durées")
 print("PASS: global settings search, accent folding, English labels, advanced navigation, and narrow results")
 
 -- Legacy distance favorites remain usable after their settings page is merged.

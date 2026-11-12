@@ -810,7 +810,7 @@ function UI.BuildHome(panel)
         distance = {"Afficher le badge de la cible", "Afficher la distance au survol", "Arrondir les estimations par pas de 5 m",
             "Ancrer au portrait plutôt qu’au nom", "Placement et couleurs", "Décalage X / Y", "Réinitialiser le placement",
             "Fond et bordure", "Fond seul", "Texte seul", "Couleur du texte"},
-        flights = {"Chronométrer les vols", "Exporter mes temps de vol"},
+    flights = {"Chronométrer les vols", "Exporter les durées"},
         bags = {"Trier à l’ouverture manuelle", "Bordure selon la rareté", "Personnaliser les bordures", "Transmos manquantes",
             "Couleurs de rareté", "Objets de quête", "Composants d’artisanat", "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
         appearance = {"Thème", "Taille du texte des modules", "Type de bordure", "Épaisseur de bordure", "Police", "Échelle (%)",

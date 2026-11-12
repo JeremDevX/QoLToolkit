@@ -595,6 +595,9 @@ local function BuildAppearance(root)
         end)
     end
     local colorHint=Label(body, L("Couleurs · code hexadécimal (#RRGGBB)"), 0, 0)
+    local textHeading=Label(body, L("Texte et échelle"), 0, 0, 15)
+    local frameHeading=Label(body, L("Fond et bordure"), 0, 0, 15)
+    local spacingHeading=Label(body, L("Espacement des modules"), 0, 0, 15)
     local reset=Button(body, "ArkannsQOLCommonDefaults", L("Rétablir Chaleureux"), 0, 0, 220, function()
         UI.Confirm(L("Rétablir tous les réglages de l’apparence commune sur Chaleureux ?"), function()
             local value = Copy(defaults)
@@ -629,6 +632,9 @@ local function BuildAppearance(root)
     LayoutAppearance = function()
         local width = math.max(1, panel:GetWidth() - 50)
         local controlWidth = math.min(330, width)
+        local paired = width >= 570
+        local columnWidth = paired and (width - 24) / 2 or width
+        local right = paired and columnWidth + 24 or 0
         local function SliderRow(key, x, y, space, shown)
             local field = fields[key]
             field.caption:SetShown(shown); field.slider:SetShown(shown)
@@ -637,6 +643,18 @@ local function BuildAppearance(root)
             local captionHeight = field.caption:GetStringHeight()
             Place(field.slider, x + 4, y + captionHeight + 8, math.max(1, math.min(330, space - 8)))
             return y + captionHeight + 38
+        end
+        local function Section(label, x, y, space)
+            Place(label, x, y, space)
+            return y + label:GetStringHeight() + 12
+        end
+        local function MenuRow(button, x, y, space)
+            local buttonWidth = math.min(330, space)
+            Place(button, x, y, buttonWidth)
+            local text = button:GetFontString()
+            text:SetWidth(math.max(1, buttonWidth - 24)); text:SetWordWrap(true)
+            button:SetHeight(math.max(26, text:GetStringHeight() + 10))
+            return y + button:GetHeight() + 12
         end
 
         heading:SetWidth(width)
@@ -647,9 +665,9 @@ local function BuildAppearance(root)
             y = y + 34
         end
         Place(description, 0, y, width)
-        y = y + description:GetStringHeight() + 14
-        Place(themeButton, 0, y, controlWidth)
-        y = SliderRow("fontSize", 0, y + 36, width, true)
+        y = y + description:GetStringHeight() + 20
+        local themeBottom = MenuRow(themeButton, 0, y, columnWidth)
+        y = math.max(themeBottom, SliderRow("fontSize", right, paired and y or themeBottom, columnWidth, true))
         Place(preview, 0, y, math.min(200, width))
         y = y + 34
         local separatePreview = UI.IsOverride("session")
@@ -664,40 +682,41 @@ local function BuildAppearance(root)
 
         borderButton:SetShown(advanced); fontButton:SetShown(advanced)
         colorHint:SetShown(advanced); reset:SetShown(advanced)
-        local paired = width >= 570
-        local columnWidth = paired and (width - 18) / 2 or width
+        textHeading:SetShown(advanced); frameHeading:SetShown(advanced); spacingHeading:SetShown(advanced)
         if advanced then
-            Place(borderButton, 0, y, controlWidth)
-            y = y + 34
+            local textY = Section(textHeading, 0, y + 6, columnWidth)
+            textY = MenuRow(fontButton, 0, textY, columnWidth)
+            textY = SliderRow("scale", 0, textY, columnWidth, true)
+            local frameY = Section(frameHeading, right, paired and y + 6 or textY + 12, columnWidth)
+            frameY = MenuRow(borderButton, right, frameY, columnWidth)
+            frameY = SliderRow("borderSize", right, frameY, columnWidth, config.border ~= "none")
+            frameY = SliderRow("opacity", right, frameY, columnWidth, true)
+            y = math.max(textY, frameY) + 12
+        else
+            for _, key in ipairs({"scale", "borderSize", "opacity"}) do SliderRow(key, 0, y, width, false) end
         end
-        y = SliderRow("borderSize", 0, y, width, advanced and config.border ~= "none")
+        local spacingY = y
         if advanced then
-            Place(fontButton, 0, y, controlWidth)
-            y = y + 36
+            spacingY = Section(spacingHeading, 0, y, columnWidth)
         end
-        for _, keys in ipairs({{"scale", "opacity"}, {"padding", "gap"}}) do
-            local leftBottom = SliderRow(keys[1], 0, y, columnWidth, advanced)
-            local rightBottom = SliderRow(keys[2], paired and columnWidth + 18 or 0, paired and y or leftBottom, columnWidth, advanced)
-            y = math.max(leftBottom, rightBottom)
-        end
-        if advanced then
-            Place(colorHint, 0, y, width)
-            y = y + colorHint:GetStringHeight() + 8
-        end
+        spacingY = SliderRow("padding", 0, spacingY, columnWidth, advanced)
+        spacingY = SliderRow("gap", 0, spacingY, columnWidth, advanced)
+        local colorY = advanced and Section(colorHint, right, paired and y or spacingY + 12, columnWidth) or y
         for _, key in ipairs({"bg", "text", "accent"}) do
             pickers[key]:SetShown(advanced); colors[key]:SetShown(advanced); colorButtons[key]:SetShown(advanced)
             if advanced then
-                Place(pickers[key], 0, y, math.min(144, width))
-                local sameRow = width >= 334
-                if not sameRow then y = y + 30 end
-                Place(colors[key], sameRow and 156 or 4, y)
-                Place(colorButtons[key], sameRow and 244 or 92, y)
-                y = y + 34
+                Place(pickers[key], right, colorY, math.min(144, columnWidth))
+                local sameRow = columnWidth >= 334
+                if not sameRow then colorY = colorY + 30 end
+                Place(colors[key], right + (sameRow and 156 or 4), colorY)
+                Place(colorButtons[key], right + (sameRow and 244 or 92), colorY)
+                colorY = colorY + 34
             else
                 colors[key]:ClearFocus()
             end
         end
         if advanced then
+            y = math.max(spacingY, colorY)
             Place(reset, 0, y + 6, math.min(220, width))
             y = y + 40
         end
@@ -736,7 +755,7 @@ function UI.BuildHome(panel)
     local scroll=CreateFrame("ScrollFrame","ArkannsQOLHomeScroll",home,"UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT",16,-16); scroll:SetPoint("BOTTOMRIGHT",-34,18)
     local body=CreateFrame("Frame",nil,scroll); body:SetSize(1,1); scroll:SetScrollChild(body)
-    local heading=Label(body, "QoL Toolkit",0,0,20)
+    local heading=Label(body, L("Accueil"),0,0,18)
     local searchLabel=Label(body,L("Rechercher dans tous les réglages"),0,0)
     local search=Input(body,"ArkannsQOLHomeSearch",6,0)
     search:SetMaxLetters(80)
@@ -948,12 +967,9 @@ function UI.BuildHome(panel)
         for _,card in ipairs(cards) do card:Show() end
         minimap:SetShown(ns.IsMinimapVisible ~= nil)
         if ns.IsMinimapVisible then
-            Place(minimap, 0, y)
             minimap.label:SetWidth(math.max(1,width-32))
             minimap:SetChecked(ns.IsMinimapVisible())
-            y=y+math.max(32,minimap.label:GetStringHeight()+12)
         end
-        y=y+8
         local columns=width>=540 and 2 or 1
         local cardWidth=(width-12*(columns-1))/columns
         local entries={}
@@ -1042,6 +1058,10 @@ function UI.BuildHome(panel)
                 y=y+12
             end
         end
+        if ns.IsMinimapVisible then
+            Place(minimap, 0, y + 8)
+            y=y+math.max(32,minimap.label:GetStringHeight()+12)+16
+        end
         body:SetSize(width,y)
         UI.ClampScroll(scroll,y)
     end
@@ -1051,6 +1071,10 @@ function UI.BuildHome(panel)
     search:SetScript("OnEnterPressed",function() if matches[1] then OpenResult(matches[1]) end end)
     search:SetScript("OnEscapePressed",function() search:SetText(""); search:ClearFocus(); home.Refresh() end)
     home:SetScript("OnHide",function() search:ClearFocus(); ns.StopAllPreviews() end)
+    function UI.FocusSettingsSearch()
+        scroll:SetVerticalScroll(0)
+        search:SetFocus()
+    end
     home.Refresh()
 end
 

@@ -221,6 +221,8 @@ for source, translation in pairs({
     ["Personnage"] = "Character",
     ["Personnalisation"] = "Customization",
     ["Outils"] = "Tools",
+    ["Texte et échelle"] = "Text and scale",
+    ["Espacement des modules"] = "Module spacing",
     ["Infobulles et distance"] = "Tooltips and distance",
     ["Options avancées"] = "Advanced options",
     ["Distance"] = "Distance",

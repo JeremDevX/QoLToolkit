@@ -410,9 +410,23 @@ do
     CreateFrame = function(kind, name, parent)
         local widget = createWidget(kind, name)
         widget.parent = parent
+        widget.offset = 0
         widget.SetHeight = function(self, height) self.height = height end
         widget.GetHeight = function(self) return rawget(self, "height") or 300 end
-        widget.SetSize = function(self, _, height) self:SetHeight(height) end
+        widget.SetWidth = function(self, width) self.width = width end
+        widget.GetWidth = function(self) return rawget(self, "width") or 600 end
+        widget.SetSize = function(self, width, height) self:SetWidth(width); self:SetHeight(height) end
+        widget.GetText = function(self) return rawget(self, "text") or "" end
+        widget.GetStringHeight = function(self)
+            return math.max(14, math.ceil(#self:GetText() * 6 / math.max(1, self:GetWidth())) * 14)
+        end
+        widget.HookScript = function(self, event, callback)
+            local before = rawget(self, event)
+            self:SetScript(event, function(...)
+                if before then before(...) end
+                callback(...)
+            end)
+        end
         widget.SetShown = function(self, shown) self.shown = shown end
         widget.IsShown = function(self) return self.shown end
         if parent == bag then shortcut = widget end
@@ -460,9 +474,14 @@ do
     local bagsCategory = {GetID = function() return 2 end}
     Settings.RegisterCanvasLayoutSubcategory = function() return bagsCategory end
     Settings.OpenToCategory = function(id) opened = id end
-    local function Control() return CreateFrame("Frame") end
-    local function Check(_, name, _, _, _, callback)
+    local function Control(parent, text)
+        local control = CreateFrame("FontString", nil, parent)
+        control:SetText(text or "")
+        return control
+    end
+    local function Check(parent, name, text, _, _, callback)
         local control = CreateFrame("CheckButton", name)
+        control.label = Control(control, text)
         control.SetChecked = function(self, value) self.checked = value end
         control:SetScript("OnClick", function(_, value) callback(value) end)
         return control
@@ -493,6 +512,25 @@ do
     scroll.offset = 200
     frames.ArkannsQOLBagAdvanced:OnClick()
     assert(not advanced.shown and body:GetHeight() == collapsedHeight and scroll.offset == 0)
+    local bagsPanel = frames.ArkannsQOLBagsPanel
+    bagsPanel:SetWidth(800); bagsPanel:OnSizeChanged()
+    frames.ArkannsQOLBagAdvanced:OnClick()
+    local wideHeight = body:GetHeight()
+    assert(body:GetWidth() == 750 and frames.ArkannsQOLBagQualityBorders.points.TOPLEFT[1] > 0,
+        "Wide bag settings separate sorting and display")
+    assert(frames.ArkannsQOLBagColor0.points.TOPLEFT[1] > frames.ArkannsQOLBag_qualityOpacity.points.TOPLEFT[1],
+        "Wide border settings place the palette beside the sliders")
+    bagsPanel:SetWidth(340); bagsPanel:OnSizeChanged()
+    assert(body:GetWidth() == 290 and body:GetHeight() > wideHeight)
+    assert(frames.ArkannsQOLBagColor0.points.TOPLEFT[2] < frames.ArkannsQOLBag_qualityInnerGlow.points.TOPLEFT[2],
+        "Narrow border settings keep the palette after the sliders")
+    for _, key in ipairs({"qualityOpacity", "qualityThickness", "qualityInnerGlow"}) do
+        assert(frames["ArkannsQOLBag_" .. key]:GetWidth() <= advanced:GetWidth() - 8)
+    end
+    scroll.offset = 1000
+    frames.ArkannsQOLBagAdvanced:OnClick()
+    assert(scroll.offset <= math.max(0, body:GetHeight() - scroll:GetHeight()), "Collapsing bags clamps the scroll")
+    bagsPanel:SetWidth(600); bagsPanel:OnSizeChanged()
     local revealedScroll, revealedControl
     bagNS.UI.RevealControl = function(viewport, control) revealedScroll, revealedControl = viewport, control end
     bagModule.OpenSettings("Halo intérieur")

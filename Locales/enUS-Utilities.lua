@@ -2,8 +2,8 @@ local _, ns = ...
 
 for source, translation in pairs({
     ["Portrait de cible"] = "Target portrait",
-    ["Afficher l’entourage de classe"] = "Show the class border",
-    ["Liseré et emblème de classe sur le portrait de la cible."] = "Class trim and emblem on the target portrait.",
+    ["Afficher le médaillon de classe"] = "Show the class medallion",
+    ["Médaillon de classe à bordure colorée sur le portrait de la cible."] = "Class medallion with a colored border on the target portrait.",
     ["Si WoW remplace le portrait par l’icône de classe, désactive ce réglage dans les options de WoW pour retrouver le visage."] =
         "If WoW replaces the portrait with a class icon, turn off that option in WoW settings to see the face.",
     ["Objets de quête"] = "Quest items",

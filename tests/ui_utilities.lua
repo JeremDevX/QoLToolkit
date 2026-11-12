@@ -391,6 +391,7 @@ print("PASS: real tooltip/distance profile migrations, partial/full apply, saved
 
 do
     local combat, player, class, replacement, secretAnchor = true, true, "MAGE", false, false
+    local atlasAvailable, maskAvailable, iconAvailable = true, true, true
     local colors = {MAGE = {r = .25, g = .78, b = .92}, DRUID = {r = 1, g = .49, b = .04}}
     local container = Widget("Frame", nil, env.TargetFrame)
     local portrait = Widget("Texture", nil, container)
@@ -420,14 +421,38 @@ do
     function methods:CreateMaskTexture() assert(not combat); return Widget("MaskTexture", nil, self) end
     function methods:AddMaskTexture(mask) self.mask = mask end
     methods.SetTexelSnappingBias, methods.SetSnapToPixelGrid = noop, noop
-    function methods:SetAtlas() error("The trim must work without the live unit frame atlas") end
+    env.C_Texture = {GetAtlasInfo = function(atlas)
+        assert(atlas == "CircleMask")
+        if atlasAvailable then return {width = 64, height = 64} end
+    end}
+    function methods:SetAtlas(atlas, useAtlasSize, filter, resetCoords, wrapH, wrapV)
+        assert(self.kind == "MaskTexture" and atlasAvailable and atlas == "CircleMask")
+        assert(not useAtlasSize and filter == "LINEAR" and resetCoords)
+        assert(wrapH == "CLAMPTOBLACKADDITIVE" and wrapV == "CLAMPTOBLACKADDITIVE")
+        self.atlas = atlas
+    end
     function methods:SetDesaturated(value) self.desaturated = value end
     function methods:SetVertexColor(...) self.color = {...} end
-    local rimTexture = "Interface\\Minimap\\MiniMap-TrackingBorder"
-    local rimAvailable = true
-    function methods:SetTexture(texture)
+    local maskTexture = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+    function methods:SetTexture(texture, wrapH, wrapV)
         self.texture = texture
-        return texture ~= rimTexture or rimAvailable
+        if texture == maskTexture then
+            assert(wrapH == "CLAMPTOBLACKADDITIVE" and wrapV == "CLAMPTOBLACKADDITIVE")
+            return maskAvailable
+        end
+        assert(texture == "Interface\\WorldStateFrame\\Icons-Classes")
+        return iconAvailable
+    end
+    function methods:SetColorTexture(...) self.fill = {...} end
+    function methods:CreateTexture(_, layer)
+        local texture = Widget("Texture", nil, self)
+        texture.layer = layer
+        return texture
+    end
+    env.CreateColor = function(...) return {...} end
+    function methods:SetGradient(orientation, bottom, top)
+        assert(orientation == "VERTICAL" and bottom[4] == 1 and top[4] == 1)
+        self.gradient = {bottom, top}
     end
     function methods:SetTexCoord(...) self.coords = {...} end
 
@@ -452,24 +477,33 @@ do
     secretAnchor = false
     Event("PLAYER_ENTERING_WORLD")
     local frame = assert(Overlay())
-    assert(#frame.trims == 2 and frame.trims[1].texture == rimTexture,
-        "Draw visible class trim even when the live unit frame atlas is unavailable")
     assert(frame.shown and not frame.mouse and frame.level == container.level + 1 and frame.points[1][2] == portrait)
-    assert(frame.icon.width == 16 and frame.icon.points[1][4] == 24)
+    assert(frame.width == 28 and frame.height == 28 and frame.points[1][4] == 25 and frame.points[1][5] == 24,
+        "Seat the medallion on the upper-right rim, clear of the central marker and lower level/PvP badges")
+    assert(frame.icon.width == 20 and frame.icon.height == 20 and frame.icon.points[1][2] == frame)
     assert(frame.icon.texture == "Interface\\WorldStateFrame\\Icons-Classes" and frame.icon.coords[1] > .25)
-    for _, trim in ipairs(frame.trims) do
-        assert(trim.texture == rimTexture and trim.desaturated and trim.points[1][2] == frame)
-        assert(trim.mask.texture == "Interface\\CharacterFrame\\TempPortraitAlphaMask")
-        assert(trim.mask.width < 29 and trim.mask.height < 29, "Keep each arc in a corner of the portrait")
+    local discs = {}
+    for _, widget in ipairs(widgets) do
+        if widget.parent == frame and widget.kind == "Texture" then
+            discs[#discs + 1] = widget
+            assert(widget.width == widget.height and widget.mask.atlas == "CircleMask")
+            assert(widget.mask.width == widget.width and widget.mask.height == widget.height)
+            assert(widget.points[1][2] == frame and widget.mask.points[1][2] == frame)
+        end
     end
-    local top, bottom = frame.trims[1], frame.trims[2]
-    assert(top.mask.points[1][4] > 0 and top.mask.points[1][5] > 0 and top.coords[1] > top.coords[2])
-    assert(bottom.mask.points[1][4] < 0 and bottom.mask.points[1][5] < 0 and bottom.coords[3] > bottom.coords[4])
-    assert(top.alpha >= .9 and top.alpha > bottom.alpha, "Keep the accent under the emblem clearly visible")
-    local firstColor = frame.trims[1].color[1]
+    assert(#discs == 4 and discs[1].width == 28 and discs[2] == frame.rim and frame.rim.width == 26)
+    assert(discs[1].layer == "BACKGROUND" and frame.rim.layer == "BORDER"
+        and discs[3].layer == "ARTWORK" and frame.icon.layer == "OVERLAY")
+    assert(discs[3].width == 23 and discs[3].fill[4] == 1 and discs[3].fill[1] < .1,
+        "Keep an opaque dark well behind the glyph and a thin class-colored rim")
+    assert(frame.rim.gradient[1][1] < frame.rim.gradient[2][1] and discs[3].gradient,
+        "Use a shaded rim and recessed well to integrate the badge with the native frame")
+    local firstColor = frame.rim.color[1]
+    local widgetCount = #widgets
     combat, class = true, "DRUID"
     Event("PLAYER_TARGET_CHANGED")
-    assert(frame.shown and frame.icon.coords[1] > .75 and frame.trims[1].color[1] > firstColor)
+    assert(frame.shown and frame.icon.coords[1] > .75 and frame.rim.color[1] > firstColor)
+    assert(#widgets == widgetCount, "Changing class in combat only repaints existing regions")
     class = "secret"
     Event("PLAYER_TARGET_CHANGED")
     assert(not frame.shown)
@@ -502,12 +536,22 @@ do
     assert(toggle.checked and frame.shown)
     assert(profiles.Undo() and not toggle.checked and not frame.shown)
 
-    rimAvailable = false
+    atlasAvailable = false
     env.ForeverTooltipLibreDB.targetPortrait = nil
     Load("Modules/TargetPortrait.lua")
     ns.InitializeTargetPortrait({})
     local fallback = assert(Overlay())
-    assert(fallback ~= frame and fallback.shown and #fallback.trims == 0 and fallback.icon,
-        "If the native rim texture cannot load, keep the class emblem")
+    assert(fallback ~= frame and fallback.shown and fallback.icon.mask.texture == maskTexture
+        and fallback.rim.mask.texture == maskTexture, "Use the native texture when CircleMask is unavailable")
+    maskAvailable = false
+    env.ForeverTooltipLibreDB.targetPortrait = nil
+    Load("Modules/TargetPortrait.lua")
+    ns.InitializeTargetPortrait({})
+    assert(not Overlay().shown, "Hide the medallion if its circular mask cannot load")
+    atlasAvailable, maskAvailable, iconAvailable = true, true, false
+    env.ForeverTooltipLibreDB.targetPortrait = nil
+    Load("Modules/TargetPortrait.lua")
+    ns.InitializeTargetPortrait({})
+    assert(not Overlay().shown, "Hide the medallion if the class icon cannot load")
 end
-print("PASS: target class trim geometry, protected anchors, class changes, native portrait setting, and profiles")
+print("PASS: target class medallion geometry, circular masks, protected anchors, class changes, native portrait setting, and profiles")

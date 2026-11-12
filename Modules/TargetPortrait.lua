@@ -1,10 +1,9 @@
 local _, ns = ...
 local L, UI, WoW = ns.L, ns.UI, ns.WoW
 local title = L("Portrait de cible")
-local toggleSource = "Afficher l’entourage de classe"
+local toggleSource = "Afficher le médaillon de classe"
 local classTexture = "Interface\\WorldStateFrame\\Icons-Classes"
-local rimTexture = "Interface\\Minimap\\MiniMap-TrackingBorder"
-local rimMask = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+local circleMask = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 -- Zero-based cells in the native 4 × 4 texture. Forever has nine classes.
 local classSlots = {WARRIOR = 0, MAGE = 1, ROGUE = 2, DRUID = 3,
     HUNTER = 4, SHAMAN = 5, PRIEST = 6, WARLOCK = 7, PALADIN = 8}
@@ -13,24 +12,20 @@ local events = {"PLAYER_ENTERING_WORLD", "PLAYER_TARGET_CHANGED", "PLAYER_REGEN_
 local db, driver, overlay, toggle
 local anchoredPortrait, rejectedPortrait, paintedClass
 
-local function AddTrim(frame, mirrorX, alpha, maskX, maskY, maskWidth, maskHeight)
+local function MaskCircle(frame, texture, size)
     local mask = frame:CreateMaskTexture()
-    if not mask:SetTexture(rimMask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE") then return end
-    mask:SetPoint("CENTER", frame, "CENTER", maskX, maskY)
-    mask:SetSize(maskWidth, maskHeight)
-    local trim = frame:CreateTexture(nil, "OVERLAY")
-    if not trim:SetTexture(rimTexture) then trim:Hide(); return end
-    -- Map the bright upper-left arc in the 64px texture onto the portrait's 31px rim.
-    local centerX, centerY, scale = 18.8, 17.6, 2.35
-    local x, y = -centerX, centerY - 64
-    if mirrorX then x, y = centerX - 64, centerY end
-    trim:SetPoint("TOPLEFT", frame, "CENTER", x * scale, y * scale)
-    trim:SetSize(64 * scale, 64 * scale)
-    if mirrorX then trim:SetTexCoord(1, 0, 0, 1) else trim:SetTexCoord(0, 1, 1, 0) end
-    trim:AddMaskTexture(mask)
-    trim:SetDesaturated(true)
-    trim:SetAlpha(alpha)
-    frame.trims[#frame.trims + 1] = trim
+    -- Same circular mask as Forever's target portrait (FrameXML 9dc84f0).
+    if C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, "CircleMask") then
+        mask:SetAtlas("CircleMask", false, "LINEAR", true, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    elseif not mask:SetTexture(circleMask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE") then
+        return false
+    end
+    mask:SetPoint("CENTER", frame, "CENTER")
+    mask:SetSize(size, size)
+    texture:SetPoint("CENTER", frame, "CENTER")
+    texture:SetSize(size, size)
+    texture:AddMaskTexture(mask)
+    return true
 end
 
 local function AnchorOverlay(container, portrait)
@@ -45,27 +40,30 @@ local function AnchorOverlay(container, portrait)
         overlay = CreateFrame("Frame", nil, container)
         overlay:Hide()
         overlay:EnableMouse(false)
-        overlay:SetSize(1, 1)
-        overlay.trims = {}
+        overlay:SetSize(28, 28)
         if overlay.CreateMaskTexture then
-            AddTrim(overlay, true, .96, 23, 23, 23, 21)
-            AddTrim(overlay, false, .66, -17, -26, 19, 12)
-        end
-        local icon = overlay:CreateTexture(nil, "OVERLAY", nil, 1)
-        if icon:SetTexture(classTexture) then
-            icon:SetSize(16, 16)
-            -- The raid marker is centered over the portrait. The PvP badge is below the glyph.
-            icon:SetPoint("CENTER", overlay, "CENTER", 24, 22)
-            overlay.icon = icon
-        else
-            icon:Hide()
+            local outline = overlay:CreateTexture(nil, "BACKGROUND")
+            outline:SetColorTexture(.025, .02, .015, .95)
+            local rim = overlay:CreateTexture(nil, "BORDER")
+            rim:SetColorTexture(1, 1, 1, 1)
+            rim:SetGradient("VERTICAL", CreateColor(.38, .38, .38, 1), CreateColor(1, 1, 1, 1))
+            local background = overlay:CreateTexture(nil, "ARTWORK")
+            background:SetColorTexture(.055, .045, .035, 1)
+            background:SetGradient("VERTICAL", CreateColor(.45, .45, .45, 1), CreateColor(1, 1, 1, 1))
+            local icon = overlay:CreateTexture(nil, "OVERLAY")
+            if MaskCircle(overlay, outline, 28) and MaskCircle(overlay, rim, 26)
+                and MaskCircle(overlay, background, 23) and MaskCircle(overlay, icon, 20)
+                and icon:SetTexture(classTexture) then
+                overlay.rim, overlay.icon = rim, icon
+            end
         end
     end
     overlay:SetParent(container)
     overlay:SetFrameLevel(level + 1)
     overlay:ClearAllPoints()
     anchoredPortrait = nil
-    if not pcall(overlay.SetPoint, overlay, "CENTER", portrait, "CENTER", 0, -1) then
+    -- Sit on the upper-right rim, clear of the central raid marker and lower PvP/level badges.
+    if not pcall(overlay.SetPoint, overlay, "CENTER", portrait, "CENTER", 25, 24) then
         rejectedPortrait = portrait
         return
     end
@@ -92,7 +90,7 @@ local function Refresh()
     local portrait = container.Portrait
     if not WoW.IsPublic(portrait) or not portrait then return end
     local frame = AnchorOverlay(container, portrait)
-    if not frame or (not frame.icon and #frame.trims == 0) then return end
+    if not frame or not frame.icon then return end
     if WoW.ReadValue(portrait.IsShown, portrait) ~= true or WoW.ReadValue(UnitIsPlayer, "target") ~= true then return end
     if IsClassPortrait(portrait) then return end
 
@@ -103,14 +101,10 @@ local function Refresh()
         local color = C_ClassColor and WoW.ReadValue(C_ClassColor.GetClassColor, class)
         if type(color) ~= "table" or not WoW.IsFiniteNumber(color.r) or not WoW.IsFiniteNumber(color.g)
             or not WoW.IsFiniteNumber(color.b) then return end
-        for _, trim in ipairs(frame.trims) do
-            trim:SetVertexColor(.13 + .87 * color.r, .13 + .87 * color.g, .13 + .87 * color.b)
-        end
-        if frame.icon then
-            local x, y = (slot % 4) / 4, math.floor(slot / 4) / 4
-            local inset = .5 / 256
-            frame.icon:SetTexCoord(x + inset, x + .25 - inset, y + inset, y + .25 - inset)
-        end
+        frame.rim:SetVertexColor(.18 + .82 * color.r, .18 + .82 * color.g, .18 + .82 * color.b)
+        local x, y = (slot % 4) / 4, math.floor(slot / 4) / 4
+        local inset = .5 / 256
+        frame.icon:SetTexCoord(x + inset, x + .25 - inset, y + inset, y + .25 - inset)
         paintedClass = class
     end
     frame:Show()
@@ -158,7 +152,7 @@ function ns.InitializeTargetPortrait(root)
         category = function() return category end,
         SearchSettings = {toggleSource},
         toggleLabel = L(toggleSource),
-        Summary = function() return L("Liseré et emblème de classe sur le portrait de la cible.") end,
+        Summary = function() return L("Médaillon de classe à bordure colorée sur le portrait de la cible.") end,
         IsEnabled = function() return db.enabled end,
         SetEnabled = SetEnabled,
         ExportSettings = function() return {enabled = db.enabled} end,

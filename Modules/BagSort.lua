@@ -697,9 +697,8 @@ local function AttachShortcut(frame)
         local icon = button:CreateTexture(nil, "OVERLAY", nil, 1)
         icon:SetSize(18, 18)
         icon:SetPoint("CENTER", button, "CENTER", 0, 0)
-        if WoW.ReadValue(getAtlas, "Gear") then
-            icon:SetAtlas("Gear")
-        else
+        -- Blizzard uses this cog in its Edit Mode layout menu.
+        if icon:SetTexture("Interface\\WorldMap\\GEAR_64GREY") ~= true then
             icon:SetTexture("Interface\\Icons\\INV_Misc_Wrench_01")
         end
         button:RegisterForClicks("LeftButtonUp", "RightButtonUp")

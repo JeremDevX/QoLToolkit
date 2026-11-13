@@ -415,7 +415,6 @@ do
             return {file = 8107307, leftTexCoord = .13671875, rightTexCoord = .26171875,
                 topTexCoord = .0078125, bottomTexCoord = .2578125}
         end
-        if atlas == "Gear" then return {} end
     end}
     local createWidget = CreateFrame
     CreateFrame = function(kind, name, parent, template)
@@ -697,7 +696,7 @@ do
         and centerFill.asset == 8107307 and centerFill.points.TOPLEFT[3] == 4
         and centerFill.points.BOTTOMRIGHT[3] == -4 and centerFill.coords[2] < .17
         and shortcut:NarrationGetName() == "Réglages des sacs"
-        and gear.atlas == "Gear"
+        and gear.asset == "Interface\\WorldMap\\GEAR_64GREY"
         and shortcut:GetWidth() == 24 and shortcut:GetHeight() == 24 and shortcut:GetText() == ""
         and gear.points.CENTER[1] == shortcut and gear.points.CENTER[2] == "CENTER"
         and gear.points.CENTER[3] == 0 and gear.points.CENTER[4] == 0

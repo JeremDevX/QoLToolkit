@@ -52,6 +52,7 @@ local function CheckLocale(locale, expected)
     assert(ns.L("Infobulles") == expected, "Unexpected client language")
     assert(ns.L("Infobulles et distance") == (locale == "frFR" and "Infobulles et distance" or "Tooltips and distance"))
     assert(ns.L("Affichage") == (locale == "frFR" and "Affichage" or "Display"))
+    assert(ns.L("Réparation automatique") == (locale == "frFR" and "Réparation automatique" or "Automatic repair"))
     assert(ns.L("Annuler", "talent.undo") == (locale == "frFR" and "Annuler" or "Undo"))
     assert(ns.L("Untranslated example") == "Untranslated example", "Missing translation should use source text")
 end
@@ -404,13 +405,17 @@ print("PASS: minimap artwork, mask, fallback, click, scaled drag, reload, and ma
 do
     local hook, bagModule, shortcut, opened
     local bag = {GetBagID = function() return 0 end, GetFrameLevel = function() return 1 end,
-        IsVisible = function() return true end}
+        IsVisible = function() return true end, CloseButton = CreateFrame("Button")}
     ContainerFrameCombinedBags = bag
+    local oldTexture = C_Texture
+    C_Texture = {GetAtlasInfo = function() return {} end}
     local createWidget = CreateFrame
     CreateFrame = function(kind, name, parent)
         local widget = createWidget(kind, name)
         widget.parent = parent
         widget.SetAtlas = function(self, atlas) self.atlas = atlas end
+        widget.SetNormalAtlas = function(self, atlas) self.normalAtlas = atlas end
+        widget.SetNormalTexture = function(self, asset) self.normalAsset = asset end
         widget.offset = 0
         widget.SetHeight = function(self, height) self.height = height end
         widget.GetHeight = function(self) return rawget(self, "height") or 300 end
@@ -505,11 +510,15 @@ do
         RegisterModule = function(_, module) bagModule = module end}
     bagNS.UI.RegisterSettingsPanel = Settings.RegisterCanvasLayoutSubcategory
     bagNS.UI.OpenCategory = function(category) opened = category:GetID(); return true end
+    bagNS.UI.OpenSettings = function(id, source)
+        assert(id == "bags" and bagNS.UI.OpenCategory(bagModule.category()))
+        bagModule.OpenSettings(source)
+        return true
+    end
     bagNS.UI.Refresh = function() bagModule.Refresh() end
     local callbacks = {}
     local oldTimer, oldEnum, oldSecret = C_Timer, Enum, issecretvalue
     local oldLockdown, oldCursor = InCombatLockdown, GetCursorInfo
-    local oldTexture = C_Texture
     C_Timer = {After = function(_, callback)
         if MerchantFrame and MerchantFrame:IsShown() then callbacks[#callbacks + 1] = callback
         else callback() end
@@ -675,22 +684,36 @@ do
 
     local tooltip = GameTooltip
     GameTooltip = nil
+    assert(shortcut.normalAtlas == "common-dropdown-a-button-settings-shadowless"
+        and shortcut:GetWidth() == 22 and shortcut:GetHeight() == 22 and shortcut:GetText() == ""
+        and shortcut.points.RIGHT[1] == bag.CloseButton and shortcut.points.RIGHT[2] == "LEFT")
     shortcut:OnClick("LeftButton")
     local quick = frames.ArkannsQOLBagQuickSettings
     assert(quick.shown and quick.points.TOPRIGHT[1] == bag)
-    assert(not frames.ArkannsQOLBagQuickShowColorreagent.checked and frames.ArkannsQOLBagQuickShowColor4.checked)
-    frames.ArkannsQOLBagQuickShowColorreagent:OnClick(true)
+    local compactHeight = quick:GetHeight()
+    local quickAppearance = frames.ArkannsQOLBagQuickAppearance
+    local quickMore = frames.ArkannsQOLBagQuickMore
+    assert(compactHeight < 290 and not frames.ArkannsQOLBagQuickSellEquipment.shown
+        and quickAppearance.points.TOPLEFT[2] == quickMore.points.TOPLEFT[2],
+        "Quick settings keep only the frequent controls and one row of links")
+    quickAppearance:OnClick()
+    assert(not quick.shown and opened == 2 and advanced.shown
+        and revealedControl == frames.ArkannsQOLBagAdvanced, "The compact shortcut opens the shared border controls")
+    assert(not frames.ArkannsQOLBagShowColorreagent.checked and frames.ArkannsQOLBagShowColor4.checked)
+    frames.ArkannsQOLBagShowColorreagent:OnClick(true)
     assert(outline.shown and frames.ArkannsQOLBagShowColorreagent.checked)
-    frames.ArkannsQOLBagQuickColorreagent:OnClick("RightButton")
+    frames.ArkannsQOLBagColorreagent:OnClick("RightButton")
     assert(outline.color[1] == 0x36 / 255, "Reset the reagent color to turquoise from quick settings")
-    assert(frames.ArkannsQOLBagQuickColorquest and not frames.ArkannsQOLBagQuickColor6)
+    assert(frames.ArkannsQOLBagColorquest and not frames.ArkannsQOLBagColor6)
     for key, value in pairs({qualityOpacity = 75, qualityThickness = 3, qualityInnerGlow = 40}) do
-        local slider = assert(frames["ArkannsQOLBagQuick_" .. key], "Missing backpack slider " .. key)
+        local slider = assert(frames["ArkannsQOLBag_" .. key], "Missing linked border slider " .. key)
         slider:OnValueChanged(value)
-        assert(bagModule.ExportSettings()[key] == value, "Backpack controls must update the shared bag settings")
+        assert(bagModule.ExportSettings()[key] == value, "Border controls must update the shared bag settings")
     end
     assert(glow.shown and math.abs(glow.gradient[2][4] - .38) < .0001,
-        "The backpack slider must restore the glow at the chosen intensity")
+        "The linked slider must restore the glow at the chosen intensity")
+    shortcut:OnClick("LeftButton")
+    assert(quick.shown and quick:GetHeight() == compactHeight, "Reopening keeps the compact layout")
 
     local events = frames.ArkannsQOLBagMerchantEvents
     local registered = {}
@@ -748,6 +771,8 @@ do
     frames.ArkannsQOLBagQuickAutoRepair:OnClick(true)
     assert(frames.ArkannsQOLBagAutoSell.checked and frames.ArkannsQOLBagSellEquipment.enabled
         and frames.ArkannsQOLBagAutoRepair.checked, "Both panels share merchant settings")
+    assert(frames.ArkannsQOLBagQuickSellEquipment.shown and quick:GetHeight() > compactHeight
+        and quick:GetHeight() < 310 and frames.ArkannsQOLBagQuickAutoRepair.label:GetText() == "Réparation automatique")
     local coin = slot.textures[#slot.textures]
     assert(coin.shown and coin.atlas == "coin-silver" and coin:GetWidth() == 26 and coin:GetHeight() == 26
         and coin.points.CENTER[1] == slot and coin.points.CENTER[2] == "CENTER")
@@ -797,6 +822,7 @@ do
     bagModule.Refresh()
     frames.ArkannsQOLBagQuickAutoSell:OnClick(false)
     assert(not coin.shown and not registered.GET_ITEM_INFO_RECEIVED)
+    assert(not frames.ArkannsQOLBagQuickSellEquipment.shown and quick:GetHeight() == compactHeight)
     frames.ArkannsQOLBagQuickAutoSell:OnClick(true)
     assert(coin.shown)
     print("PASS: centered auto-sell coins, stack prices, exclusions, recycled slots and item data refresh")

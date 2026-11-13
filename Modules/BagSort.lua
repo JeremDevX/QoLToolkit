@@ -23,7 +23,7 @@ for key, value in pairs(appearanceDefaults) do defaults[key] = value end
 local merchantOptions = {
     {"autoSell", "AutoSell", "Vendre les objets gris"},
     {"sellEquipment", "SellEquipment", "Inclure l’équipement gris"},
-    {"autoRepair", "AutoRepair", "Réparer (argent personnel)"},
+    {"autoRepair", "AutoRepair", "Réparation automatique"},
 }
 local borderTexture = "Interface\\Common\\WhiteIconFrame"
 local glowTexture = "Interface\\Buttons\\WHITE8X8"
@@ -40,8 +40,8 @@ local transmogRefreshEvents = {
     "TRANSMOG_COLLECTION_UPDATED", "TRANSMOG_COLLECTION_ITEM_UPDATE", "TRANSMOG_COLLECTION_SOURCE_ADDED",
     "TRANSMOG_COLLECTION_SOURCE_REMOVED", "TRANSMOG_COSMETIC_COLLECTION_SOURCE_ADDED", "TRANSMOG_SOURCE_COLLECTABILITY_UPDATE",
 }
-local shortcutWidth, shortcutRight = 42, -32
-local titleRight = shortcutRight - shortcutWidth - 4
+local shortcutSize, shortcutRight = 22, -32
+local titleRight = shortcutRight - shortcutSize - 4
 
 local function ValidSetting(key, value, default)
     if type(default) == "boolean" then return type(value) == "boolean" end
@@ -597,6 +597,18 @@ local function CreateMerchantChecks(parent, prefix)
             ns.UI.Refresh()
         end)
     end
+    checks[3]:HookScript("OnEnter", function(self)
+        if not GameTooltip or GameTooltip:IsForbidden() then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L(merchantOptions[3][3]))
+        GameTooltip:AddLine(L("Utilise l’argent du personnage."), 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    local function HideTooltip(self)
+        if GameTooltip and not GameTooltip:IsForbidden() and GameTooltip:GetOwner() == self then GameTooltip:Hide() end
+    end
+    checks[3]:HookScript("OnLeave", HideTooltip)
+    checks[3]:HookScript("OnHide", HideTooltip)
     return checks
 end
 
@@ -639,15 +651,23 @@ local function AttachShortcut(frame)
     end
     local button = shortcuts[frame]
     if not button then
-        button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        button = CreateFrame("Button", nil, frame)
         shortcuts[frame] = button
-        button:SetSize(shortcutWidth, 20)
+        button:SetSize(shortcutSize, shortcutSize)
         if frame.CloseButton then
             button:SetPoint("RIGHT", frame.CloseButton, "LEFT", -4, 0)
         else
             button:SetPoint("TOPRIGHT", frame, "TOPRIGHT", shortcutRight, -3)
         end
-        button:SetText("QOL")
+        local atlas = "common-dropdown-a-button-settings-shadowless"
+        local highlight = "common-dropdown-a-button-settings-hover-shadowless"
+        if C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, atlas) then
+            button:SetNormalAtlas(atlas)
+            if WoW.ReadValue(C_Texture.GetAtlasInfo, highlight) then button:SetHighlightAtlas(highlight) end
+        else
+            button:SetNormalTexture("Interface\\Icons\\INV_Misc_Wrench_01")
+            button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+        end
         button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         button:SetScript("OnClick", function(self, mouseButton)
             if not IsPersonalBag(frame) then return end
@@ -657,7 +677,7 @@ local function AttachShortcut(frame)
         button:SetScript("OnEnter", function(self)
             if not GameTooltip or GameTooltip:IsForbidden() then return end
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
-            GameTooltip:SetText("QoL Toolkit")
+            GameTooltip:SetText(L("Réglages des sacs"))
             GameTooltip:AddLine(L("Clic gauche · Réglages rapides"), 1, 1, 1)
             GameTooltip:AddLine(L("Clic droit · Accueil de l’addon"), 1, 1, 1)
             GameTooltip:Show()
@@ -714,10 +734,9 @@ local function ChooseColor(quality)
     })
 end
 
-local function BuildAppearance(body, compactOffset)
+local function BuildAppearance(body)
     local UI = ns.UI
-    local compact = compactOffset ~= nil
-    local prefix = compact and "ArkannsQOLBagQuick" or "ArkannsQOLBag"
+    local prefix = "ArkannsQOLBag"
     local syncing
     local targets, checks, sliders, palette = {}, {}, {}, {}
     local function Slider(key, name, y)
@@ -725,7 +744,7 @@ local function BuildAppearance(body, compactOffset)
         local label = UI.Label(body, "", 20, y)
         local slider = CreateFrame("Slider", prefix .. "_" .. key, body, "BackdropTemplate")
         slider:SetPoint("TOPLEFT", 18, y - 22)
-        slider:SetSize(compact and 222 or 244, 16)
+        slider:SetSize(244, 16)
         slider:SetOrientation("HORIZONTAL")
         slider:SetMinMaxValues(isThickness and 1 or 0, isThickness and maxThickness or 100)
         slider:SetValueStep(isThickness and 1 or 5)
@@ -746,13 +765,13 @@ local function BuildAppearance(body, compactOffset)
         sliders[#sliders + 1] = {label = label, control = slider}
         return function() slider:SetValue(db[key]); Caption() end
     end
-    local opacity = Slider("qualityOpacity", L("Opacité du contour"), compactOffset or 0)
-    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and compactOffset - 46 or -56)
-    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and compactOffset - 92 or -112)
-    targets["Couleurs de rareté"] = UI.Label(body, L("Couleurs et aperçu"), 20, compact and compactOffset - 137 or -162, 15)
+    local opacity = Slider("qualityOpacity", L("Opacité du contour"), 0)
+    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), -56)
+    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), -112)
+    targets["Couleurs de rareté"] = UI.Label(body, L("Couleurs et aperçu"), 20, -162, 15)
     local toggleHelp = L("Cochez pour appliquer la couleur.")
-    local help = UI.Label(body, toggleHelp, 20, compact and compactOffset - 159 or -186)
-    local size, top = 28, compact and compactOffset - 181 or -210
+    local help = UI.Label(body, toggleHelp, 20, -186)
+    local size, top = 28, -210
     local categories = {0, 1, 2, 3, 4, 5, "quest", "reagent"}
     for index, quality in ipairs(categories) do
         local source = quality == "quest" and "Objets de quête" or quality == "reagent" and "Composants d’artisanat"
@@ -799,19 +818,16 @@ local function BuildAppearance(body, compactOffset)
         palette[#palette + 1] = {sample = sample, control = control}
     end
     local footerY = top - 76
-    local reset
-    if not compact then
-        reset = UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
-            UI.Confirm(L("Rétablir les bordures de rareté et leurs couleurs par défaut ?"), function()
-                for key, value in pairs(appearanceDefaults) do
-                    if key ~= "transmogIcons" then db[key] = value end
-                end
-                db.qualityColors, db.qualityHidden = {}, {}
-                Refresh()
-                RefreshQualityBorders()
-            end)
+    local reset = UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
+        UI.Confirm(L("Rétablir les bordures de rareté et leurs couleurs par défaut ?"), function()
+            for key, value in pairs(appearanceDefaults) do
+                if key ~= "transmogIcons" then db[key] = value end
+            end
+            db.qualityColors, db.qualityHidden = {}, {}
+            Refresh()
+            RefreshQualityBorders()
         end)
-    end
+    end)
     local function Layout(width)
         local paired = width >= 560
         local columnWidth = paired and (width - 24) / 2 or width
@@ -852,7 +868,7 @@ local function BuildAppearance(body, compactOffset)
         innerGlow()
         syncing = false
         RefreshSamples()
-    end, footerY, targets, not compact and Layout or nil
+    end, footerY, targets, Layout
 end
 
 local function SetEnabled(value)
@@ -885,33 +901,54 @@ local function CreateQuickSettings()
     local close = CreateFrame("Button", name .. "Close", quick, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", quick, "TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function() CloseQuickSettings() end)
-    local sort = UI.Check(quick, "ArkannsQOLBagQuickSort", L("Tri à l’ouverture"), 14, -37, SetEnabled)
-    local borders = UI.Check(quick, "ArkannsQOLBagQuickBorders", L("Contours de rareté"), 14, -62, SetQualityBorders)
-    local transmog = CreateTransmogCheck(quick, "ArkannsQOLBagQuickTransmog", 14, -87)
-    UI.Label(quick, L("À l’ouverture d’un marchand"), 18, -121, 15)
+    local sort = UI.Check(quick, "ArkannsQOLBagQuickSort", L("Tri à l’ouverture"), 0, 0, SetEnabled)
+    local borders = UI.Check(quick, "ArkannsQOLBagQuickBorders", L("Contours de rareté"), 0, 0, SetQualityBorders)
+    local transmog = CreateTransmogCheck(quick, "ArkannsQOLBagQuickTransmog", 0, 0)
+    local merchantTitle = UI.Label(quick, L("À l’ouverture d’un marchand"), 0, 0, 15)
     local checks = CreateMerchantChecks(quick, "ArkannsQOLBagQuick")
-    for index, control in ipairs(checks) do
-        control:ClearAllPoints()
-        control:SetPoint("TOPLEFT", index == 2 and 26 or 14, -121 - 28 * index)
-        control.label:SetWidth(index == 2 and 208 or 220)
-    end
-    local appearance, footerY
+    local appearance
     if qualityListening then
-        appearance, footerY = BuildAppearance(quick, -245)
+        appearance = UI.Button(quick, "ArkannsQOLBagQuickAppearance", L("Bordures…"), 0, 0, 92, function()
+            CloseQuickSettings()
+            UI.OpenSettings("bags", "Personnaliser les bordures")
+        end)
     else
         borders:Disable()
-        UI.Label(quick, L("Bordures indisponibles sur ce client."), 18, -245)
-        footerY = -271
+        borders.label:SetText(L("Bordures indisponibles"))
     end
-    UI.Button(quick, "ArkannsQOLBagQuickMore", L("Tous les réglages"), 18, footerY, 220, function() OpenSettings(category) end)
-    quick:SetSize(278, -footerY + 41)
+    local more = UI.Button(quick, "ArkannsQOLBagQuickMore", L("Tous les réglages"), 0, 0, appearance and 136 or 234,
+        function() OpenSettings(category) end)
+    quick:SetWidth(270)
+    merchantTitle:SetWidth(234)
+    local quickChecks = {sort, borders, transmog}
+    local function Place(widget, x, y)
+        widget:ClearAllPoints()
+        widget:SetPoint("TOPLEFT", x, -y)
+    end
     refreshQuick = function()
         sort:SetChecked(db.enabled)
         sort:SetEnabled(not Unavailable())
         borders:SetChecked(db.qualityBorders)
         transmog:SetChecked(db.transmogIcons)
         RefreshMerchantChecks(checks)
-        if appearance then appearance() end
+        local y = 36
+        local function PlaceCheck(control, inset)
+            control.label:SetWidth(208 - inset)
+            Place(control, 14 + inset, y)
+            y = y + math.max(24, control.label:GetStringHeight() + 10)
+        end
+        for _, control in ipairs(quickChecks) do PlaceCheck(control, 0) end
+        y = y + 7
+        Place(merchantTitle, 18, y)
+        y = y + merchantTitle:GetStringHeight() + 5
+        PlaceCheck(checks[1], 0)
+        checks[2]:SetShown(db.autoSell)
+        if db.autoSell then PlaceCheck(checks[2], 12) end
+        PlaceCheck(checks[3], 0)
+        y = y + 8
+        if appearance then Place(appearance, 18, y) end
+        Place(more, appearance and 116 or 18, y)
+        quick:SetHeight(y + 40)
     end
     if UISpecialFrames then table.insert(UISpecialFrames, name) end
 end
@@ -922,8 +959,8 @@ ToggleQuickSettings = function(frame)
     quick:ClearAllPoints()
     quick:SetPoint("TOPRIGHT", frame, "TOPLEFT", -6, -2)
     quickBag = frame
-    quick:Show()
     refreshQuick()
+    quick:Show()
 end
 
 local function Suspend()

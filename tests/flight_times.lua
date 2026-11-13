@@ -133,7 +133,7 @@ buttons["Export durations"]()
 assert(not frames.ArkannsQOLFlightExport.selected, "An empty export does not expose copyable data")
 Event("TAXIMAP_OPENED")
 hooks.TaxiNodeOnButtonEnter(destination)
-assert(tooltipText == "Shared duration · ≈ 1:42")
+assert(tooltipText == "Shared duration · 1:42")
 combat, tooltipText = true, nil
 hooks.OnMouseEnter(destination)
 assert(not tooltipText, "The native tooltip is untouched in combat")
@@ -142,11 +142,11 @@ Event("TAXIMAP_CLOSED")
 canReadRoute = false
 hooks.TakeTaxiNode(3)
 PollAt(2, true)
-assert(badges[1].text == "Destination" and badges[2].text == "≈ 1:42" and badges[3].text == "Time remaining")
+assert(badges[1].text == "Destination" and badges[2].text == "1:42" and badges[3].text == "Time remaining")
 local progress = frames.ArkannsQOLFlightProgress
 assert(progress.shown and progress.minimum == 0 and progress.maximum == 1 and progress.value == 0)
 PollAt(62, true)
-assert(badges[2].text == "≈ 0:42" and math.abs(progress.value - 60 / 102) < .0001)
+assert(badges[2].text == "0:42" and math.abs(progress.value - 60 / 102) < .0001)
 PollAt(102, false)
 assert(ArkannsQOLFlightsDB[route][1] == 100 and not driver.scripts.OnUpdate and not frames.ArkannsQOLFlightTimer.shown)
 
@@ -187,9 +187,9 @@ assert(ArkannsQOLFlightsDB["70888,0,101>202"][1] == 75, "Different stop sequence
 build, chain = "70999", {1, 2, 3}
 Event("TAXIMAP_OPENED")
 hooks.TaxiNodeOnButtonEnter(destination)
-assert(tooltipText == "Past measurement · ≈ 1:40")
+assert(tooltipText == "Past measurement · 1:40")
 start = Begin()
-assert(badges[2].text == "≈ 1:40" and badges[3].text == "Time remaining",
+assert(badges[2].text == "1:40" and badges[3].text == "Time remaining",
     "A game update must reuse the saved personal duration in the countdown")
 Event("PLAYER_LEAVING_WORLD")
 assert(not driver.scripts.OnUpdate and not ArkannsQOLFlightsDB["70999,0,101>303>202"])
@@ -258,7 +258,9 @@ local function CheckFactionArt(faction, creature, atlasInfo)
     progress = frames.ArkannsQOLFlightProgress
     local emblem = panel.textures[1]
     if faction == "Alliance" or faction == "Horde" then
-        assert(emblem.texture == "Interface\\Timer\\" .. faction .. "-Logo" and emblem.point[1] == "CENTER")
+        assert(emblem.texture == "Interface\\Timer\\" .. faction .. "-Logo")
+        assert(emblem.point[1] == "RIGHT" and emblem.point[2] == panel and emblem.point[3] == "RIGHT"
+            and emblem.point[4] == -12 and emblem.point[5] == 0)
         assert(emblem.layer == "ARTWORK" and emblem.sublevel == -1 and emblem.alpha == .22
             and emblem.width == emblem.height and emblem.height < panel.height)
     else
@@ -270,7 +272,7 @@ local function CheckFactionArt(faction, creature, atlasInfo)
         assert(progress.color[3] > progress.color[1], "Alliance uses a blue accent")
     end
     PollAt(started + 99, true)
-    assert(badges[2].text == "≈ 0:01" and badges[3].text == ns.L("Temps restant") and progress.shown)
+    assert(badges[2].text == "0:01" and badges[3].text == ns.L("Temps restant") and progress.shown)
     PollAt(started + 100, true)
     assert(badges[2].text == "1:40" and badges[3].text == ns.L("Temps écoulé") and not progress.shown,
         "An exceeded estimate returns to elapsed time")
@@ -313,7 +315,7 @@ ns.InitializeFlightTimes({})
 driver = frames.ArkannsQOLFlightEvents
 Event("TAXIMAP_OPENED")
 hooks.OnMouseEnter(destination)
-assert(tooltipText == "Ancienne mesure · ≈ 2:00",
+assert(tooltipText == "Ancienne mesure · 2:00",
     "Use the latest valid personal median for the same stops and speed before the shared estimate")
 assert(not ArkannsQOLFlightsDB[currentKey], "An estimate must not become a measurement")
 

@@ -82,10 +82,10 @@ local function Estimate(key)
             end
         end
     end
-    if previous then return previous, "Ancienne mesure · ≈ %s", true end
+    if previous then return previous, "Ancienne mesure · %s" end
 
     local community = ns.FlightTimesData[key]
-    if IsSeconds(community) then return community, "Durée partagée · ≈ %s", true end
+    if IsSeconds(community) then return community, "Durée partagée · %s" end
 end
 
 local function DurationText(seconds)
@@ -187,7 +187,7 @@ local function CreateBadge()
         local emblem = panel:CreateTexture(nil, "ARTWORK", nil, -1)
         emblem:SetTexture(("Interface\\Timer\\%s-Logo"):format(faction))
         emblem:SetSize(54, 54)
-        emblem:SetPoint("CENTER")
+        emblem:SetPoint("RIGHT", panel, "RIGHT", -12, 0)
         emblem:SetAlpha(.22)
     end
 
@@ -247,8 +247,7 @@ local function ShowTime(elapsed)
     if flight.lastSecond == seconds then return end
     flight.lastSecond = seconds
     if flight.estimate and seconds < flight.estimate then
-        local remaining = DurationText(flight.estimate - seconds)
-        badgeTime:SetText(flight.approximate and L("≈ %s"):format(remaining) or remaining)
+        badgeTime:SetText(DurationText(flight.estimate - seconds))
         badgeCaption:SetText(L("Temps restant"))
         badgeProgress:SetValue(math.min(1, elapsed / flight.estimate))
         badgeProgress:Show()
@@ -295,9 +294,7 @@ local function ObserveTakeoff(slot)
         or (not mapOpen and (not WoW.IsFiniteNumber(closedAt) or now - closedAt > 1)) then return end
     local route = ReadRoute(slot)
     local key = RouteKey(route)
-    local estimate, _, approximate = Estimate(key)
-    pending = {selected = now, key = earlyLandingHook and key or nil, estimate = estimate,
-        approximate = approximate, name = route and route.name}
+    pending = {selected = now, key = earlyLandingHook and key or nil, estimate = Estimate(key), name = route and route.name}
     local sincePoll = 0
     driver:SetScript("OnUpdate", function(_, elapsed)
         sincePoll = sincePoll + elapsed

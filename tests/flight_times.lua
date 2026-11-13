@@ -258,7 +258,7 @@ local function CheckFactionArt(faction, creature, atlasInfo)
     end
     progress = frames.ArkannsQOLFlightProgress
     if faction == "Alliance" or faction == "Horde" then
-        assert(#panel.textures == 3, "Show one faction emblem at each edge plus the accent")
+        assert(#panel.textures == 2, "Show one faction emblem at each edge")
         for index, edge in ipairs({"LEFT", "RIGHT"}) do
             local emblem = panel.textures[index]
             assert(emblem.texture == "Interface\\Timer\\" .. faction .. "-Logo")
@@ -268,12 +268,12 @@ local function CheckFactionArt(faction, creature, atlasInfo)
                 and emblem.width == 60 and emblem.height == 60)
         end
     else
-        assert(#panel.textures == 1, "No emblem is created without a known faction")
+        assert(#panel.textures == 0, "No emblem is created without a known faction")
     end
     if faction == "Horde" then
-        assert(progress.color[1] > progress.color[3], "Horde uses a red accent")
+        assert(progress.color[1] > progress.color[3], "Horde uses a red progress bar")
     elseif faction == "Alliance" then
-        assert(progress.color[3] > progress.color[1], "Alliance uses a blue accent")
+        assert(progress.color[3] > progress.color[1], "Alliance uses a blue progress bar")
     end
     PollAt(started + 99, true)
     assert(badges[2].text == "0:01" and not badges[3].shown and progress.shown)

@@ -218,10 +218,6 @@ local function CreateBadge()
     end
     badge:SetSize(panelWidth + 2 * (maxOrnamentWidth - overlap), ornamentHeight)
 
-    local accent = panel:CreateTexture(nil, "ARTWORK")
-    accent:SetColorTexture(red, green, blue, .9)
-    accent:SetSize(80, 2)
-    accent:SetPoint("TOP", 0, -3)
     badgeTitle = UI.Label(panel, "", 18, -6, 14)
     badgeTime = UI.Label(panel, "", 18, -22, 22)
     badgeCaption = UI.Label(panel, "", 18, -44, 10)

@@ -8,10 +8,47 @@ local minSeconds, maxSeconds = 5, 1800
 local maxLegs = 31
 local frequentFlierNode = 110300
 local events = {"TAXIMAP_OPENED", "TAXIMAP_CLOSED", "ADDON_LOADED", "PLAYER_LEAVING_WORLD", "PLAYER_DEAD", "PLAYER_LOGOUT"}
-local driver, config, records, category, check, badge, badgeTitle, badgeTime, badgeCaption, badgeProgress
+local driver, config, records, category, check, badge, refreshSettings, openSetting
 local mapOpen, closedAt, nodes, origin, routes
 local pending, flight
 local takeoffHook, earlyLandingHook, taxiTooltipHook, flightMapTooltipHook
+local panelWidth, panelHeight = 320, 62
+local progressLabel = "Afficher la barre de progression"
+local resetLabel = "Rétablir l’apparence du minuteur"
+local sides = {{"both", "Des deux côtés"}, {"left", "Gauche"}, {"right", "Droite"}, {"none", "Masqués"}}
+local appearanceChoices = {
+    {"flightBeasts", "Bêtes de vol", "both", sides},
+    {"flightBeastAlign", "Alignement des bêtes", "bottom", {{"bottom", "En bas"}, {"middle", "Au milieu"}, {"top", "En haut"}}},
+    {"flightBeastSize", "Taille des bêtes", 68, {48, 58, 68, 78, 88}},
+    {"flightBeastGap", "Écart des bêtes", -8, {{-8, "Sur le bord"}, {0, "Contre le cadre"}, 8, 16, 24}},
+    {"flightEmblems", "Emblèmes de faction", "both", {sides[1], sides[2], {"center", "Centre"}, sides[3], sides[4]}},
+    {"flightEmblemInset", "Marge des emblèmes", 12, {6, 12, 20, 28, 36}},
+    {"flightEmblemSize", "Taille des emblèmes", 60, {32, 40, 50, 60}},
+    {"flightEmblemOpacity", "Opacité des emblèmes", 22, {10, 16, 22, 30, 40, 55}, "%"},
+}
+
+local function OptionValue(option)
+    return type(option) == "table" and option[1] or option
+end
+
+local function OptionLabel(option, unit)
+    if type(option) == "table" then return L(option[2]) end
+    return tostring(option) .. (unit and " " .. unit or "")
+end
+
+local function Appearance(value)
+    local source = type(value) == "table" and value or {}
+    local result = {flightProgress = source.flightProgress ~= false}
+    for _, choice in ipairs(appearanceChoices) do
+        local key, _, default, options = unpack(choice)
+        result[key] = default
+        for _, option in ipairs(options) do
+            local allowed = OptionValue(option)
+            if source[key] == allowed then result[key] = allowed; break end
+        end
+    end
+    return result
+end
 
 local function IsID(value)
     return WoW.IsFiniteNumber(value) and value >= 1 and value <= 2147483647 and value % 1 == 0
@@ -160,17 +197,49 @@ local function AddTaxiTooltip(owner, slot)
     GameTooltip:Show()
 end
 
-local function CreateBadge()
-    local panelWidth, panelHeight, ornamentHeight = 320, 62, 68
-    local overlap, maxOrnamentWidth = 8, 0
-    badge = CreateFrame("Frame", "ArkannsQOLFlightTimer", UIParent)
-    badge:SetPoint("TOP", UIParent, "TOP", 0, -100)
-    badge:SetClampedToScreen(true)
-    badge:EnableMouse(false)
+local function LayoutBadge(view)
+    local style = config.appearance
+    local minY, maxY, reach = 0, panelHeight, panelWidth / 2
+    for _, side in ipairs({"left", "right"}) do
+        local left = side == "left"
+        local ornament = view.ornaments[side]
+        local show = style.flightBeasts == "both" or style.flightBeasts == side
+        ornament:SetShown(show)
+        if show then
+            local height = ornament.aspect and style.flightBeastSize or 32 * style.flightBeastSize / 68
+            local width = height * (ornament.aspect or 1)
+            local y = (panelHeight - height) * (style.flightBeastAlign == "top" and 1 or style.flightBeastAlign == "middle" and .5 or 0)
+            ornament:SetSize(width, height)
+            ornament:ClearAllPoints()
+            ornament:SetPoint(left and "BOTTOMRIGHT" or "BOTTOMLEFT", view.panel, left and "BOTTOMLEFT" or "BOTTOMRIGHT",
+                (left and -1 or 1) * style.flightBeastGap, y)
+            minY, maxY = math.min(minY, y), math.max(maxY, y + height)
+            reach = math.max(reach, panelWidth / 2 + width + style.flightBeastGap)
+        end
+        local emblem = view.emblems[side]
+        if emblem then
+            local center = left and style.flightEmblems == "center"
+            local anchor = center and "CENTER" or left and "LEFT" or "RIGHT"
+            emblem:SetShown(center or style.flightEmblems == "both" or style.flightEmblems == side)
+            emblem:SetSize(style.flightEmblemSize, style.flightEmblemSize)
+            emblem:SetAlpha(style.flightEmblemOpacity / 100)
+            emblem:ClearAllPoints()
+            emblem:SetPoint(anchor, view.panel, anchor, center and 0 or (left and 1 or -1) * style.flightEmblemInset, 0)
+        end
+    end
+    view.panel:ClearAllPoints()
+    view.panel:SetPoint("BOTTOM", view, "BOTTOM", 0, -minY)
+    view:SetSize(reach * 2, maxY - minY)
+    view.progress:SetShown(view.countingDown and style.flightProgress or false)
+end
 
-    local panel = CreateFrame("Frame", "ArkannsQOLFlightTimerPanel", badge, "BackdropTemplate")
+local function CreateBadge(parent, name)
+    local view = CreateFrame("Frame", name, parent)
+    view:EnableMouse(false)
+    view.ornaments, view.emblems = {}, {}
+    local panel = CreateFrame("Frame", name .. "Panel", view, "BackdropTemplate")
+    view.panel = panel
     panel:SetSize(panelWidth, panelHeight)
-    panel:SetPoint("BOTTOM")
     panel:EnableMouse(false)
     UI.StylePanel(panel)
 
@@ -185,78 +254,74 @@ local function CreateBadge()
 
     if creature then
         local texture = ("Interface\\Timer\\%s-Logo"):format(faction)
-        local size = panelHeight - 2
-        for _, edge in ipairs({"LEFT", "RIGHT"}) do
+        for _, side in ipairs({"left", "right"}) do
             local emblem = panel:CreateTexture(nil, "ARTWORK", nil, -1)
             emblem:SetTexture(texture)
-            emblem:SetSize(size, size)
-            emblem:SetPoint(edge, panel, edge, edge == "LEFT" and 12 or -12, 0)
-            emblem:SetAlpha(.22)
+            view.emblems[side] = emblem
         end
     end
 
     -- Native end caps, Forever 4cd0ab7. Read atlas dimensions for the client's art variant.
     for _, side in ipairs({"Left", "Right"}) do
-        local ornament = badge:CreateTexture(nil, "ARTWORK")
+        local ornament = view:CreateTexture(nil, "ARTWORK")
+        view.ornaments[side:lower()] = ornament
         local atlas = creature and ("UI-HUD-ActionBar-%s-%s"):format(creature, side)
         local info = atlas and C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, atlas)
-        local width, height = 32, 32
         if type(info) == "table" and WoW.IsFiniteNumber(info.width) and info.width > 0
             and WoW.IsFiniteNumber(info.height) and info.height > 0 then
             ornament:SetAtlas(atlas, false)
-            width, height = ornamentHeight * info.width / info.height, ornamentHeight
+            ornament.aspect = info.width / info.height
         else
             ornament:SetTexture("Interface\\TaxiFrame\\UI-Taxi-Icon-Green")
         end
-        ornament:SetSize(width, height)
-        maxOrnamentWidth = math.max(maxOrnamentWidth, width)
-        if side == "Left" then
-            ornament:SetPoint("BOTTOMRIGHT", panel, "BOTTOMLEFT", overlap, 0)
-        else
-            ornament:SetPoint("BOTTOMLEFT", panel, "BOTTOMRIGHT", -overlap, 0)
-        end
     end
-    badge:SetSize(panelWidth + 2 * (maxOrnamentWidth - overlap), ornamentHeight)
 
-    badgeTitle = UI.Label(panel, "", 18, -6, 14)
-    badgeTime = UI.Label(panel, "", 18, -22, 22)
-    badgeCaption = UI.Label(panel, "", 18, -44, 10)
-    for _, label in ipairs({badgeTitle, badgeTime, badgeCaption}) do
+    view.title = UI.Label(panel, "", 18, -6, 14)
+    view.time = UI.Label(panel, "", 18, -22, 22)
+    view.caption = UI.Label(panel, "", 18, -44, 10)
+    for _, label in ipairs({view.title, view.time, view.caption}) do
         label:SetWidth(284)
         label:SetWordWrap(false)
         label:SetJustifyH("CENTER")
     end
-    badgeProgress = CreateFrame("StatusBar", "ArkannsQOLFlightProgress", panel)
-    badgeProgress:SetPoint("BOTTOMLEFT", 18, 5)
-    badgeProgress:SetSize(284, 3)
-    badgeProgress:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
-    badgeProgress:SetStatusBarColor(red, green, blue)
-    badgeProgress:SetMinMaxValues(0, 1)
-    local track = badgeProgress:CreateTexture(nil, "BACKGROUND")
+    local progress = CreateFrame("StatusBar", nil, panel)
+    view.progress = progress
+    progress:SetPoint("BOTTOMLEFT", 18, 5)
+    progress:SetSize(284, 3)
+    progress:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    progress:SetStatusBarColor(red, green, blue)
+    progress:SetMinMaxValues(0, 1)
+    local track = progress:CreateTexture(nil, "BACKGROUND")
     track:SetAllPoints()
     track:SetColorTexture(red, green, blue, .2)
+    return view
 end
 
 local function ShowTime(elapsed)
-    if not badge then CreateBadge() end
+    if not badge then
+        badge = CreateBadge(UIParent, "ArkannsQOLFlightTimer")
+        badge:SetPoint("TOP", UIParent, "TOP", 0, -100)
+        badge:SetClampedToScreen(true)
+        LayoutBadge(badge)
+    end
     if not badge:IsShown() or flight.lastSecond == nil then
-        badgeTitle:SetText(flight.name or L("En vol"))
+        badge.title:SetText(flight.name or L("En vol"))
         badge:Show()
     end
     local seconds = math.floor(elapsed)
     if flight.lastSecond == seconds then return end
     flight.lastSecond = seconds
-    if flight.estimate and seconds < flight.estimate then
-        badgeTime:SetText(DurationText(flight.estimate - seconds))
-        badgeCaption:Hide()
-        badgeProgress:SetValue(math.min(1, elapsed / flight.estimate))
-        badgeProgress:Show()
+    badge.countingDown = flight.estimate and seconds < flight.estimate
+    if badge.countingDown then
+        badge.time:SetText(DurationText(flight.estimate - seconds))
+        badge.caption:Hide()
+        badge.progress:SetValue(math.min(1, elapsed / flight.estimate))
     else
-        badgeTime:SetText(DurationText(seconds))
-        badgeCaption:SetText(L(flight.interrupted and "Escale demandée" or "Temps écoulé"))
-        badgeCaption:Show()
-        badgeProgress:Hide()
+        badge.time:SetText(DurationText(seconds))
+        badge.caption:SetText(L(flight.interrupted and "Escale demandée" or "Temps écoulé"))
+        badge.caption:Show()
     end
+    badge.progress:SetShown(badge.countingDown and config.appearance.flightProgress or false)
 end
 
 local function Stop()
@@ -382,64 +447,132 @@ local function RegisterSettings(root)
     panel:Hide()
     UI.StylePanel(panel)
     UI.Label(panel, title, 16, -16, 18)
-    check = UI.Check(panel, "ArkannsQOLFlightsEnabled", toggleLabel, 12, -44, SetEnabled)
-    local description = UI.Label(panel, L("Affiche la durée des trajets et le temps restant en vol."), 16, 0)
-    description:ClearAllPoints()
-    description:SetPoint("TOPLEFT", check, "BOTTOMLEFT", 4, -4)
-    description:SetWordWrap(true)
+    local previewArea = CreateFrame("Frame", nil, panel)
+    previewArea:SetPoint("TOPLEFT", 16, -42)
+    previewArea:SetPoint("TOPRIGHT", -16, -42)
+    previewArea:SetHeight(90)
+    local preview
 
-    local help = UI.Label(panel, "", 16, 0)
     local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", help, "BOTTOMLEFT", 0, -12)
+    scroll:SetPoint("TOPLEFT", 16, -142)
     scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -34, 16)
-    scroll:Hide()
-    local output = CreateFrame("EditBox", "ArkannsQOLFlightExport", scroll)
-    output:SetSize(1, 1)
+    local body = CreateFrame("Frame", nil, scroll)
+    body:SetSize(1, 1)
+    scroll:SetScrollChild(body)
+    local targets, choices = {}, {}
+    check = UI.Check(body, "ArkannsQOLFlightsEnabled", toggleLabel, 0, 0, SetEnabled)
+    targets["Chronométrer les vols"] = check
+    local function Changed()
+        if badge then LayoutBadge(badge) end
+        refreshSettings()
+    end
+    local progress = UI.Check(body, "ArkannsQOLFlightShowProgress", L(progressLabel), 0, -34, function(value)
+        config.appearance.flightProgress = value
+        Changed()
+    end)
+    targets[progressLabel] = progress
+
+    local y = 76
+    for _, choice in ipairs(appearanceChoices) do
+        local key, source, _, options, unit = unpack(choice)
+        local button = UI.Button(body, "ArkannsQOL_" .. key, "", 0, -y, 340, function(self)
+            if not MenuUtil or not MenuUtil.CreateContextMenu then return end
+            MenuUtil.CreateContextMenu(self, function(_, menu)
+                for _, option in ipairs(options) do
+                    local value = OptionValue(option)
+                    menu:CreateRadio(OptionLabel(option, unit), function() return config.appearance[key] == value end, function()
+                        config.appearance[key] = value
+                        Changed()
+                    end)
+                end
+            end)
+        end)
+        choices[#choices + 1] = {control = button, update = function()
+            for _, option in ipairs(options) do
+                if config.appearance[key] == OptionValue(option) then
+                    button:SetText(L("%s : %s"):format(L(source), OptionLabel(option, unit)))
+                    break
+                end
+            end
+        end}
+        targets[source] = button
+        y = y + 34
+    end
+    local reset = UI.Button(body, "ArkannsQOLFlightResetAppearance", L(resetLabel), 0, -y, 340, function()
+        config.appearance = Appearance()
+        Changed()
+    end)
+    targets[resetLabel] = reset
+    y = y + 46
+    local help = UI.Label(body, "", 0, -y - 35)
+    help:SetWordWrap(true)
+    local output = CreateFrame("EditBox", "ArkannsQOLFlightExport", body)
+    output:SetPoint("TOPLEFT", help, "BOTTOMLEFT", 0, -10)
+    output:Hide()
     output:SetMultiLine(true)
     output:SetAutoFocus(false)
     output:SetFontObject(GameFontHighlightSmall)
     output:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    scroll:SetScrollChild(output)
-    scroll:SetScript("OnSizeChanged", function(_, width) output:SetWidth(math.max(1, width - 4)) end)
-
-    local export = UI.Button(panel, nil, exportLabel, 16, 0, 215, function()
+    local function Resize()
+        local width = math.max(1, panel:GetWidth() - 50)
+        local buttonWidth = math.min(340, width)
+        for _, entry in ipairs(choices) do entry.control:SetWidth(buttonWidth) end
+        reset:SetWidth(buttonWidth)
+        help:SetWidth(width)
+        output:SetWidth(width)
+        local extra = output:IsShown() and output:GetHeight() or 0
+        body:SetSize(width, y + 76 + extra)
+        UI.ClampScroll(scroll, body:GetHeight())
+        if preview then preview:SetScale(math.min(1, (width + 18) / preview:GetWidth())) end
+    end
+    local export = UI.Button(body, nil, exportLabel, 0, -y, 215, function()
         local lines = ExportLines()
         if #lines == 0 then
             help:SetText(L("Aucun vol complet à exporter."))
-            scroll:Hide()
+            output:Hide()
+            Resize()
             return
         end
         help:SetText(L("Ctrl+C pour copier les trajets et leurs durées."))
-        scroll:Show()
-        output:SetWidth(math.max(1, scroll:GetWidth() - 4))
         output:SetText("QTF1\n" .. table.concat(lines, "\n"))
         local lineCount = WoW.ReadValue(output.GetNumLines, output)
         if not WoW.IsFiniteNumber(lineCount) or lineCount < 1 then lineCount = #lines + 1 end
-        output:SetHeight(math.max(scroll:GetHeight(), lineCount * 17))
+        output:SetHeight(math.max(60, lineCount * 17))
+        output:Show()
+        Resize()
+        UI.RevealControl(scroll, output)
         output:SetFocus()
         output:HighlightText()
-        scroll:SetVerticalScroll(0)
     end)
-    export:ClearAllPoints()
-    export:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -14)
-    help:ClearAllPoints()
-    help:SetPoint("TOPLEFT", export, "BOTTOMLEFT", 0, -9)
-    help:SetWordWrap(true)
-    local function Resize(_, width)
-        description:SetWidth(math.max(1, width - 32))
-        help:SetWidth(math.max(1, width - 32))
+    targets["Exporter les durées"] = export
+    refreshSettings = function()
+        check:SetChecked(config.enabled ~= false)
+        progress:SetChecked(config.appearance.flightProgress)
+        for _, entry in ipairs(choices) do entry.update() end
+        if preview then LayoutBadge(preview) end
+        Resize()
     end
+    refreshSettings()
     panel:SetScript("OnSizeChanged", Resize)
     panel:SetScript("OnShow", function()
-        check:SetChecked(config.enabled)
-        Resize(panel, panel:GetWidth())
+        if not preview then
+            preview = CreateBadge(previewArea, "ArkannsQOLFlightPreview")
+            preview:SetPoint("CENTER")
+            preview.title:SetText(L("Aperçu du minuteur"))
+            preview.time:SetText("1:23")
+            preview.caption:Hide()
+            preview.countingDown = true
+            preview.progress:SetValue(.45)
+        end
+        refreshSettings()
     end)
     panel:SetScript("OnHide", function()
         output:ClearFocus()
         output:SetText("")
+        output:Hide()
         help:SetText("")
-        scroll:Hide()
     end)
+    openSetting = function(source) UI.RevealControl(scroll, targets[source]) end
     category = UI.RegisterSettingsPanel(root, panel, title, "flights")
 end
 
@@ -447,24 +580,47 @@ function ns.InitializeFlightTimes(root)
     local db = ForeverTooltipLibreDB
     if type(db.flights) ~= "table" then db.flights = {} end
     config = db.flights
+    config.appearance = Appearance(config.appearance)
     if type(ArkannsQOLFlightsDB) ~= "table" then ArkannsQOLFlightsDB = {} end
     records = ArkannsQOLFlightsDB
     driver = CreateFrame("Frame", "ArkannsQOLFlightEvents")
     driver:SetScript("OnEvent", OnEvent)
     if root and Settings and Settings.RegisterCanvasLayoutSubcategory then RegisterSettings(root) end
     SetEnabled(config.enabled ~= false)
+    local search = {"Chronométrer les vols", "Exporter les durées", progressLabel, resetLabel}
+    for _, choice in ipairs(appearanceChoices) do search[#search + 1] = choice[2] end
     ns.RegisterModule(moduleID, {
         label = title,
         icon = "Interface\\TaxiFrame\\UI-Taxi-Icon-Green",
         category = function() return category end,
+        SearchSettings = search,
+        OpenSettings = openSetting,
         Summary = function() return L("Affiche la durée des trajets et le temps restant en vol.") end,
         toggleLabel = toggleLabel,
         IsEnabled = function() return config.enabled end,
         SetEnabled = SetEnabled,
-        ExportSettings = function() return {enabled = config.enabled} end,
+        ExportSettings = function() return {enabled = config.enabled, appearance = Appearance(config.appearance)} end,
+        profileMigrations = {function(value, current)
+            if value.appearance == nil then value.appearance = current.appearance end
+        end},
+        ProfileDisplay = function(value)
+            local style = value.appearance
+            if type(style) ~= "table" then return end
+            local display = {[L(progressLabel)] = style.flightProgress}
+            for _, choice in ipairs(appearanceChoices) do
+                local key, source, _, options, unit = unpack(choice)
+                for _, option in ipairs(options) do
+                    if OptionValue(option) == style[key] then display[L(source)] = OptionLabel(option, unit); break end
+                end
+            end
+            value.appearance = display
+        end,
         ImportSettings = function(value)
             if type(value) ~= "table" or type(value.enabled) ~= "boolean" then return false end
+            if value.appearance ~= nil then config.appearance = Appearance(value.appearance) end
             if value.enabled ~= config.enabled then SetEnabled(value.enabled) end
+            if badge then LayoutBadge(badge) end
+            if refreshSettings then refreshSettings() end
             return true
         end,
     })

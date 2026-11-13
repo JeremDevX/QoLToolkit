@@ -15,6 +15,8 @@ function methods:SetStatusBarColor(...) self.color = {...} end
 function methods:SetMinMaxValues(minimum, maximum) self.minimum, self.maximum = minimum, maximum end
 function methods:SetValue(value) self.value = value end
 function methods:SetAlpha(alpha) self.alpha = alpha end
+function methods:SetScale(scale) self.scale = scale end
+function methods:SetShown(shown) self.shown = shown end
 function methods:CreateTexture(_, layer, _, sublevel)
     local texture = CreateFrame("Texture", nil, self)
     texture.layer, texture.sublevel = layer, sublevel
@@ -45,10 +47,16 @@ CreateFrame = function(kind, name, parent)
 end
 Settings = {RegisterCanvasLayoutSubcategory = function(_, panel, label) return {panel = panel, label = label} end}
 local module
-local ns = {RegisterModule = function(id, descriptor) assert(id == "flights"); module = descriptor end}
+local ns = {modules = {}}
+function ns.RegisterModule(id, descriptor)
+    assert(id == "flights")
+    ns.modules[id], module = descriptor, descriptor
+end
 ns.UI = {
     RegisterSettingsPanel = Settings.RegisterCanvasLayoutSubcategory,
     StylePanel = noop,
+    ClampScroll = noop,
+    RevealControl = function(_, control) ns.revealed = control end,
     Label = function(parent, text, _, _, size)
         local frame = CreateFrame("FontString")
         frame.fontSize = size
@@ -56,8 +64,18 @@ ns.UI = {
         if parent == frames.ArkannsQOLFlightTimerPanel then badges[#badges + 1] = frame end
         return frame
     end,
-    Button = function(_, _, label, _, _, _, callback) buttons[label] = callback; return CreateFrame("Button") end,
-    Check = function(_, name) return CreateFrame("CheckButton", name) end,
+    Button = function(parent, name, label, _, _, _, callback)
+        buttons[label] = callback
+        local control = CreateFrame("Button", name, parent)
+        control:SetText(label)
+        control:SetScript("OnClick", callback)
+        return control
+    end,
+    Check = function(parent, name, _, _, _, callback)
+        local control = CreateFrame("CheckButton", name, parent)
+        control:SetScript("OnClick", function(self) callback(self.checked == true) end)
+        return control
+    end,
 }
 local function Load(path) setfenv(assert(loadfile(path)), _G)("QoLToolkit", ns) end
 Load("Locales/Locale.lua")
@@ -144,7 +162,7 @@ canReadRoute = false
 hooks.TakeTaxiNode(3)
 PollAt(2, true)
 assert(badges[1].text == "Destination" and badges[1].fontSize == 14 and badges[2].text == "1:42" and not badges[3].shown)
-local progress = frames.ArkannsQOLFlightProgress
+local progress = frames.ArkannsQOLFlightTimer.progress
 assert(progress.shown and progress.minimum == 0 and progress.maximum == 1 and progress.value == 0)
 PollAt(62, true)
 assert(badges[2].text == "0:42" and math.abs(progress.value - 60 / 102) < .0001)
@@ -226,6 +244,77 @@ assert(output.text == "QTF1\n70888,0,101>202,75\n70888,0,101>303>202,100\n70888,
 module.category().panel.scripts.OnHide()
 assert(output.text == "")
 
+local function Choose(key, label)
+    local selected
+    MenuUtil = {CreateContextMenu = function(owner, generate)
+        generate(owner, {CreateRadio = function(_, item, isSelected, choose)
+            if item == label then choose(); selected = isSelected() end
+        end})
+    end}
+    local button = frames["ArkannsQOL_" .. key]
+    button.scripts.OnClick(button)
+    assert(selected, label)
+end
+
+-- The settings page previews the same placement applied to an active flight.
+local settings = module.category().panel
+settings.scripts.OnShow()
+local preview, live = frames.ArkannsQOLFlightPreview, frames.ArkannsQOLFlightTimer
+local oldProfile = module.ExportSettings()
+assert(preview.scale < 1 and preview.width * preview.scale <= settings.width - 32)
+settings:SetWidth(900)
+settings.scripts.OnSizeChanged()
+assert(preview.scale == 1)
+assert(preview.progress.shown and not live.shown and not driver.scripts.OnUpdate)
+module.OpenSettings("Emblèmes de faction")
+assert(ns.revealed == frames.ArkannsQOL_flightEmblems)
+
+start = Begin()
+Choose("flightBeasts", "Hidden")
+assert(not live.ornaments.left.shown and not preview.ornaments.right.shown and preview.width == 320)
+Choose("flightBeasts", ns.L("Gauche"))
+Choose("flightBeastAlign", "Top")
+Choose("flightBeastSize", "88")
+Choose("flightBeastGap", "16")
+assert(live.ornaments.left.shown and not live.ornaments.right.shown)
+assert(live.ornaments.left.height == 88 and live.height == 88 and live.panel.point[5] == 26)
+assert(live.ornaments.left.point[4] == -16 and live.ornaments.left.point[5] == -26)
+Choose("flightEmblems", ns.L("Centre"))
+assert(preview.emblems.left.shown and preview.emblems.left.point[1] == "CENTER" and not preview.emblems.right.shown)
+Choose("flightEmblems", ns.L("Droite"))
+Choose("flightEmblemInset", "36")
+Choose("flightEmblemSize", "40")
+Choose("flightEmblemOpacity", "55 %")
+assert(not live.emblems.left.shown and live.emblems.right.shown and live.emblems.right.point[4] == -36)
+assert(live.emblems.right.width == 40 and live.emblems.right.alpha == .55)
+
+local progressCheck = frames.ArkannsQOLFlightShowProgress
+progressCheck:SetChecked(false)
+progressCheck.scripts.OnClick(progressCheck)
+local customProfile = module.ExportSettings()
+assert(not live.progress.shown and not preview.progress.shown and not customProfile.appearance.flightProgress)
+Load("Core/Profiles.lua")
+local profiles = ns.Profiles
+assert(profiles.Save("Flight theme"))
+local reset = frames.ArkannsQOLFlightResetAppearance
+reset.scripts.OnClick(reset)
+assert(live.progress.shown and preview.emblems.left.shown and preview.emblems.right.shown)
+local plan = assert(profiles.Preview("Flight theme", {flights = true}))
+assert(#plan.changes > 0 and not table.concat(plan.changes, "\n"):find("flightBeast", 1, true))
+assert(profiles.Apply(plan) and not preview.progress.shown and not live.progress.shown)
+assert(ForeverTooltipLibreDB.flights.appearance.flightBeasts == "left")
+assert(profiles.Undo() and preview.progress.shown and live.progress.shown)
+assert(module.ImportSettings(customProfile))
+local legacy = {enabled = false}
+module.profileMigrations[1](legacy, customProfile)
+assert(module.ImportSettings(legacy) and not module.IsEnabled())
+assert(module.ExportSettings().appearance.flightEmblems == "right" and not preview.progress.shown)
+assert(ArkannsQOLFlightsDB[route][1] == 100 and #ArkannsQOLFlightsDB[route] == 1)
+assert(module.ImportSettings(oldProfile))
+Event("PLAYER_LEAVING_WORLD")
+onTaxi = false
+settings.scripts.OnHide()
+
 -- Recreate the module as on another character, with both native art variants and missing APIs.
 local function CheckFactionArt(faction, creature, atlasInfo)
     frames, hooks, buttons, badges = {}, {}, {}, {}
@@ -256,7 +345,7 @@ local function CheckFactionArt(faction, creature, atlasInfo)
             assert(ornament.texture == "Interface\\TaxiFrame\\UI-Taxi-Icon-Green" and ornament.width == ornament.height)
         end
     end
-    progress = frames.ArkannsQOLFlightProgress
+    progress = frame.progress
     if faction == "Alliance" or faction == "Horde" then
         assert(#panel.textures == 2, "Show one faction emblem at each edge")
         for index, edge in ipairs({"LEFT", "RIGHT"}) do

@@ -410,6 +410,7 @@ do
     CreateFrame = function(kind, name, parent)
         local widget = createWidget(kind, name)
         widget.parent = parent
+        widget.SetAtlas = function(self, atlas) self.atlas = atlas end
         widget.offset = 0
         widget.SetHeight = function(self, height) self.height = height end
         widget.GetHeight = function(self) return rawget(self, "height") or 300 end
@@ -443,10 +444,11 @@ do
     NUM_TOTAL_BAG_FRAMES = 5
     ContainerFrameUtil_GetShownFrameForID = function() return bag end
     ContainerFrameUtil_EnumerateContainerFrames = function() return ipairs({bag}) end
-    local newItemHook
+    local newItemHook, backpackExclusionHook
     slot.UpdateNewItem = noop
     hooksecurefunc = function(target, name, fn)
         if target == "SetItemButtonQuality" then hook = name
+        elseif target == C_Container and name == "SetBackpackSellJunkDisabled" then backpackExclusionHook = fn
         else
             assert(target == slot and name == "UpdateNewItem")
             newItemHook = fn
@@ -461,8 +463,13 @@ do
     slot.IconQuestTexture = CreateFrame("Texture")
     slot.IconQuestTexture.alpha = .9
     local bagItem = {quality = 4, itemID = 42}
+    local backpackExcluded = false
     C_Container = {GetContainerItemInfo = function() return bagItem end,
-        GetContainerItemQuestInfo = function() return questInfo end}
+        GetContainerItemQuestInfo = function() return questInfo end,
+        SetBackpackSellJunkDisabled = function(value)
+            backpackExcluded = value
+            backpackExclusionHook()
+        end}
     ITEM_QUALITY6_DESC, ITEM_QUALITY7_DESC, ITEM_QUALITY8_DESC = "Artifact", "Heirloom", "WoW Token"
     local reagent
     C_Item = {GetItemQualityColor = function() return .64, .21, .93 end,
@@ -502,6 +509,7 @@ do
     local callbacks = {}
     local oldTimer, oldEnum, oldSecret = C_Timer, Enum, issecretvalue
     local oldLockdown, oldCursor = InCombatLockdown, GetCursorInfo
+    local oldTexture = C_Texture
     C_Timer = {After = function(_, callback)
         if MerchantFrame and MerchantFrame:IsShown() then callbacks[#callbacks + 1] = callback
         else callback() end
@@ -687,6 +695,7 @@ do
     local events = frames.ArkannsQOLBagMerchantEvents
     local registered = {}
     events.RegisterEvent = function(_, event) registered[event] = true end
+    events.UnregisterEvent = function(_, event) registered[event] = nil end
     events.UnregisterAllEvents = function() registered = {} end
     local function MerchantEvent(event, ...)
         assert(registered[event], event .. " must be registered")
@@ -716,11 +725,17 @@ do
     C_Container.GetContainerItemPurchaseInfo = function(bag, index)
         if bag == 0 and index == 7 then return {money = 1, itemCount = 0, currencyCount = 0} end
     end
-    C_Container.GetBackpackSellJunkDisabled = function() return false end
+    C_Container.GetBackpackSellJunkDisabled = function() return backpackExcluded end
     C_Container.GetBagSlotFlag = function(bag, flag) assert(flag == 32); return bag == 1 end
     C_Item.IsEquippableItem = function(id) return id == 2 end
     ItemLocation = {CreateFromBagAndSlot = function(_, bag, index) return {bag = bag, index = index} end}
     C_Item.GetItemGUID = function(location) return inventory[location.bag][location.index].guid end
+    local prices = {[1] = 103, [2] = 13300, [8] = 99}
+    C_Item.GetItemInfo = function(id)
+        return "Item", nil, nil, nil, nil, nil, nil, nil, nil, nil, prices[id]
+    end
+    local atlases = true
+    C_Texture = {GetAtlasInfo = function() return atlases and {} or nil end}
     local waitForSale, finishSale
     C_Container.UseContainerItem = function(bag, index)
         sold[#sold + 1] = inventory[bag][index].itemID
@@ -733,6 +748,58 @@ do
     frames.ArkannsQOLBagQuickAutoRepair:OnClick(true)
     assert(frames.ArkannsQOLBagAutoSell.checked and frames.ArkannsQOLBagSellEquipment.enabled
         and frames.ArkannsQOLBagAutoRepair.checked, "Both panels share merchant settings")
+    local coin = slot.textures[#slot.textures]
+    assert(coin.shown and coin.atlas == "coin-silver" and coin:GetWidth() == 26 and coin:GetHeight() == 26
+        and coin.points.CENTER[1] == slot and coin.points.CENTER[2] == "CENTER")
+    local slotIndex, bagIndex = 2, 0
+    slot.GetID = function() return slotIndex end
+    slot.GetBagID = function() return bagIndex end
+    SetItemButtonQuality(slot, 0)
+    assert(not coin.shown, "Recycled slots hide the coin for excluded gear")
+    frames.ArkannsQOLBagQuickSellEquipment:OnClick(true)
+    assert(coin.shown and coin.atlas == "coin-gold")
+    frames.ArkannsQOLBagQuickSellEquipment:OnClick(false)
+    slotIndex = 8
+    SetItemButtonQuality(slot, 0)
+    assert(coin.shown and coin.atlas == "coin-copper")
+    inventory[0][8].stackCount = 2
+    SetItemButtonQuality(slot, 0)
+    assert(coin.shown and coin.atlas == "coin-silver", "Use the value of the entire stack")
+    inventory[0][8].stackCount = 1
+    prices[8] = nil
+    SetItemButtonQuality(slot, 0)
+    assert(not coin.shown, "Hide the marker until the price is available")
+    prices[8] = 99
+    atlases = false
+    MerchantEvent("GET_ITEM_INFO_RECEIVED", 8, true)
+    assert(coin.shown and coin.asset == "Interface\\MoneyFrame\\UI-CopperIcon")
+    atlases = true
+    bagIndex, slotIndex = 1, 1
+    prices[9] = 99
+    MerchantEvent("BAG_SLOT_FLAGS_UPDATED", 1)
+    assert(not coin.shown, "Excluded bags never show an auto-sell coin")
+    bagIndex, slotIndex = 0, 1
+    bagModule.Refresh()
+    assert(coin.shown)
+    C_Container.SetBackpackSellJunkDisabled(true)
+    assert(not coin.shown)
+    C_Container.SetBackpackSellJunkDisabled(false)
+    assert(coin.shown)
+    local first = inventory[0][1]
+    inventory[0][1] = nil
+    SetItemButtonQuality(slot, nil)
+    assert(not coin.shown, "Empty slots clear the sale marker")
+    inventory[0][1] = first
+    SetItemButtonQuality(slot, 0)
+    assert(coin.shown)
+    slot:OnHide()
+    assert(not coin.shown)
+    bagModule.Refresh()
+    frames.ArkannsQOLBagQuickAutoSell:OnClick(false)
+    assert(not coin.shown and not registered.GET_ITEM_INFO_RECEIVED)
+    frames.ArkannsQOLBagQuickAutoSell:OnClick(true)
+    assert(coin.shown)
+    print("PASS: centered auto-sell coins, stack prices, exclusions, recycled slots and item data refresh")
     if advanced.shown then frames.ArkannsQOLBagAdvanced:OnClick() end
     bagModule.OpenSettings("Vendre les objets gris")
     assert(revealedControl == frames.ArkannsQOLBagAutoSell and not advanced.shown)
@@ -779,11 +846,13 @@ do
         "A sale that never updates the bags stops the batch")
     MerchantEvent("ADDON_ACTION_BLOCKED", "QoLToolkit", "C_Container.UseContainerItem")
     assert(not frames.ArkannsQOLBagAutoSell.enabled and not frames.ArkannsQOLBagQuickSellEquipment.enabled)
+    assert(not coin.shown)
     CloseMerchant()
     RepairAllItems = nil
     assert(bagModule.ImportSettings({enabled = false, autoSell = false}))
     assert(not frames.ArkannsQOLBagQuickAutoRepair.enabled and not registered.MERCHANT_SHOW)
     C_Timer, Enum, issecretvalue = oldTimer, oldEnum, oldSecret
+    C_Texture = oldTexture
     InCombatLockdown, GetCursorInfo = oldLockdown, oldCursor
     MerchantFrame, ItemLocation, C_PlayerInteractionManager = nil, nil, nil
     SpellIsTargeting, InRepairMode, CanMerchantRepair, GetMoney, GetRepairAllCost = nil, nil, nil, nil, nil

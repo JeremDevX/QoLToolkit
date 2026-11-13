@@ -4,6 +4,9 @@ local WoW = ns.WoW
 local db, panel, check, qualityCheck, transmogCheck, status, category, homeCategory, refreshAppearance
 local quick, quickBag, refreshQuick, ToggleQuickSettings
 local merchantChecks, merchantEvents, merchantVisit, sellFailed, repairFailed
+local coinListening, coinQueued, PaintSaleCoin, RefreshSaleCoins, QueueSaleCoinRefresh
+local saleCoins = {}
+local saleCoinEvents = {"GET_ITEM_INFO_RECEIVED", "ITEM_LOCK_CHANGED", "BAG_SLOT_FLAGS_UPDATED"}
 local listening, bankOpen, failed, scheduled
 local qualityListening, getQualityColor, appearanceQueued, reagentEvents, waitingForReagents
 local transmogEvents, transmogQueued
@@ -436,15 +439,18 @@ end
 local function OnItemQuality(button, quality, item)
     local showQuality = qualityListening and db.qualityBorders
     local showTransmog = transmogEvents and db.transmogIcons
-    if not (showQuality or showTransmog) or Secret(button) or not button or not button.GetParent or not button.CreateTexture then return end
+    local showCoin = coinListening and db.autoSell
+    if not (showQuality or showTransmog or showCoin) or Secret(button) or not button or not button.GetParent or not button.CreateTexture then return end
     local frame = button.containerFrame or button:GetParent()
     if IsPersonalBag(frame) and (frame == ContainerFrameCombinedBags
         or ContainerFrameUtil_GetShownFrameForID(frame:GetBagID()) == frame) then
         if showQuality then PaintQualityBorder(button, BagBorderCategory(button, quality, item)) end
         if showTransmog then PaintTransmogIcon(button) end
+        if showCoin then PaintSaleCoin(button) end
     else
         HideBorder(qualityBorders[button])
         if transmogIcons[button] then transmogIcons[button]:Hide() end
+        if saleCoins[button] then saleCoins[button]:Hide() end
     end
 end
 
@@ -519,6 +525,10 @@ local function CanAutoRepair()
     return not repairFailed and CanMerchantRepair and GetRepairAllCost and GetMoney and RepairAllItems
 end
 
+local function ShowSaleCoins()
+    return coinListening and merchantEvents and db.autoSell and CanAutoSell()
+end
+
 local function RefreshMerchantChecks(checks)
     for index, option in ipairs(merchantOptions) do checks[index]:SetChecked(db[option[1]]) end
     local sell, repair = merchantEvents and CanAutoSell(), merchantEvents and CanAutoRepair()
@@ -539,6 +549,9 @@ local function RefreshMerchantEvents()
         merchantEvents:RegisterEvent("MERCHANT_CONFIRM_TRADE_TIMER_REMOVAL")
         merchantEvents:RegisterEvent("ADDON_ACTION_BLOCKED")
         merchantEvents:RegisterEvent("ADDON_ACTION_FORBIDDEN")
+        for _, event in ipairs(saleCoinEvents) do
+            if ShowSaleCoins() then merchantEvents:RegisterEvent(event) else merchantEvents:UnregisterEvent(event) end
+        end
     else
         merchantVisit = nil
         merchantEvents:UnregisterAllEvents()
@@ -552,6 +565,7 @@ local function Refresh()
     transmogCheck:SetChecked(db.transmogIcons)
     RefreshMerchantEvents()
     RefreshMerchantChecks(merchantChecks)
+    RefreshSaleCoins()
     status:SetText(Unavailable() or "")
     if reagentEvents then
         if db.qualityBorders then reagentEvents:RegisterEvent("ITEM_DATA_LOAD_RESULT")
@@ -945,6 +959,7 @@ local function OnBagOpened(_, frame)
     AttachShortcut(frame)
     if not IsPersonalBag(frame) then return end
     QueueTransmogRefresh()
+    QueueSaleCoinRefresh()
     if not CanSort() then return end
     pending[frame] = false
     if not scheduled then
@@ -1019,7 +1034,68 @@ local function GetSellableItem(bag, slot)
         or Secret(purchase.currencyCount) or purchase.currencyCount ~= 0) then return end
     if not db.sellEquipment and WoW.ReadValue(C_Item.IsEquippableItem, item.itemID) ~= false then return end
     local guid = ReadItemGUID(bag, slot)
-    if type(guid) == "string" then return guid, item.stackCount end
+    if type(guid) == "string" and guid ~= "" then return guid, item end
+end
+
+local function ReadVendorPrice(item)
+    return (select(11, C_Item.GetItemInfo(item)))
+end
+
+PaintSaleCoin = function(button)
+    if button.IsForbidden and button:IsForbidden() then return end
+    local coin = saleCoins[button]
+    local bag = WoW.ReadValue(button.GetBagID, button)
+    local slot = WoW.ReadValue(button.GetID, button)
+    local price
+    if ShowSaleCoins() and IsPersonalBagID(bag) and WoW.IsFiniteNumber(slot) and slot > 0 then
+        local _, item = GetSellableItem(bag, slot)
+        if item and BagAllowsSale(bag) and WoW.IsPublic(item.hyperlink) then
+            local unitPrice = WoW.ReadValue(ReadVendorPrice, item.hyperlink or item.itemID)
+            if WoW.IsFiniteNumber(unitPrice) then price = unitPrice * item.stackCount end
+        end
+    end
+    if not WoW.IsFiniteNumber(price) or price <= 0 then
+        if coin then coin:Hide() end
+        return
+    end
+
+    if not coin then
+        coin = button:CreateTexture(nil, "OVERLAY", nil, 4)
+        coin:SetSize(26, 26)
+        coin:SetPoint("CENTER", button, "CENTER")
+        saleCoins[button] = coin
+        button:HookScript("OnHide", function() coin:Hide() end)
+    end
+    local denomination = price >= 10000 and "Gold" or price >= 100 and "Silver" or "Copper"
+    local atlas = "coin-" .. denomination:lower()
+    if C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, atlas) then
+        coin:SetAtlas(atlas)
+        coin:Show()
+    else
+        coin:SetShown(coin:SetTexture("Interface\\MoneyFrame\\UI-" .. denomination .. "Icon") == true)
+    end
+end
+
+RefreshSaleCoins = function()
+    if not ShowSaleCoins() then
+        for _, coin in pairs(saleCoins) do coin:Hide() end
+        return
+    end
+    for _, frame in ContainerFrameUtil_EnumerateContainerFrames() do
+        if (not frame.IsForbidden or not frame:IsForbidden()) and IsPersonalBag(frame)
+            and WoW.ReadValue(frame.IsVisible, frame) == true and frame.EnumerateValidItems then
+            for _, button in frame:EnumerateValidItems() do PaintSaleCoin(button) end
+        end
+    end
+end
+
+QueueSaleCoinRefresh = function()
+    if coinQueued or not ShowSaleCoins() or not ContainerFrameUtil_GetShownFrameForID() then return end
+    coinQueued = true
+    C_Timer.After(0, function()
+        coinQueued = false
+        if ContainerFrameUtil_GetShownFrameForID() then RefreshSaleCoins() end
+    end)
 end
 
 local function SellNextItem(visit)
@@ -1050,8 +1126,8 @@ local function SellNextItem(visit)
         local item = visit.items[visit.index]
         visit.index = visit.index + 1
         if BagAllowsSale(item.bag) then
-            local guid, count = GetSellableItem(item.bag, item.slot)
-            if guid == item.guid and count == item.count then
+            local guid, current = GetSellableItem(item.bag, item.slot)
+            if guid == item.guid and current.stackCount == item.count then
                 visit.previous, visit.waits = item, 0
                 if WoW.Read(C_Container.UseContainerItem, item.bag, item.slot) ~= "ok" then
                     sellFailed = true
@@ -1076,8 +1152,8 @@ local function AtMerchant(visit)
             local slots = WoW.ReadValue(C_Container.GetContainerNumSlots, bag)
             if WoW.IsFiniteNumber(slots) then
                 for slot = 1, slots do
-                    local guid, count = GetSellableItem(bag, slot)
-                    if guid then items[#items + 1] = {bag = bag, slot = slot, guid = guid, count = count} end
+                    local guid, item = GetSellableItem(bag, slot)
+                    if guid then items[#items + 1] = {bag = bag, slot = slot, guid = guid, count = item.stackCount} end
                 end
             end
         end
@@ -1097,6 +1173,10 @@ local function OnMerchantEvent(_, event, name, method)
         merchantVisit = nil
     elseif event == "MERCHANT_CONFIRM_TRADE_TIMER_REMOVAL" then
         if merchantVisit then merchantVisit.items = nil end
+    elseif event == "GET_ITEM_INFO_RECEIVED" then
+        if WoW.IsPublic(method) and method == true then QueueSaleCoinRefresh() end
+    elseif event == "ITEM_LOCK_CHANGED" or event == "BAG_SLOT_FLAGS_UPDATED" then
+        QueueSaleCoinRefresh()
     elseif not Secret(name) and name == addonName and not Secret(method) and type(method) == "string" then
         if method:find("UseContainerItem", 1, true) then sellFailed = true
         elseif method:find("RepairAllItems", 1, true) then repairFailed = true
@@ -1121,6 +1201,7 @@ function ns.InitializeBagSort(rootCategory)
         and hooksecurefunc and SetItemButtonQuality and NUM_TOTAL_BAG_FRAMES
         and ContainerFrameUtil_EnumerateContainerFrames and ContainerFrameUtil_GetShownFrameForID then
         qualityListening = type(getQualityColor) == "function"
+        coinListening = C_Item and type(C_Item.GetItemInfo) == "function"
         if qualityListening and C_Item and type(C_Item.GetItemInfo) == "function" then
             reagentEvents = CreateFrame("Frame", "ArkannsQOLBagQualityEvents")
             reagentEvents:SetScript("OnEvent", function(_, _, _, success)
@@ -1138,7 +1219,10 @@ function ns.InitializeBagSort(rootCategory)
                 QueueTransmogRefresh()
             end)
         end
-        if qualityListening or transmogEvents then hooksecurefunc("SetItemButtonQuality", OnItemQuality) end
+        if qualityListening or transmogEvents or coinListening then hooksecurefunc("SetItemButtonQuality", OnItemQuality) end
+        if coinListening and C_Container.SetBackpackSellJunkDisabled then
+            hooksecurefunc(C_Container, "SetBackpackSellJunkDisabled", QueueSaleCoinRefresh)
+        end
     end
 
     panel = CreateFrame("Frame", "ArkannsQOLBagsPanel", UIParent, "BackdropTemplate")

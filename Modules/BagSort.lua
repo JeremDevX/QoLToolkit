@@ -44,7 +44,7 @@ local transmogRefreshEvents = {
     "TRANSMOG_COLLECTION_UPDATED", "TRANSMOG_COLLECTION_ITEM_UPDATE", "TRANSMOG_COLLECTION_SOURCE_ADDED",
     "TRANSMOG_COLLECTION_SOURCE_REMOVED", "TRANSMOG_COSMETIC_COLLECTION_SOURCE_ADDED", "TRANSMOG_SOURCE_COLLECTABILITY_UPDATE",
 }
-local shortcutSize, shortcutRight = 22, -32
+local shortcutSize, shortcutRight = 24, -32
 local titleRight = shortcutRight - shortcutSize - 4
 
 local function ValidSetting(key, value, default)
@@ -659,13 +659,24 @@ local function AttachShortcut(frame)
         shortcuts[frame] = button
         button:SetSize(shortcutSize, shortcutSize)
         if frame.CloseButton then
-            button:SetPoint("CENTER", frame.CloseButton, "LEFT", -shortcutSize / 2 - 4, 0)
+            local closeArt = WoW.ReadValue(frame.CloseButton.GetNormalTexture, frame.CloseButton)
+            button:SetPoint("RIGHT", closeArt or frame.CloseButton, "LEFT", -4, 0)
         else
             button:SetPoint("TOPRIGHT", frame, "TOPRIGHT", shortcutRight, -3)
         end
-        local atlas = "common-dropdown-a-button-settings-shadowless"
+        local background = button:CreateTexture(nil, "BACKGROUND")
+        background:SetAllPoints(button)
+        local redAtlas = "UI-DialogBox-Button-Up"
+        if C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, redAtlas) then
+            background:SetAtlas(redAtlas)
+            background:SetTextureSliceMargins(8, 7, 8, 7)
+        else
+            background:SetTexture("Interface\\Buttons\\UI-Panel-Button-Up")
+            background:SetTexCoord(0, .625, 0, .6875)
+        end
+        local atlas = "OptionsIcon-Brown"
         local icon = button:CreateTexture(nil, "ARTWORK")
-        icon:SetSize(20, 20)
+        icon:SetSize(16, 16)
         icon:SetPoint("CENTER", button, "CENTER", 0, 0)
         if C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, atlas) then
             icon:SetAtlas(atlas)
@@ -673,7 +684,7 @@ local function AttachShortcut(frame)
             icon:SetTexture("Interface\\Icons\\INV_Misc_Wrench_01")
         end
         local highlight = button:CreateTexture(nil, "HIGHLIGHT")
-        highlight:SetAllPoints(icon)
+        highlight:SetAllPoints(button)
         highlight:SetTexture("Interface\\Buttons\\ButtonHilight-Square")
         highlight:SetBlendMode("ADD")
         button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -762,6 +773,7 @@ local function BuildAppearance(body, compact)
         slider:GetThumbTexture():SetSize(28, 28)
         local format = isThickness and "%s · %d" or L("%s · %d %%")
         local function Caption() label:SetText(format:format(name, db[key])) end
+        Caption()
         slider:SetScript("OnValueChanged", function(_, value)
             if syncing then return end
             db[key] = math.floor(value + .5)
@@ -850,9 +862,11 @@ local function BuildAppearance(body, compact)
         local y = 0
         for _, field in ipairs(sliders) do
             Place(field.label, 0, y, columnWidth)
-            y = y + field.label:GetStringHeight() + (compact and 4 or 10)
-            Place(field.control, 4, y, math.max(1, math.min(330, columnWidth - 8)))
-            y = y + (compact and 24 or 38)
+            local clearance = compact and 8 or 10
+            field.control:ClearAllPoints()
+            field.control:SetPoint("TOPLEFT", field.label, "BOTTOMLEFT", 4, -clearance)
+            field.control:SetWidth(math.max(1, math.min(330, columnWidth - 8)))
+            y = y + field.label:GetStringHeight() + clearance + (compact and 24 or 38)
         end
         local rightX, paletteY = paired and columnWidth + gap or 0, paired and 0 or y + 8
         local title = targets["Couleurs de rareté"]
@@ -964,8 +978,8 @@ local function CreateQuickSettings()
         y = math.max(y, rightY) + 10
         if appearance then
             Place(appearance, 18, y)
-            layoutAppearance(contentWidth)
             refreshAppearanceControls()
+            layoutAppearance(contentWidth)
             y = y + appearance:GetHeight()
         end
         Place(more, (width - 234) / 2, y)

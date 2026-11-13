@@ -406,6 +406,8 @@ do
     local hook, bagModule, shortcut, opened
     local bag = {GetBagID = function() return 0 end, GetFrameLevel = function() return 1 end,
         IsVisible = function() return true end, CloseButton = CreateFrame("Button")}
+    local closeArt = CreateFrame("Texture")
+    bag.CloseButton.GetNormalTexture = function() return closeArt end
     ContainerFrameCombinedBags = bag
     local oldTexture = C_Texture
     C_Texture = {GetAtlasInfo = function() return {} end}
@@ -414,6 +416,7 @@ do
         local widget = createWidget(kind, name)
         widget.parent = parent
         widget.SetAtlas = function(self, atlas) self.atlas = atlas end
+        widget.SetTextureSliceMargins = function(self, ...) self.sliceMargins = {...} end
         widget.SetNormalTexture = function(self, asset) self.normalAsset = asset end
         widget.offset = 0
         widget.SetHeight = function(self, height) self.height = height end
@@ -423,6 +426,7 @@ do
         widget.SetSize = function(self, width, height) self:SetWidth(width); self:SetHeight(height) end
         widget.GetText = function(self) return rawget(self, "text") or "" end
         widget.GetStringHeight = function(self)
+            if self:GetText() == "" then return 0 end
             return math.max(14, math.ceil(#self:GetText() * 6 / math.max(1, self:GetWidth())) * 14)
         end
         widget.HookScript = function(self, event, callback)
@@ -564,11 +568,13 @@ do
     local wideHeight = body:GetHeight()
     assert(body:GetWidth() == 750 and frames.ArkannsQOLBagQualityBorders.points.TOPLEFT[1] > 0,
         "Wide bag settings separate sorting and display")
-    assert(frames.ArkannsQOLBagColor0.points.TOPLEFT[1] > frames.ArkannsQOLBag_qualityOpacity.points.TOPLEFT[1],
+    assert(frames.ArkannsQOLBagColor0.points.TOPLEFT[1]
+        > frames.ArkannsQOLBag_qualityOpacity.points.TOPLEFT[1].points.TOPLEFT[1],
         "Wide border settings place the palette beside the sliders")
     bagsPanel:SetWidth(340); bagsPanel:OnSizeChanged()
     assert(body:GetWidth() == 290 and body:GetHeight() > wideHeight)
-    assert(frames.ArkannsQOLBagColor0.points.TOPLEFT[2] < frames.ArkannsQOLBag_qualityInnerGlow.points.TOPLEFT[2],
+    assert(frames.ArkannsQOLBagColor0.points.TOPLEFT[2]
+        < frames.ArkannsQOLBag_qualityInnerGlow.points.TOPLEFT[1].points.TOPLEFT[2],
         "Narrow border settings keep the palette after the sliders")
     for _, key in ipairs({"qualityOpacity", "qualityThickness", "qualityInnerGlow"}) do
         assert(frames["ArkannsQOLBag_" .. key]:GetWidth() <= advanced:GetWidth() - 8)
@@ -678,13 +684,15 @@ do
 
     local tooltip = GameTooltip
     GameTooltip = nil
-    local gear = shortcut.textures[1]
-    assert(gear.atlas == "common-dropdown-a-button-settings-shadowless"
-        and shortcut:GetWidth() == 22 and shortcut:GetHeight() == 22 and shortcut:GetText() == ""
+    local redBackground, gear = unpack(shortcut.textures)
+    assert(redBackground.atlas == "UI-DialogBox-Button-Up" and redBackground.relative == shortcut
+        and redBackground.sliceMargins[1] == redBackground.sliceMargins[3]
+        and gear.atlas == "OptionsIcon-Brown"
+        and shortcut:GetWidth() == 24 and shortcut:GetHeight() == 24 and shortcut:GetText() == ""
         and gear.points.CENTER[1] == shortcut and gear.points.CENTER[2] == "CENTER"
         and gear.points.CENTER[3] == 0 and gear.points.CENTER[4] == 0
-        and shortcut.points.CENTER[1] == bag.CloseButton and shortcut.points.CENTER[2] == "LEFT"
-        and shortcut.points.CENTER[4] == 0)
+        and shortcut.points.RIGHT[1] == closeArt and shortcut.points.RIGHT[2] == "LEFT"
+        and shortcut.points.RIGHT[4] == 0)
     local oldParent, screenWidth = UIParent, 1000
     UIParent = {GetWidth = function() return screenWidth end}
     shortcut:OnClick("LeftButton")
@@ -692,10 +700,21 @@ do
     assert(quick.shown and quick.points.TOPRIGHT[1] == bag)
     local compactHeight = quick:GetHeight()
     local quickSlider = frames.ArkannsQOLBagQuick_qualityOpacity
+    local firstLabel = quickSlider.points.TOPLEFT[1]
     local quickColor = frames.ArkannsQOLBagQuickColorreagent
     assert(compactHeight < 340 and quick:GetWidth() == 524
-        and quickColor.points.TOPLEFT[1] > quickSlider.points.TOPLEFT[1],
+        and quickColor.points.TOPLEFT[1] > firstLabel.points.TOPLEFT[1],
         "Quick settings show the sliders and palette side by side")
+    local previousBottom = 0
+    for _, key in ipairs({"qualityOpacity", "qualityThickness", "qualityInnerGlow"}) do
+        local slider = frames["ArkannsQOLBagQuick_" .. key]
+        local position = slider.points.TOPLEFT
+        local label = position[1]
+        local labelTop = -label.points.TOPLEFT[2]
+        assert(label:GetText() ~= "" and position[2] == "BOTTOMLEFT" and position[4] <= -8
+            and labelTop >= previousBottom, "Each slider clears its own caption and the next row")
+        previousBottom = labelTop + label:GetStringHeight() - position[4] + slider:GetHeight()
+    end
     assert(not frames.ArkannsQOLBagQuickShowColorreagent.checked and frames.ArkannsQOLBagQuickShowColor4.checked)
     frames.ArkannsQOLBagQuickShowColorreagent:OnClick(true)
     assert(outline.shown and frames.ArkannsQOLBagShowColorreagent.checked)
@@ -712,7 +731,7 @@ do
     screenWidth = 350
     bagModule.Refresh()
     assert(quick:GetWidth() == 314 and quick:GetHeight() > compactHeight
-        and quickColor.points.TOPLEFT[2] < quickSlider.points.TOPLEFT[2],
+        and quickColor.points.TOPLEFT[2] < firstLabel.points.TOPLEFT[2],
         "Narrow screens stack the same controls")
     shortcut:OnClick("LeftButton")
     screenWidth = 1000

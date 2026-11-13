@@ -664,29 +664,35 @@ local function AttachShortcut(frame)
         else
             button:SetPoint("TOPRIGHT", frame, "TOPRIGHT", shortcutRight, -3)
         end
-        local background = button:CreateTexture(nil, "BACKGROUND")
-        background:SetAllPoints(button)
-        local redAtlas = "UI-DialogBox-Button-Up"
-        if C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, redAtlas) then
-            background:SetAtlas(redAtlas)
-            background:SetTextureSliceMargins(8, 7, 8, 7)
-        else
-            background:SetTexture("Interface\\Buttons\\UI-Panel-Button-Up")
-            background:SetTexCoord(0, .625, 0, .6875)
+        local getAtlas = C_Texture and C_Texture.GetAtlasInfo
+        for _, state in ipairs({
+            {button.SetNormalTexture, "Up"}, {button.SetPushedTexture, "Down"},
+        }) do
+            local texture = button:CreateTexture(nil, "BACKGROUND")
+            texture:SetAllPoints(button)
+            local atlas = "UI-DialogBox-Button-" .. state[2]
+            if WoW.ReadValue(getAtlas, atlas) then
+                texture:SetAtlas(atlas)
+                texture:SetTextureSliceMargins(8, 7, 8, 7)
+            else
+                texture:SetTexture("Interface\\Buttons\\UI-Panel-Button-" .. state[2])
+                texture:SetTexCoord(0, .625, 0, .6875)
+            end
+            state[1](button, texture)
         end
-        local atlas = "OptionsIcon-Brown"
-        local icon = button:CreateTexture(nil, "ARTWORK")
-        icon:SetSize(16, 16)
+        local icon = button:CreateTexture(nil, "OVERLAY")
+        icon:SetSize(18, 18)
         icon:SetPoint("CENTER", button, "CENTER", 0, 0)
-        if C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, atlas) then
-            icon:SetAtlas(atlas)
+        if WoW.ReadValue(getAtlas, "Gear") then
+            icon:SetAtlas("Gear")
         else
             icon:SetTexture("Interface\\Icons\\INV_Misc_Wrench_01")
         end
-        local highlight = button:CreateTexture(nil, "HIGHLIGHT")
-        highlight:SetAllPoints(button)
-        highlight:SetTexture("Interface\\Buttons\\ButtonHilight-Square")
-        highlight:SetBlendMode("ADD")
+        if WoW.ReadValue(getAtlas, "RedButton-Highlight") then
+            button:SetHighlightAtlas("RedButton-Highlight", "ADD")
+        else
+            button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+        end
         button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         button:SetScript("OnClick", function(self, mouseButton)
             if not IsPersonalBag(frame) then return end

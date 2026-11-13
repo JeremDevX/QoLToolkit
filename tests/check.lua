@@ -418,6 +418,8 @@ do
         widget.SetAtlas = function(self, atlas) self.atlas = atlas end
         widget.SetTextureSliceMargins = function(self, ...) self.sliceMargins = {...} end
         widget.SetNormalTexture = function(self, asset) self.normalAsset = asset end
+        widget.SetPushedTexture = function(self, asset) self.pushedAsset = asset end
+        widget.SetHighlightAtlas = function(self, atlas, blend) self.highlightAtlas, self.highlightBlend = atlas, blend end
         widget.offset = 0
         widget.SetHeight = function(self, height) self.height = height end
         widget.GetHeight = function(self) return rawget(self, "height") or 300 end
@@ -684,10 +686,12 @@ do
 
     local tooltip = GameTooltip
     GameTooltip = nil
-    local redBackground, gear = unpack(shortcut.textures)
-    assert(redBackground.atlas == "UI-DialogBox-Button-Up" and redBackground.relative == shortcut
-        and redBackground.sliceMargins[1] == redBackground.sliceMargins[3]
-        and gear.atlas == "OptionsIcon-Brown"
+    local redBackground, pressedBackground, gear = unpack(shortcut.textures)
+    assert(shortcut.normalAsset == redBackground and shortcut.pushedAsset == pressedBackground
+        and redBackground.atlas == "UI-DialogBox-Button-Up" and redBackground.relative == shortcut
+        and pressedBackground.atlas == "UI-DialogBox-Button-Down" and pressedBackground.relative == shortcut
+        and shortcut.highlightAtlas == "RedButton-Highlight" and shortcut.highlightBlend == "ADD"
+        and gear.atlas == "Gear"
         and shortcut:GetWidth() == 24 and shortcut:GetHeight() == 24 and shortcut:GetText() == ""
         and gear.points.CENTER[1] == shortcut and gear.points.CENTER[2] == "CENTER"
         and gear.points.CENTER[3] == 0 and gear.points.CENTER[4] == 0

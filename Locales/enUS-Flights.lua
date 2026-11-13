@@ -8,7 +8,6 @@ for source, translation in pairs({
     ["Ancienne mesure · %s"] = "Past measurement · %s",
     ["Durée partagée · %s"] = "Shared duration · %s",
     ["Temps écoulé"] = "Elapsed time",
-    ["Temps restant"] = "Time remaining",
     ["Escale demandée"] = "Landing requested",
     ["En vol"] = "In flight",
     ["Exporter les durées"] = "Export durations",

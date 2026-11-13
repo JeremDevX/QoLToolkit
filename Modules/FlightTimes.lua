@@ -184,11 +184,15 @@ local function CreateBadge()
     end
 
     if creature then
-        local emblem = panel:CreateTexture(nil, "ARTWORK", nil, -1)
-        emblem:SetTexture(("Interface\\Timer\\%s-Logo"):format(faction))
-        emblem:SetSize(54, 54)
-        emblem:SetPoint("RIGHT", panel, "RIGHT", -12, 0)
-        emblem:SetAlpha(.22)
+        local texture = ("Interface\\Timer\\%s-Logo"):format(faction)
+        local size = panelHeight - 2
+        for _, edge in ipairs({"LEFT", "RIGHT"}) do
+            local emblem = panel:CreateTexture(nil, "ARTWORK", nil, -1)
+            emblem:SetTexture(texture)
+            emblem:SetSize(size, size)
+            emblem:SetPoint(edge, panel, edge, edge == "LEFT" and 12 or -12, 0)
+            emblem:SetAlpha(.22)
+        end
     end
 
     -- Native end caps, Forever 4cd0ab7. Read atlas dimensions for the client's art variant.
@@ -218,9 +222,9 @@ local function CreateBadge()
     accent:SetColorTexture(red, green, blue, .9)
     accent:SetSize(80, 2)
     accent:SetPoint("TOP", 0, -3)
-    badgeTitle = UI.Label(panel, "", 18, -6, 13)
-    badgeTime = UI.Label(panel, "", 18, -20, 21)
-    badgeCaption = UI.Label(panel, "", 18, -42, 10)
+    badgeTitle = UI.Label(panel, "", 18, -6, 14)
+    badgeTime = UI.Label(panel, "", 18, -22, 22)
+    badgeCaption = UI.Label(panel, "", 18, -44, 10)
     for _, label in ipairs({badgeTitle, badgeTime, badgeCaption}) do
         label:SetWidth(284)
         label:SetWordWrap(false)
@@ -248,12 +252,13 @@ local function ShowTime(elapsed)
     flight.lastSecond = seconds
     if flight.estimate and seconds < flight.estimate then
         badgeTime:SetText(DurationText(flight.estimate - seconds))
-        badgeCaption:SetText(L("Temps restant"))
+        badgeCaption:Hide()
         badgeProgress:SetValue(math.min(1, elapsed / flight.estimate))
         badgeProgress:Show()
     else
         badgeTime:SetText(DurationText(seconds))
         badgeCaption:SetText(L(flight.interrupted and "Escale demandée" or "Temps écoulé"))
+        badgeCaption:Show()
         badgeProgress:Hide()
     end
 end

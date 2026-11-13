@@ -49,8 +49,9 @@ local ns = {RegisterModule = function(id, descriptor) assert(id == "flights"); m
 ns.UI = {
     RegisterSettingsPanel = Settings.RegisterCanvasLayoutSubcategory,
     StylePanel = noop,
-    Label = function(parent, text)
+    Label = function(parent, text, _, _, size)
         local frame = CreateFrame("FontString")
+        frame.fontSize = size
         frame:SetText(text)
         if parent == frames.ArkannsQOLFlightTimerPanel then badges[#badges + 1] = frame end
         return frame
@@ -142,7 +143,7 @@ Event("TAXIMAP_CLOSED")
 canReadRoute = false
 hooks.TakeTaxiNode(3)
 PollAt(2, true)
-assert(badges[1].text == "Destination" and badges[2].text == "1:42" and badges[3].text == "Time remaining")
+assert(badges[1].text == "Destination" and badges[1].fontSize == 14 and badges[2].text == "1:42" and not badges[3].shown)
 local progress = frames.ArkannsQOLFlightProgress
 assert(progress.shown and progress.minimum == 0 and progress.maximum == 1 and progress.value == 0)
 PollAt(62, true)
@@ -155,10 +156,10 @@ Event("TAXIMAP_OPENED")
 hooks.OnMouseEnter(destination)
 assert(tooltipText == "Measured duration · 1:40", "Personal measurements have priority")
 local start = Begin()
-assert(badges[2].text == "1:40" and badges[3].text == "Time remaining", "Use the current personal measurement directly")
+assert(badges[2].text == "1:40" and not badges[3].shown, "Use the current personal measurement directly")
 hooks.TaxiRequestEarlyLanding()
 PollAt(start + 25, true)
-assert(badges[2].text == "0:25" and badges[3].text == "Landing requested" and not progress.shown)
+assert(badges[2].text == "0:25" and badges[3].shown and badges[3].text == "Landing requested" and not progress.shown)
 PollAt(start + 26, false)
 assert(#ArkannsQOLFlightsDB[route] == 1)
 
@@ -189,7 +190,7 @@ Event("TAXIMAP_OPENED")
 hooks.TaxiNodeOnButtonEnter(destination)
 assert(tooltipText == "Past measurement · 1:40")
 start = Begin()
-assert(badges[2].text == "1:40" and badges[3].text == "Time remaining",
+assert(badges[2].text == "1:40" and not badges[3].shown,
     "A game update must reuse the saved personal duration in the countdown")
 Event("PLAYER_LEAVING_WORLD")
 assert(not driver.scripts.OnUpdate and not ArkannsQOLFlightsDB["70999,0,101>303>202"])
@@ -256,13 +257,16 @@ local function CheckFactionArt(faction, creature, atlasInfo)
         end
     end
     progress = frames.ArkannsQOLFlightProgress
-    local emblem = panel.textures[1]
     if faction == "Alliance" or faction == "Horde" then
-        assert(emblem.texture == "Interface\\Timer\\" .. faction .. "-Logo")
-        assert(emblem.point[1] == "RIGHT" and emblem.point[2] == panel and emblem.point[3] == "RIGHT"
-            and emblem.point[4] == -12 and emblem.point[5] == 0)
-        assert(emblem.layer == "ARTWORK" and emblem.sublevel == -1 and emblem.alpha == .22
-            and emblem.width == emblem.height and emblem.height < panel.height)
+        assert(#panel.textures == 3, "Show one faction emblem at each edge plus the accent")
+        for index, edge in ipairs({"LEFT", "RIGHT"}) do
+            local emblem = panel.textures[index]
+            assert(emblem.texture == "Interface\\Timer\\" .. faction .. "-Logo")
+            assert(emblem.point[1] == edge and emblem.point[2] == panel and emblem.point[3] == edge
+                and emblem.point[4] == (edge == "LEFT" and 12 or -12) and emblem.point[5] == 0)
+            assert(emblem.layer == "ARTWORK" and emblem.sublevel == -1 and emblem.alpha == .22
+                and emblem.width == 60 and emblem.height == 60)
+        end
     else
         assert(#panel.textures == 1, "No emblem is created without a known faction")
     end
@@ -272,9 +276,9 @@ local function CheckFactionArt(faction, creature, atlasInfo)
         assert(progress.color[3] > progress.color[1], "Alliance uses a blue accent")
     end
     PollAt(started + 99, true)
-    assert(badges[2].text == "0:01" and badges[3].text == ns.L("Temps restant") and progress.shown)
+    assert(badges[2].text == "0:01" and not badges[3].shown and progress.shown)
     PollAt(started + 100, true)
-    assert(badges[2].text == "1:40" and badges[3].text == ns.L("Temps écoulé") and not progress.shown,
+    assert(badges[2].text == "1:40" and badges[3].shown and badges[3].text == ns.L("Temps écoulé") and not progress.shown,
         "An exceeded estimate returns to elapsed time")
     module.SetEnabled(false)
     assert(not frame.shown and not driver.scripts.OnUpdate)

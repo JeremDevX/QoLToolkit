@@ -2,7 +2,8 @@ local frames, hooks, buttons, badges = {}, {}, {}, {}
 local noop = function() end
 local methods = {}
 for _, name in ipairs({"ClearAllPoints", "SetClampedToScreen", "SetWordWrap", "SetMultiLine", "SetJustifyH", "SetAllPoints",
-    "SetAutoFocus", "SetFontObject", "SetScrollChild", "SetVerticalScroll", "ClearFocus"}) do
+    "SetAutoFocus", "SetFontObject", "SetScrollChild", "SetVerticalScroll", "SetOrientation", "SetValueStep",
+    "SetObeyStepOnDrag", "SetBackdrop", "SetFrameStrata"}) do
     methods[name] = noop
 end
 function methods:SetPoint(...) self.point = {...} end
@@ -13,7 +14,13 @@ function methods:SetColorTexture(...) self.color = {...} end
 function methods:SetStatusBarTexture(texture) self.texture = texture end
 function methods:SetStatusBarColor(...) self.color = {...} end
 function methods:SetMinMaxValues(minimum, maximum) self.minimum, self.maximum = minimum, maximum end
-function methods:SetValue(value) self.value = value end
+function methods:SetValue(value)
+    self.value = value
+    if self.scripts.OnValueChanged then self.scripts.OnValueChanged(self, value) end
+end
+function methods:GetValue() return self.value end
+function methods:SetThumbTexture() self.thumb = CreateFrame("Texture", nil, self) end
+function methods:GetThumbTexture() return self.thumb end
 function methods:SetAlpha(alpha) self.alpha = alpha end
 function methods:SetScale(scale) self.scale = scale end
 function methods:SetShown(shown) self.shown = shown end
@@ -30,11 +37,14 @@ function methods:SetHeight(height) self.height = height end
 function methods:GetWidth() return self.width end
 function methods:GetHeight() return self.height end
 function methods:SetText(text) self.text = text end
+function methods:GetText() return self.text end
 function methods:SetChecked(value) self.checked = value end
 function methods:Show() self.shown = true end
 function methods:Hide() self.shown = false end
 function methods:IsShown() return self.shown end
 function methods:SetFocus() self.focus = true end
+function methods:HasFocus() return self.focus == true end
+function methods:ClearFocus() self.focus = false end
 function methods:HighlightText() self.selected = true end
 function methods:RegisterEvent(event) self.events[event] = true end
 function methods:UnregisterAllEvents() self.events = {} end
@@ -56,6 +66,7 @@ ns.UI = {
     RegisterSettingsPanel = Settings.RegisterCanvasLayoutSubcategory,
     StylePanel = noop,
     ClampScroll = noop,
+    Notify = noop,
     RevealControl = function(_, control) ns.revealed = control end,
     Label = function(parent, text, _, _, size)
         local frame = CreateFrame("FontString")
@@ -71,6 +82,7 @@ ns.UI = {
         control:SetScript("OnClick", callback)
         return control
     end,
+    Input = function(parent, name) return CreateFrame("EditBox", name, parent) end,
     Check = function(parent, name, _, _, _, callback)
         local control = CreateFrame("CheckButton", name, parent)
         control:SetScript("OnClick", function(self) callback(self.checked == true) end)
@@ -262,31 +274,71 @@ settings.scripts.OnShow()
 local preview, live = frames.ArkannsQOLFlightPreview, frames.ArkannsQOLFlightTimer
 local oldProfile = module.ExportSettings()
 assert(preview.scale < 1 and preview.width * preview.scale <= settings.width - 32)
+local narrowScale = preview.scale
 settings:SetWidth(900)
 settings.scripts.OnSizeChanged()
-assert(preview.scale == 1)
+assert(preview.scale > narrowScale and preview.width * preview.scale <= settings.width - 32)
 assert(preview.progress.shown and not live.shown and not driver.scripts.OnUpdate)
 module.OpenSettings("Emblèmes de faction")
 assert(ns.revealed == frames.ArkannsQOL_flightEmblems)
+local screenCheck = frames.ArkannsQOLFlightScreenPreview
+combat = true
+screenCheck:SetChecked(true)
+screenCheck.scripts.OnClick(screenCheck)
+assert(not screenCheck.checked and not frames.ArkannsQOLFlightScreenSample)
+combat = false
+screenCheck:SetChecked(true)
+screenCheck.scripts.OnClick(screenCheck)
+local screenPreview = frames.ArkannsQOLFlightScreenSample
+assert(screenPreview.shown and not driver.scripts.OnUpdate and not live.shown)
+
+local function SetRange(key, value)
+    frames["ArkannsQOL_" .. key]:SetValue(value)
+end
+local function EnterValue(key, value)
+    local input = frames["ArkannsQOL_" .. key .. "Value"]
+    input:SetText(value)
+    input.scripts.OnEnterPressed(input)
+end
 
 start = Begin()
+local previewScale, timerTop = preview.scale, live.point[5] - live.height + live.panel.point[5] + live.panel.height
 Choose("flightBeasts", "Hidden")
 assert(not live.ornaments.left.shown and not preview.ornaments.right.shown and preview.width == 320)
 Choose("flightBeasts", ns.L("Gauche"))
 Choose("flightBeastAlign", "Top")
-Choose("flightBeastSize", "88")
-Choose("flightBeastGap", "16")
+SetRange("flightBeastSize", 91)
+EnterValue("flightBeastGap", "17")
 assert(live.ornaments.left.shown and not live.ornaments.right.shown)
-assert(live.ornaments.left.height == 88 and live.height == 88 and live.panel.point[5] == 26)
-assert(live.ornaments.left.point[4] == -16 and live.ornaments.left.point[5] == -26)
+assert(live.ornaments.left.height == 91 and live.height == 91 and live.panel.point[5] == 29)
+assert(live.ornaments.left.point[4] == -17 and live.ornaments.left.point[5] == -29)
+assert(preview.scale == previewScale, "Changing the gap must not change the preview zoom")
+Choose("flightBeasts", "Both sides")
+EnterValue("flightBeastGap", "-23")
+assert(live.ornaments.left.point[4] == 23 and live.ornaments.right.point[4] == -23)
+assert(live.ornaments.left.parent == live.panel and live.ornaments.left.sublevel == -1)
+EnterValue("flightBeastGap", "0")
+assert(live.ornaments.left.point[4] == 0 and live.ornaments.right.point[4] == 0)
+EnterValue("flightBeastGap", "abc")
+assert(live.ornaments.left.point[4] == 0 and frames.ArkannsQOL_flightBeastGapValue.text == "0")
+SetRange("flightBeastY", 48)
+assert(live.ornaments.left.point[5] == 19 and live.point[5] - live.height + live.panel.point[5] + live.panel.height == timerTop)
+Choose("flightBeasts", ns.L("Gauche"))
 Choose("flightEmblems", ns.L("Centre"))
 assert(preview.emblems.left.shown and preview.emblems.left.point[1] == "CENTER" and not preview.emblems.right.shown)
 Choose("flightEmblems", ns.L("Droite"))
-Choose("flightEmblemInset", "36")
-Choose("flightEmblemSize", "40")
-Choose("flightEmblemOpacity", "55 %")
-assert(not live.emblems.left.shown and live.emblems.right.shown and live.emblems.right.point[4] == -36)
-assert(live.emblems.right.width == 40 and live.emblems.right.alpha == .55)
+EnterValue("flightEmblemInset", "37")
+SetRange("flightEmblemSize", 41)
+EnterValue("flightEmblemOpacity", "53 %")
+SetRange("flightEmblemY", -13)
+assert(not live.emblems.left.shown and live.emblems.right.shown and live.emblems.right.point[4] == -37)
+assert(live.emblems.right.width == 41 and live.emblems.right.alpha == .53 and live.emblems.right.point[5] == -13)
+SetRange("flightScale", 120)
+EnterValue("flightX", "-83")
+EnterValue("flightTop", "181")
+assert(live.scale == 1.2 and math.abs(live.point[4] * live.scale + 83) < .00001
+    and math.abs((live.point[5] - live.height + live.panel.point[5] + live.panel.height) * live.scale + 181) < .00001)
+assert(screenPreview.scale == live.scale and screenPreview.point[4] == live.point[4] and screenPreview.point[5] == live.point[5])
 
 local progressCheck = frames.ArkannsQOLFlightShowProgress
 progressCheck:SetChecked(false)
@@ -304,6 +356,11 @@ assert(#plan.changes > 0 and not table.concat(plan.changes, "\n"):find("flightBe
 assert(profiles.Apply(plan) and not preview.progress.shown and not live.progress.shown)
 assert(ForeverTooltipLibreDB.flights.appearance.flightBeasts == "left")
 assert(profiles.Undo() and preview.progress.shown and live.progress.shown)
+local priorAppearance = {flightBeastGap = -8, flightEmblems = "right", flightEmblemOpacity = 30}
+local priorProfile = {appearance = priorAppearance, enabled = true}
+module.profileMigrations[2](priorProfile)
+assert(priorProfile.appearance.flightBeastGap == -8 and priorProfile.appearance.flightEmblemOpacity == 30
+    and priorProfile.appearance.flightScale == 100 and priorProfile.appearance.flightBeastY == 0)
 assert(module.ImportSettings(customProfile))
 local legacy = {enabled = false}
 module.profileMigrations[1](legacy, customProfile)
@@ -314,6 +371,7 @@ assert(module.ImportSettings(oldProfile))
 Event("PLAYER_LEAVING_WORLD")
 onTaxi = false
 settings.scripts.OnHide()
+assert(not screenPreview.shown and not screenCheck.checked)
 
 -- Recreate the module as on another character, with both native art variants and missing APIs.
 local function CheckFactionArt(faction, creature, atlasInfo)
@@ -328,9 +386,9 @@ local function CheckFactionArt(faction, creature, atlasInfo)
     local frame, panel = frames.ArkannsQOLFlightTimer, frames.ArkannsQOLFlightTimerPanel
     assert(frame.mouse == false and panel.mouse == false, "Flight decorations allow game clicks through")
     assert(panel.width == 320 and panel.height == 62 and panel.point[1] == "BOTTOM")
-    assert(#frame.textures == 2, "Reuse two ornaments per flight window")
+    assert(frame.ornaments.left and frame.ornaments.right, "Reuse two ornaments per flight window")
     for index, side in ipairs({"Left", "Right"}) do
-        local ornament = frame.textures[index]
+        local ornament = frame.ornaments[side:lower()]
         local isLeft = side == "Left"
         assert(ornament.point[1] == (isLeft and "BOTTOMRIGHT" or "BOTTOMLEFT")
             and ornament.point[2] == panel and ornament.point[3] == (isLeft and "BOTTOMLEFT" or "BOTTOMRIGHT")
@@ -347,17 +405,17 @@ local function CheckFactionArt(faction, creature, atlasInfo)
     end
     progress = frame.progress
     if faction == "Alliance" or faction == "Horde" then
-        assert(#panel.textures == 2, "Show one faction emblem at each edge")
+        assert(#panel.textures == 4, "Show two beasts and one faction emblem at each edge")
         for index, edge in ipairs({"LEFT", "RIGHT"}) do
             local emblem = panel.textures[index]
             assert(emblem.texture == "Interface\\Timer\\" .. faction .. "-Logo")
             assert(emblem.point[1] == edge and emblem.point[2] == panel and emblem.point[3] == edge
                 and emblem.point[4] == (edge == "LEFT" and 12 or -12) and emblem.point[5] == 0)
-            assert(emblem.layer == "ARTWORK" and emblem.sublevel == -1 and emblem.alpha == .22
+            assert(emblem.layer == "ARTWORK" and emblem.sublevel == -2 and emblem.alpha == .22
                 and emblem.width == 60 and emblem.height == 60)
         end
     else
-        assert(#panel.textures == 0, "No emblem is created without a known faction")
+        assert(#panel.textures == 2, "No emblem is created without a known faction")
     end
     if faction == "Horde" then
         assert(progress.color[1] > progress.color[3], "Horde uses a red progress bar")
@@ -373,7 +431,7 @@ local function CheckFactionArt(faction, creature, atlasInfo)
     assert(not frame.shown and not driver.scripts.OnUpdate)
     module.SetEnabled(true)
     Begin()
-    assert(#frame.textures == 2 and progress.shown and progress.value == 0,
+    assert(#panel.textures == (frame.emblems.left and 4 or 2) and progress.shown and progress.value == 0,
         "Reopening resets the display without allocating more ornaments")
     module.SetEnabled(false)
 end

@@ -414,7 +414,6 @@ do
         local widget = createWidget(kind, name)
         widget.parent = parent
         widget.SetAtlas = function(self, atlas) self.atlas = atlas end
-        widget.SetNormalAtlas = function(self, atlas) self.normalAtlas = atlas end
         widget.SetNormalTexture = function(self, asset) self.normalAsset = asset end
         widget.offset = 0
         widget.SetHeight = function(self, height) self.height = height end
@@ -510,11 +509,6 @@ do
         RegisterModule = function(_, module) bagModule = module end}
     bagNS.UI.RegisterSettingsPanel = Settings.RegisterCanvasLayoutSubcategory
     bagNS.UI.OpenCategory = function(category) opened = category:GetID(); return true end
-    bagNS.UI.OpenSettings = function(id, source)
-        assert(id == "bags" and bagNS.UI.OpenCategory(bagModule.category()))
-        bagModule.OpenSettings(source)
-        return true
-    end
     bagNS.UI.Refresh = function() bagModule.Refresh() end
     local callbacks = {}
     local oldTimer, oldEnum, oldSecret = C_Timer, Enum, issecretvalue
@@ -684,34 +678,44 @@ do
 
     local tooltip = GameTooltip
     GameTooltip = nil
-    assert(shortcut.normalAtlas == "common-dropdown-a-button-settings-shadowless"
+    local gear = shortcut.textures[1]
+    assert(gear.atlas == "common-dropdown-a-button-settings-shadowless"
         and shortcut:GetWidth() == 22 and shortcut:GetHeight() == 22 and shortcut:GetText() == ""
-        and shortcut.points.RIGHT[1] == bag.CloseButton and shortcut.points.RIGHT[2] == "LEFT")
+        and gear.points.CENTER[1] == shortcut and gear.points.CENTER[2] == "CENTER"
+        and gear.points.CENTER[3] == 0 and gear.points.CENTER[4] == 0
+        and shortcut.points.CENTER[1] == bag.CloseButton and shortcut.points.CENTER[2] == "LEFT"
+        and shortcut.points.CENTER[4] == 0)
+    local oldParent, screenWidth = UIParent, 1000
+    UIParent = {GetWidth = function() return screenWidth end}
     shortcut:OnClick("LeftButton")
     local quick = frames.ArkannsQOLBagQuickSettings
     assert(quick.shown and quick.points.TOPRIGHT[1] == bag)
     local compactHeight = quick:GetHeight()
-    local quickAppearance = frames.ArkannsQOLBagQuickAppearance
-    local quickMore = frames.ArkannsQOLBagQuickMore
-    assert(compactHeight < 290 and not frames.ArkannsQOLBagQuickSellEquipment.shown
-        and quickAppearance.points.TOPLEFT[2] == quickMore.points.TOPLEFT[2],
-        "Quick settings keep only the frequent controls and one row of links")
-    quickAppearance:OnClick()
-    assert(not quick.shown and opened == 2 and advanced.shown
-        and revealedControl == frames.ArkannsQOLBagAdvanced, "The compact shortcut opens the shared border controls")
-    assert(not frames.ArkannsQOLBagShowColorreagent.checked and frames.ArkannsQOLBagShowColor4.checked)
-    frames.ArkannsQOLBagShowColorreagent:OnClick(true)
+    local quickSlider = frames.ArkannsQOLBagQuick_qualityOpacity
+    local quickColor = frames.ArkannsQOLBagQuickColorreagent
+    assert(compactHeight < 340 and quick:GetWidth() == 524
+        and quickColor.points.TOPLEFT[1] > quickSlider.points.TOPLEFT[1],
+        "Quick settings show the sliders and palette side by side")
+    assert(not frames.ArkannsQOLBagQuickShowColorreagent.checked and frames.ArkannsQOLBagQuickShowColor4.checked)
+    frames.ArkannsQOLBagQuickShowColorreagent:OnClick(true)
     assert(outline.shown and frames.ArkannsQOLBagShowColorreagent.checked)
-    frames.ArkannsQOLBagColorreagent:OnClick("RightButton")
+    frames.ArkannsQOLBagQuickColorreagent:OnClick("RightButton")
     assert(outline.color[1] == 0x36 / 255, "Reset the reagent color to turquoise from quick settings")
-    assert(frames.ArkannsQOLBagColorquest and not frames.ArkannsQOLBagColor6)
+    assert(frames.ArkannsQOLBagQuickColorquest and not frames.ArkannsQOLBagQuickColor6)
     for key, value in pairs({qualityOpacity = 75, qualityThickness = 3, qualityInnerGlow = 40}) do
-        local slider = assert(frames["ArkannsQOLBag_" .. key], "Missing linked border slider " .. key)
+        local slider = assert(frames["ArkannsQOLBagQuick_" .. key], "Missing backpack slider " .. key)
         slider:OnValueChanged(value)
         assert(bagModule.ExportSettings()[key] == value, "Border controls must update the shared bag settings")
     end
     assert(glow.shown and math.abs(glow.gradient[2][4] - .38) < .0001,
-        "The linked slider must restore the glow at the chosen intensity")
+        "The backpack slider must restore the glow at the chosen intensity")
+    screenWidth = 350
+    bagModule.Refresh()
+    assert(quick:GetWidth() == 314 and quick:GetHeight() > compactHeight
+        and quickColor.points.TOPLEFT[2] < quickSlider.points.TOPLEFT[2],
+        "Narrow screens stack the same controls")
+    shortcut:OnClick("LeftButton")
+    screenWidth = 1000
     shortcut:OnClick("LeftButton")
     assert(quick.shown and quick:GetHeight() == compactHeight, "Reopening keeps the compact layout")
 
@@ -771,11 +775,14 @@ do
     frames.ArkannsQOLBagQuickAutoRepair:OnClick(true)
     assert(frames.ArkannsQOLBagAutoSell.checked and frames.ArkannsQOLBagSellEquipment.enabled
         and frames.ArkannsQOLBagAutoRepair.checked, "Both panels share merchant settings")
-    assert(frames.ArkannsQOLBagQuickSellEquipment.shown and quick:GetHeight() > compactHeight
-        and quick:GetHeight() < 310 and frames.ArkannsQOLBagQuickAutoRepair.label:GetText() == "Réparation automatique")
+    assert(frames.ArkannsQOLBagQuickSellEquipment.enabled and quick:GetHeight() == compactHeight
+        and frames.ArkannsQOLBagQuickAutoRepair.label:GetText() == "Réparation automatique")
     local coin = slot.textures[#slot.textures]
-    assert(coin.shown and coin.atlas == "coin-silver" and coin:GetWidth() == 26 and coin:GetHeight() == 26
-        and coin.points.CENTER[1] == slot and coin.points.CENTER[2] == "CENTER")
+    local rearCoin, frontOutline = slot.textures[#slot.textures - 2], slot.textures[#slot.textures - 1]
+    assert(coin.shown and rearCoin.shown and coin.atlas == "coin-silver" and rearCoin.atlas == coin.atlas
+        and coin:GetWidth() == 20 and frontOutline:GetWidth() == 22 and frontOutline.color[4] == .85
+        and coin.points.CENTER[1] == slot and coin.points.CENTER[2] == "CENTER"
+        and coin.points.CENTER[3] == -rearCoin.points.CENTER[3] and coin.points.CENTER[4] == -rearCoin.points.CENTER[4])
     local slotIndex, bagIndex = 2, 0
     slot.GetID = function() return slotIndex end
     slot.GetBagID = function() return bagIndex end
@@ -818,11 +825,11 @@ do
     SetItemButtonQuality(slot, 0)
     assert(coin.shown)
     slot:OnHide()
-    assert(not coin.shown)
+    assert(not coin.shown and not rearCoin.shown and not frontOutline.shown)
     bagModule.Refresh()
     frames.ArkannsQOLBagQuickAutoSell:OnClick(false)
     assert(not coin.shown and not registered.GET_ITEM_INFO_RECEIVED)
-    assert(not frames.ArkannsQOLBagQuickSellEquipment.shown and quick:GetHeight() == compactHeight)
+    assert(not frames.ArkannsQOLBagQuickSellEquipment.enabled and quick:GetHeight() == compactHeight)
     frames.ArkannsQOLBagQuickAutoSell:OnClick(true)
     assert(coin.shown)
     print("PASS: centered auto-sell coins, stack prices, exclusions, recycled slots and item data refresh")
@@ -889,12 +896,13 @@ do
     shortcut:OnClick("RightButton")
     assert(opened == 1)
     GameTooltip = tooltip
+    UIParent = oldParent
     CreateFrame = createWidget
 end
 print("PASS: bag border geometry, inner glow, native restoration, and backpack settings")
 
 -- Keep each simulation isolated from the globals used above.
-for _, path in ipairs({"tests/session_history.lua","tests/session_history_ui.lua","tests/talent_plan.lua","tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/advanced_bounds.lua","tests/ui_utilities.lua","tests/rank_events.lua","tests/ui_modules.lua","tests/flight_times.lua"}) do
+for _, path in ipairs({"tests/session_history.lua","tests/session_history_ui.lua","tests/talent_plan.lua","tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/advanced_bounds.lua","tests/paladin_colors.lua","tests/paladin_indicators.lua","tests/ui_utilities.lua","tests/rank_events.lua","tests/ui_modules.lua","tests/flight_times.lua"}) do
     local chunk = assert(loadfile(path))
     local environment = setmetatable({}, {__index = testGlobals})
     environment._G = environment

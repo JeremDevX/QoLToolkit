@@ -7,6 +7,10 @@ local merchantChecks, merchantEvents, merchantVisit, sellFailed, repairFailed
 local coinListening, coinQueued, PaintSaleCoin, RefreshSaleCoins, QueueSaleCoinRefresh
 local saleCoins = {}
 local saleCoinEvents = {"GET_ITEM_INFO_RECEIVED", "ITEM_LOCK_CHANGED", "BAG_SLOT_FLAGS_UPDATED"}
+local function HideSaleCoins(coins)
+    if not coins then return end
+    for _, coin in ipairs(coins) do coin:Hide() end
+end
 local listening, bankOpen, failed, scheduled
 local qualityListening, getQualityColor, appearanceQueued, reagentEvents, waitingForReagents
 local transmogEvents, transmogQueued
@@ -450,7 +454,7 @@ local function OnItemQuality(button, quality, item)
     else
         HideBorder(qualityBorders[button])
         if transmogIcons[button] then transmogIcons[button]:Hide() end
-        if saleCoins[button] then saleCoins[button]:Hide() end
+        HideSaleCoins(saleCoins[button])
     end
 end
 
@@ -655,19 +659,23 @@ local function AttachShortcut(frame)
         shortcuts[frame] = button
         button:SetSize(shortcutSize, shortcutSize)
         if frame.CloseButton then
-            button:SetPoint("RIGHT", frame.CloseButton, "LEFT", -4, 0)
+            button:SetPoint("CENTER", frame.CloseButton, "LEFT", -shortcutSize / 2 - 4, 0)
         else
             button:SetPoint("TOPRIGHT", frame, "TOPRIGHT", shortcutRight, -3)
         end
         local atlas = "common-dropdown-a-button-settings-shadowless"
-        local highlight = "common-dropdown-a-button-settings-hover-shadowless"
+        local icon = button:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(20, 20)
+        icon:SetPoint("CENTER", button, "CENTER", 0, 0)
         if C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, atlas) then
-            button:SetNormalAtlas(atlas)
-            if WoW.ReadValue(C_Texture.GetAtlasInfo, highlight) then button:SetHighlightAtlas(highlight) end
+            icon:SetAtlas(atlas)
         else
-            button:SetNormalTexture("Interface\\Icons\\INV_Misc_Wrench_01")
-            button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+            icon:SetTexture("Interface\\Icons\\INV_Misc_Wrench_01")
         end
+        local highlight = button:CreateTexture(nil, "HIGHLIGHT")
+        highlight:SetAllPoints(icon)
+        highlight:SetTexture("Interface\\Buttons\\ButtonHilight-Square")
+        highlight:SetBlendMode("ADD")
         button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         button:SetScript("OnClick", function(self, mouseButton)
             if not IsPersonalBag(frame) then return end
@@ -734,9 +742,9 @@ local function ChooseColor(quality)
     })
 end
 
-local function BuildAppearance(body)
+local function BuildAppearance(body, compact)
     local UI = ns.UI
-    local prefix = "ArkannsQOLBag"
+    local prefix = compact and "ArkannsQOLBagQuick" or "ArkannsQOLBag"
     local syncing
     local targets, checks, sliders, palette = {}, {}, {}, {}
     local function Slider(key, name, y)
@@ -818,19 +826,23 @@ local function BuildAppearance(body)
         palette[#palette + 1] = {sample = sample, control = control}
     end
     local footerY = top - 76
-    local reset = UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
-        UI.Confirm(L("Rétablir les bordures de rareté et leurs couleurs par défaut ?"), function()
-            for key, value in pairs(appearanceDefaults) do
-                if key ~= "transmogIcons" then db[key] = value end
-            end
-            db.qualityColors, db.qualityHidden = {}, {}
-            Refresh()
-            RefreshQualityBorders()
+    local reset
+    if not compact then
+        reset = UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
+            UI.Confirm(L("Rétablir les bordures de rareté et leurs couleurs par défaut ?"), function()
+                for key, value in pairs(appearanceDefaults) do
+                    if key ~= "transmogIcons" then db[key] = value end
+                end
+                db.qualityColors, db.qualityHidden = {}, {}
+                Refresh()
+                RefreshQualityBorders()
+            end)
         end)
-    end)
+    end
     local function Layout(width)
-        local paired = width >= 560
-        local columnWidth = paired and (width - 24) / 2 or width
+        local gap = compact and 16 or 24
+        local paired = width >= (compact and 450 or 560)
+        local columnWidth = paired and (width - gap) / 2 or width
         local function Place(widget, x, y, available)
             widget:ClearAllPoints(); widget:SetPoint("TOPLEFT", x, -y)
             if available then widget:SetWidth(available) end
@@ -838,11 +850,11 @@ local function BuildAppearance(body)
         local y = 0
         for _, field in ipairs(sliders) do
             Place(field.label, 0, y, columnWidth)
-            y = y + field.label:GetStringHeight() + 10
+            y = y + field.label:GetStringHeight() + (compact and 4 or 10)
             Place(field.control, 4, y, math.max(1, math.min(330, columnWidth - 8)))
-            y = y + 38
+            y = y + (compact and 24 or 38)
         end
-        local rightX, paletteY = paired and columnWidth + 24 or 0, paired and 0 or y + 8
+        local rightX, paletteY = paired and columnWidth + gap or 0, paired and 0 or y + 8
         local title = targets["Couleurs de rareté"]
         Place(title, rightX, paletteY, columnWidth)
         paletteY = paletteY + title:GetStringHeight() + 8
@@ -857,8 +869,8 @@ local function BuildAppearance(body)
         end
         paletteY = paletteY + math.ceil(#palette / columns) * 40
         local bottom = math.max(y, paletteY) + 8
-        Place(reset, 0, bottom, math.min(220, width))
-        body:SetSize(width, bottom + 38)
+        if reset then Place(reset, 0, bottom, math.min(220, width)) end
+        body:SetSize(width, bottom + (reset and 38 or 0))
     end
     return function()
         syncing = true
@@ -906,20 +918,17 @@ local function CreateQuickSettings()
     local transmog = CreateTransmogCheck(quick, "ArkannsQOLBagQuickTransmog", 0, 0)
     local merchantTitle = UI.Label(quick, L("À l’ouverture d’un marchand"), 0, 0, 15)
     local checks = CreateMerchantChecks(quick, "ArkannsQOLBagQuick")
-    local appearance
+    local appearance, refreshAppearanceControls, layoutAppearance
     if qualityListening then
-        appearance = UI.Button(quick, "ArkannsQOLBagQuickAppearance", L("Bordures…"), 0, 0, 92, function()
-            CloseQuickSettings()
-            UI.OpenSettings("bags", "Personnaliser les bordures")
-        end)
+        appearance = CreateFrame("Frame", nil, quick)
+        local _, unusedTargets
+        refreshAppearanceControls, _, unusedTargets, layoutAppearance = BuildAppearance(appearance, true)
     else
         borders:Disable()
         borders.label:SetText(L("Bordures indisponibles"))
     end
-    local more = UI.Button(quick, "ArkannsQOLBagQuickMore", L("Tous les réglages"), 0, 0, appearance and 136 or 234,
+    local more = UI.Button(quick, "ArkannsQOLBagQuickMore", L("Tous les réglages"), 0, 0, 234,
         function() OpenSettings(category) end)
-    quick:SetWidth(270)
-    merchantTitle:SetWidth(234)
     local quickChecks = {sort, borders, transmog}
     local function Place(widget, x, y)
         widget:ClearAllPoints()
@@ -931,23 +940,35 @@ local function CreateQuickSettings()
         borders:SetChecked(db.qualityBorders)
         transmog:SetChecked(db.transmogIcons)
         RefreshMerchantChecks(checks)
-        local y = 36
-        local function PlaceCheck(control, inset)
-            control.label:SetWidth(208 - inset)
-            Place(control, 14 + inset, y)
-            y = y + math.max(24, control.label:GetStringHeight() + 10)
+        local screenWidth = WoW.ReadValue(UIParent.GetWidth, UIParent)
+        local width = WoW.IsFiniteNumber(screenWidth) and math.min(524, math.max(270, screenWidth - 36)) or 524
+        local contentWidth = width - 36
+        local paired = contentWidth >= 450
+        local columnWidth = paired and (contentWidth - 16) / 2 or contentWidth
+        quick:SetWidth(width)
+        local function PlaceCheck(control, x, y, inset)
+            control:SetSize(24, 24)
+            control.label:SetWidth(columnWidth - 26 - inset)
+            Place(control, x + inset, y)
+            return y + math.max(24, control.label:GetStringHeight() + 10)
         end
-        for _, control in ipairs(quickChecks) do PlaceCheck(control, 0) end
-        y = y + 7
-        Place(merchantTitle, 18, y)
-        y = y + merchantTitle:GetStringHeight() + 5
-        PlaceCheck(checks[1], 0)
-        checks[2]:SetShown(db.autoSell)
-        if db.autoSell then PlaceCheck(checks[2], 12) end
-        PlaceCheck(checks[3], 0)
-        y = y + 8
-        if appearance then Place(appearance, 18, y) end
-        Place(more, appearance and 116 or 18, y)
+        local y = 36
+        for _, control in ipairs(quickChecks) do y = PlaceCheck(control, 14, y, 0) end
+        local rightX, rightY = paired and 14 + columnWidth + 16 or 14, paired and 36 or y + 7
+        merchantTitle:SetWidth(columnWidth)
+        Place(merchantTitle, rightX + 4, rightY)
+        rightY = rightY + merchantTitle:GetStringHeight() + 5
+        for index, control in ipairs(checks) do
+            rightY = PlaceCheck(control, rightX, rightY, index == 2 and 12 or 0)
+        end
+        y = math.max(y, rightY) + 10
+        if appearance then
+            Place(appearance, 18, y)
+            layoutAppearance(contentWidth)
+            refreshAppearanceControls()
+            y = y + appearance:GetHeight()
+        end
+        Place(more, (width - 234) / 2, y)
         quick:SetHeight(y + 40)
     end
     if UISpecialFrames then table.insert(UISpecialFrames, name) end
@@ -1080,7 +1101,7 @@ end
 
 PaintSaleCoin = function(button)
     if button.IsForbidden and button:IsForbidden() then return end
-    local coin = saleCoins[button]
+    local coins = saleCoins[button]
     local bag = WoW.ReadValue(button.GetBagID, button)
     local slot = WoW.ReadValue(button.GetID, button)
     local price
@@ -1091,31 +1112,39 @@ PaintSaleCoin = function(button)
             if WoW.IsFiniteNumber(unitPrice) then price = unitPrice * item.stackCount end
         end
     end
-    if not WoW.IsFiniteNumber(price) or price <= 0 then
-        if coin then coin:Hide() end
-        return
-    end
+    if not WoW.IsFiniteNumber(price) or price <= 0 then return HideSaleCoins(coins) end
 
-    if not coin then
-        coin = button:CreateTexture(nil, "OVERLAY", nil, 4)
-        coin:SetSize(26, 26)
-        coin:SetPoint("CENTER", button, "CENTER")
-        saleCoins[button] = coin
-        button:HookScript("OnHide", function() coin:Hide() end)
+    if not coins then
+        coins = {}
+        for index = 1, 4 do
+            local outline = index % 2 == 1
+            local size = outline and 22 or 20
+            local x = index <= 2 and -4 or 4
+            local coin = button:CreateTexture(nil, "OVERLAY", nil, index + 2)
+            coin:SetSize(size, size)
+            coin:SetPoint("CENTER", button, "CENTER", x, -x * .75)
+            if outline then coin:SetVertexColor(0, 0, 0, .85) end
+            coins[index] = coin
+        end
+        saleCoins[button] = coins
+        button:HookScript("OnHide", function() HideSaleCoins(coins) end)
     end
     local denomination = price >= 10000 and "Gold" or price >= 100 and "Silver" or "Copper"
     local atlas = "coin-" .. denomination:lower()
-    if C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, atlas) then
-        coin:SetAtlas(atlas)
-        coin:Show()
-    else
-        coin:SetShown(coin:SetTexture("Interface\\MoneyFrame\\UI-" .. denomination .. "Icon") == true)
+    local hasAtlas = C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, atlas)
+    for _, coin in ipairs(coins) do
+        if hasAtlas then
+            coin:SetAtlas(atlas)
+            coin:Show()
+        else
+            coin:SetShown(coin:SetTexture("Interface\\MoneyFrame\\UI-" .. denomination .. "Icon") == true)
+        end
     end
 end
 
 RefreshSaleCoins = function()
     if not ShowSaleCoins() then
-        for _, coin in pairs(saleCoins) do coin:Hide() end
+        for _, coins in pairs(saleCoins) do HideSaleCoins(coins) end
         return
     end
     for _, frame in ContainerFrameUtil_EnumerateContainerFrames() do

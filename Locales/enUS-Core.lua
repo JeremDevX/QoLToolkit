@@ -9,7 +9,6 @@ for source, translation in pairs({
     ["Inclure l’équipement gris"] = "Include gray gear",
     ["Réparation automatique"] = "Automatic repair",
     ["Utilise l’argent du personnage."] = "Uses your character’s money.",
-    ["Bordures…"] = "Borders…",
     ["Bordures indisponibles"] = "Borders unavailable",
     ["Vente automatique indisponible"] = "Auto-sell unavailable",
     ["Réparation automatique indisponible"] = "Auto-repair unavailable",

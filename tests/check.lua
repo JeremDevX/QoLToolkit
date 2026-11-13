@@ -410,16 +410,21 @@ do
     bag.CloseButton.GetNormalTexture = function() return closeArt end
     ContainerFrameCombinedBags = bag
     local oldTexture = C_Texture
-    C_Texture = {GetAtlasInfo = function() return {} end}
+    C_Texture = {GetAtlasInfo = function(atlas)
+        if atlas == "RedButton-Exit" then
+            return {file = 8107307, leftTexCoord = .13671875, rightTexCoord = .26171875,
+                topTexCoord = .0078125, bottomTexCoord = .2578125}
+        end
+        if atlas == "Gear" then return {} end
+    end}
     local createWidget = CreateFrame
-    CreateFrame = function(kind, name, parent)
+    CreateFrame = function(kind, name, parent, template)
         local widget = createWidget(kind, name)
         widget.parent = parent
+        widget.template = template
         widget.SetAtlas = function(self, atlas) self.atlas = atlas end
-        widget.SetTextureSliceMargins = function(self, ...) self.sliceMargins = {...} end
         widget.SetNormalTexture = function(self, asset) self.normalAsset = asset end
         widget.SetPushedTexture = function(self, asset) self.pushedAsset = asset end
-        widget.SetHighlightAtlas = function(self, atlas, blend) self.highlightAtlas, self.highlightBlend = atlas, blend end
         widget.offset = 0
         widget.SetHeight = function(self, height) self.height = height end
         widget.GetHeight = function(self) return rawget(self, "height") or 300 end
@@ -686,11 +691,12 @@ do
 
     local tooltip = GameTooltip
     GameTooltip = nil
-    local redBackground, pressedBackground, gear = unpack(shortcut.textures)
-    assert(shortcut.normalAsset == redBackground and shortcut.pushedAsset == pressedBackground
-        and redBackground.atlas == "UI-DialogBox-Button-Up" and redBackground.relative == shortcut
-        and pressedBackground.atlas == "UI-DialogBox-Button-Down" and pressedBackground.relative == shortcut
-        and shortcut.highlightAtlas == "RedButton-Highlight" and shortcut.highlightBlend == "ADD"
+    local centerFill, gear = unpack(shortcut.textures)
+    assert(shortcut.template == "UIPanelCloseButtonNoScripts"
+        and not rawget(shortcut, "normalAsset") and not rawget(shortcut, "pushedAsset")
+        and centerFill.asset == 8107307 and centerFill.points.TOPLEFT[3] == 4
+        and centerFill.points.BOTTOMRIGHT[3] == -4 and centerFill.coords[2] < .17
+        and shortcut:NarrationGetName() == "Réglages des sacs"
         and gear.atlas == "Gear"
         and shortcut:GetWidth() == 24 and shortcut:GetHeight() == 24 and shortcut:GetText() == ""
         and gear.points.CENTER[1] == shortcut and gear.points.CENTER[2] == "CENTER"

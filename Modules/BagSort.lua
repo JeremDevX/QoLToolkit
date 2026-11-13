@@ -655,9 +655,10 @@ local function AttachShortcut(frame)
     end
     local button = shortcuts[frame]
     if not button then
-        button = CreateFrame("Button", nil, frame)
+        button = CreateFrame("Button", nil, frame, "UIPanelCloseButtonNoScripts")
         shortcuts[frame] = button
         button:SetSize(shortcutSize, shortcutSize)
+        button.NarrationGetName = function() return L("Réglages des sacs") end
         if frame.CloseButton then
             local closeArt = WoW.ReadValue(frame.CloseButton.GetNormalTexture, frame.CloseButton)
             button:SetPoint("RIGHT", closeArt or frame.CloseButton, "LEFT", -4, 0)
@@ -665,33 +666,41 @@ local function AttachShortcut(frame)
             button:SetPoint("TOPRIGHT", frame, "TOPRIGHT", shortcutRight, -3)
         end
         local getAtlas = C_Texture and C_Texture.GetAtlasInfo
-        for _, state in ipairs({
-            {button.SetNormalTexture, "Up"}, {button.SetPushedTexture, "Down"},
-        }) do
-            local texture = button:CreateTexture(nil, "BACKGROUND")
-            texture:SetAllPoints(button)
-            local atlas = "UI-DialogBox-Button-" .. state[2]
-            if WoW.ReadValue(getAtlas, atlas) then
-                texture:SetAtlas(atlas)
-                texture:SetTextureSliceMargins(8, 7, 8, 7)
-            else
-                texture:SetTexture("Interface\\Buttons\\UI-Panel-Button-" .. state[2])
-                texture:SetTexCoord(0, .625, 0, .6875)
+        local closeAtlas = WoW.ReadValue(getAtlas, "RedButton-Exit")
+        local closeFile
+        if type(closeAtlas) == "table" then
+            if WoW.IsFiniteNumber(closeAtlas.file) and closeAtlas.file > 0 then closeFile = closeAtlas.file
+            elseif WoW.IsPublic(closeAtlas.filename) and type(closeAtlas.filename) == "string" then
+                closeFile = closeAtlas.filename
             end
-            state[1](button, texture)
         end
-        local icon = button:CreateTexture(nil, "OVERLAY")
+        if closeFile and closeFile ~= ""
+            and WoW.IsFiniteNumber(closeAtlas.leftTexCoord) and WoW.IsFiniteNumber(closeAtlas.rightTexCoord)
+            and WoW.IsFiniteNumber(closeAtlas.topTexCoord) and WoW.IsFiniteNumber(closeAtlas.bottomTexCoord) then
+            -- The X is baked into the sprite. Sample the red strip to its left and leave the native border exposed.
+            local fill = button:CreateTexture(nil, "OVERLAY", nil, -1)
+            local left, top = closeAtlas.leftTexCoord, closeAtlas.topTexCoord
+            local width, height = closeAtlas.rightTexCoord - left, closeAtlas.bottomTexCoord - top
+            fill:SetTexture(closeFile)
+            fill:SetTexCoord(left + width * .16, left + width * .19, top + height * .22, top + height * .75)
+            fill:SetPoint("TOPLEFT", button, "TOPLEFT", 4, -3)
+            fill:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -4, 3)
+        else
+            for _, state in ipairs({
+                {button.SetNormalTexture, button.GetNormalTexture, "Up"},
+                {button.SetPushedTexture, button.GetPushedTexture, "Down"},
+            }) do
+                state[1](button, "Interface\\Buttons\\UI-Panel-Button-" .. state[3])
+                state[2](button):SetTexCoord(0, .625, 0, .6875)
+            end
+        end
+        local icon = button:CreateTexture(nil, "OVERLAY", nil, 1)
         icon:SetSize(18, 18)
         icon:SetPoint("CENTER", button, "CENTER", 0, 0)
         if WoW.ReadValue(getAtlas, "Gear") then
             icon:SetAtlas("Gear")
         else
             icon:SetTexture("Interface\\Icons\\INV_Misc_Wrench_01")
-        end
-        if WoW.ReadValue(getAtlas, "RedButton-Highlight") then
-            button:SetHighlightAtlas("RedButton-Highlight", "ADD")
-        else
-            button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
         end
         button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         button:SetScript("OnClick", function(self, mouseButton)

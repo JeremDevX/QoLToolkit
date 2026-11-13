@@ -82,10 +82,10 @@ local function Estimate(key)
             end
         end
     end
-    if previous then return previous, "Ancienne mesure · ≈ %s" end
+    if previous then return previous, "Ancienne mesure · ≈ %s", true end
 
     local community = ns.FlightTimesData[key]
-    if IsSeconds(community) then return community, "Durée partagée · ≈ %s" end
+    if IsSeconds(community) then return community, "Durée partagée · ≈ %s", true end
 end
 
 local function DurationText(seconds)
@@ -161,15 +161,16 @@ local function AddTaxiTooltip(owner, slot)
 end
 
 local function CreateBadge()
+    local panelWidth, panelHeight, ornamentHeight = 320, 62, 68
+    local overlap, maxOrnamentWidth = 8, 0
     badge = CreateFrame("Frame", "ArkannsQOLFlightTimer", UIParent)
-    badge:SetSize(512, 112)
     badge:SetPoint("TOP", UIParent, "TOP", 0, -100)
     badge:SetClampedToScreen(true)
     badge:EnableMouse(false)
 
     local panel = CreateFrame("Frame", "ArkannsQOLFlightTimerPanel", badge, "BackdropTemplate")
-    panel:SetSize(320, 104)
-    panel:SetPoint("CENTER")
+    panel:SetSize(panelWidth, panelHeight)
+    panel:SetPoint("BOTTOM")
     panel:EnableMouse(false)
     UI.StylePanel(panel)
 
@@ -182,42 +183,52 @@ local function CreateBadge()
         red, green, blue, creature = .22, .52, .95, "Gryphon"
     end
 
+    if creature then
+        local emblem = panel:CreateTexture(nil, "ARTWORK", nil, -1)
+        emblem:SetTexture(("Interface\\Timer\\%s-Logo"):format(faction))
+        emblem:SetSize(54, 54)
+        emblem:SetPoint("CENTER")
+        emblem:SetAlpha(.22)
+    end
+
     -- Native end caps, Forever 4cd0ab7. Read atlas dimensions for the client's art variant.
     for _, side in ipairs({"Left", "Right"}) do
         local ornament = badge:CreateTexture(nil, "ARTWORK")
         local atlas = creature and ("UI-HUD-ActionBar-%s-%s"):format(creature, side)
         local info = atlas and C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, atlas)
+        local width, height = 32, 32
         if type(info) == "table" and WoW.IsFiniteNumber(info.width) and info.width > 0
             and WoW.IsFiniteNumber(info.height) and info.height > 0 then
             ornament:SetAtlas(atlas, false)
-            local width = math.min(96, 84 * info.width / info.height)
-            ornament:SetSize(width, width * info.height / info.width)
+            width, height = ornamentHeight * info.width / info.height, ornamentHeight
         else
             ornament:SetTexture("Interface\\TaxiFrame\\UI-Taxi-Icon-Green")
-            ornament:SetSize(32, 32)
         end
+        ornament:SetSize(width, height)
+        maxOrnamentWidth = math.max(maxOrnamentWidth, width)
         if side == "Left" then
-            ornament:SetPoint("RIGHT", panel, "LEFT", 8, -3)
+            ornament:SetPoint("BOTTOMRIGHT", panel, "BOTTOMLEFT", overlap, 0)
         else
-            ornament:SetPoint("LEFT", panel, "RIGHT", -8, -3)
+            ornament:SetPoint("BOTTOMLEFT", panel, "BOTTOMRIGHT", -overlap, 0)
         end
     end
+    badge:SetSize(panelWidth + 2 * (maxOrnamentWidth - overlap), ornamentHeight)
 
     local accent = panel:CreateTexture(nil, "ARTWORK")
     accent:SetColorTexture(red, green, blue, .9)
     accent:SetSize(80, 2)
     accent:SetPoint("TOP", 0, -3)
-    badgeTitle = UI.Label(panel, "", 18, -13, 14)
-    badgeTime = UI.Label(panel, "", 18, -34, 26)
-    badgeCaption = UI.Label(panel, "", 18, -66, 11)
+    badgeTitle = UI.Label(panel, "", 18, -6, 13)
+    badgeTime = UI.Label(panel, "", 18, -20, 21)
+    badgeCaption = UI.Label(panel, "", 18, -42, 10)
     for _, label in ipairs({badgeTitle, badgeTime, badgeCaption}) do
         label:SetWidth(284)
         label:SetWordWrap(false)
         label:SetJustifyH("CENTER")
     end
     badgeProgress = CreateFrame("StatusBar", "ArkannsQOLFlightProgress", panel)
-    badgeProgress:SetPoint("BOTTOMLEFT", 18, 12)
-    badgeProgress:SetSize(284, 4)
+    badgeProgress:SetPoint("BOTTOMLEFT", 18, 5)
+    badgeProgress:SetSize(284, 3)
     badgeProgress:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
     badgeProgress:SetStatusBarColor(red, green, blue)
     badgeProgress:SetMinMaxValues(0, 1)
@@ -236,8 +247,9 @@ local function ShowTime(elapsed)
     if flight.lastSecond == seconds then return end
     flight.lastSecond = seconds
     if flight.estimate and seconds < flight.estimate then
-        badgeTime:SetText(L("≈ %s"):format(DurationText(flight.estimate - seconds)))
-        badgeCaption:SetText(L("Arrivée estimée"))
+        local remaining = DurationText(flight.estimate - seconds)
+        badgeTime:SetText(flight.approximate and L("≈ %s"):format(remaining) or remaining)
+        badgeCaption:SetText(L("Temps restant"))
         badgeProgress:SetValue(math.min(1, elapsed / flight.estimate))
         badgeProgress:Show()
     else
@@ -283,7 +295,9 @@ local function ObserveTakeoff(slot)
         or (not mapOpen and (not WoW.IsFiniteNumber(closedAt) or now - closedAt > 1)) then return end
     local route = ReadRoute(slot)
     local key = RouteKey(route)
-    pending = {selected = now, key = earlyLandingHook and key or nil, estimate = Estimate(key), name = route and route.name}
+    local estimate, _, approximate = Estimate(key)
+    pending = {selected = now, key = earlyLandingHook and key or nil, estimate = estimate,
+        approximate = approximate, name = route and route.name}
     local sincePoll = 0
     driver:SetScript("OnUpdate", function(_, elapsed)
         sincePoll = sincePoll + elapsed

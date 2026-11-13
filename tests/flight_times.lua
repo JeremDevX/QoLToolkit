@@ -14,9 +14,10 @@ function methods:SetStatusBarTexture(texture) self.texture = texture end
 function methods:SetStatusBarColor(...) self.color = {...} end
 function methods:SetMinMaxValues(minimum, maximum) self.minimum, self.maximum = minimum, maximum end
 function methods:SetValue(value) self.value = value end
-function methods:CreateTexture(_, layer)
+function methods:SetAlpha(alpha) self.alpha = alpha end
+function methods:CreateTexture(_, layer, _, sublevel)
     local texture = CreateFrame("Texture", nil, self)
-    texture.layer = layer
+    texture.layer, texture.sublevel = layer, sublevel
     self.textures[#self.textures + 1] = texture
     return texture
 end
@@ -141,7 +142,7 @@ Event("TAXIMAP_CLOSED")
 canReadRoute = false
 hooks.TakeTaxiNode(3)
 PollAt(2, true)
-assert(badges[1].text == "Destination" and badges[2].text == "≈ 1:42" and badges[3].text == "Estimated arrival")
+assert(badges[1].text == "Destination" and badges[2].text == "≈ 1:42" and badges[3].text == "Time remaining")
 local progress = frames.ArkannsQOLFlightProgress
 assert(progress.shown and progress.minimum == 0 and progress.maximum == 1 and progress.value == 0)
 PollAt(62, true)
@@ -154,6 +155,7 @@ Event("TAXIMAP_OPENED")
 hooks.OnMouseEnter(destination)
 assert(tooltipText == "Measured duration · 1:40", "Personal measurements have priority")
 local start = Begin()
+assert(badges[2].text == "1:40" and badges[3].text == "Time remaining", "Use the current personal measurement directly")
 hooks.TaxiRequestEarlyLanding()
 PollAt(start + 25, true)
 assert(badges[2].text == "0:25" and badges[3].text == "Landing requested" and not progress.shown)
@@ -187,7 +189,7 @@ Event("TAXIMAP_OPENED")
 hooks.TaxiNodeOnButtonEnter(destination)
 assert(tooltipText == "Past measurement · ≈ 1:40")
 start = Begin()
-assert(badges[2].text == "≈ 1:40" and badges[3].text == "Estimated arrival",
+assert(badges[2].text == "≈ 1:40" and badges[3].text == "Time remaining",
     "A game update must reuse the saved personal duration in the countdown")
 Event("PLAYER_LEAVING_WORLD")
 assert(not driver.scripts.OnUpdate and not ArkannsQOLFlightsDB["70999,0,101>303>202"])
@@ -235,26 +237,40 @@ local function CheckFactionArt(faction, creature, atlasInfo)
     local started = Begin()
     local frame, panel = frames.ArkannsQOLFlightTimer, frames.ArkannsQOLFlightTimerPanel
     assert(frame.mouse == false and panel.mouse == false, "Flight decorations allow game clicks through")
-    assert(frame.width == 512 and panel.width == 320 and panel.height == 104)
+    assert(panel.width == 320 and panel.height == 62 and panel.point[1] == "BOTTOM")
     assert(#frame.textures == 2, "Reuse two ornaments per flight window")
     for index, side in ipairs({"Left", "Right"}) do
         local ornament = frame.textures[index]
-        assert(ornament.point[2] == panel and ornament.width <= 96 and ornament.height <= 84)
+        local isLeft = side == "Left"
+        assert(ornament.point[1] == (isLeft and "BOTTOMRIGHT" or "BOTTOMLEFT")
+            and ornament.point[2] == panel and ornament.point[3] == (isLeft and "BOTTOMLEFT" or "BOTTOMRIGHT")
+            and ornament.point[5] == 0, "Align both ornaments with the bottom edge of the panel")
+        assert(frame.width / 2 >= panel.width / 2 + ornament.width - math.abs(ornament.point[4]),
+            "Screen clamping includes the ornaments")
         if creature then
             assert(ornament.atlas == "UI-HUD-ActionBar-" .. creature .. "-" .. side)
+            assert(ornament.height == frame.height and ornament.height >= panel.height)
             assert(math.abs(ornament.width / ornament.height - atlasInfo.width / atlasInfo.height) < .0001)
         else
             assert(ornament.texture == "Interface\\TaxiFrame\\UI-Taxi-Icon-Green" and ornament.width == ornament.height)
         end
     end
     progress = frames.ArkannsQOLFlightProgress
+    local emblem = panel.textures[1]
+    if faction == "Alliance" or faction == "Horde" then
+        assert(emblem.texture == "Interface\\Timer\\" .. faction .. "-Logo" and emblem.point[1] == "CENTER")
+        assert(emblem.layer == "ARTWORK" and emblem.sublevel == -1 and emblem.alpha == .22
+            and emblem.width == emblem.height and emblem.height < panel.height)
+    else
+        assert(#panel.textures == 1, "No emblem is created without a known faction")
+    end
     if faction == "Horde" then
         assert(progress.color[1] > progress.color[3], "Horde uses a red accent")
     elseif faction == "Alliance" then
         assert(progress.color[3] > progress.color[1], "Alliance uses a blue accent")
     end
     PollAt(started + 99, true)
-    assert(badges[2].text == "≈ 0:01" and progress.shown)
+    assert(badges[2].text == "≈ 0:01" and badges[3].text == ns.L("Temps restant") and progress.shown)
     PollAt(started + 100, true)
     assert(badges[2].text == "1:40" and badges[3].text == ns.L("Temps écoulé") and not progress.shown,
         "An exceeded estimate returns to elapsed time")

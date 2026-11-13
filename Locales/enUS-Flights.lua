@@ -9,7 +9,7 @@ for source, translation in pairs({
     ["Durée partagée · ≈ %s"] = "Shared duration · ≈ %s",
     ["≈ %s"] = "≈ %s",
     ["Temps écoulé"] = "Elapsed time",
-    ["Arrivée estimée"] = "Estimated arrival",
+    ["Temps restant"] = "Time remaining",
     ["Escale demandée"] = "Landing requested",
     ["En vol"] = "In flight",
     ["Exporter les durées"] = "Export durations",

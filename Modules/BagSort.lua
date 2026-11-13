@@ -3,6 +3,7 @@ local L = ns.L
 local WoW = ns.WoW
 local db, panel, check, qualityCheck, transmogCheck, status, category, homeCategory, refreshAppearance
 local quick, quickBag, refreshQuick, ToggleQuickSettings
+local merchantChecks, merchantEvents, merchantVisit, sellFailed, repairFailed
 local listening, bankOpen, failed, scheduled
 local qualityListening, getQualityColor, appearanceQueued, reagentEvents, waitingForReagents
 local transmogEvents, transmogQueued
@@ -10,9 +11,16 @@ local pending = {}
 local qualityBorders, samples, shortcuts = {}, {}, {}
 local transmogIcons = {}
 local shortcutMargins = {}
-local defaults = {
-    enabled = false, qualityBorders = true, qualityOpacity = 100, qualityThickness = 1,
+local appearanceDefaults = {
+    qualityBorders = true, qualityOpacity = 100, qualityThickness = 1,
     qualityInnerGlow = 0, transmogIcons = true,
+}
+local defaults = {enabled = false, autoSell = false, sellEquipment = false, autoRepair = false}
+for key, value in pairs(appearanceDefaults) do defaults[key] = value end
+local merchantOptions = {
+    {"autoSell", "AutoSell", "Vendre les objets gris"},
+    {"sellEquipment", "SellEquipment", "Inclure l’équipement gris"},
+    {"autoRepair", "AutoRepair", "Réparer (argent personnel)"},
 }
 local borderTexture = "Interface\\Common\\WhiteIconFrame"
 local glowTexture = "Interface\\Buttons\\WHITE8X8"
@@ -495,11 +503,55 @@ local function Unavailable()
     end
 end
 
+local function CanAutoSell()
+    return not sellFailed and C_Container and NUM_TOTAL_BAG_FRAMES
+        and C_Container.GetContainerNumSlots and C_Container.GetContainerItemInfo and C_Container.UseContainerItem
+        and C_Container.GetContainerItemQuestInfo and C_Container.GetContainerItemPurchaseInfo
+        and C_Container.GetBackpackSellJunkDisabled and C_Container.GetBagSlotFlag
+        and GetCursorInfo and SpellIsTargeting and InRepairMode
+        and C_Item and C_Item.IsEquippableItem and C_Item.GetItemGUID
+        and ItemLocation and ItemLocation.CreateFromBagAndSlot
+        and Enum and Enum.ItemQuality and Enum.ItemQuality.Poor
+        and Enum.BagSlotFlags and Enum.BagSlotFlags.ExcludeJunkSell
+end
+
+local function CanAutoRepair()
+    return not repairFailed and CanMerchantRepair and GetRepairAllCost and GetMoney and RepairAllItems
+end
+
+local function RefreshMerchantChecks(checks)
+    for index, option in ipairs(merchantOptions) do checks[index]:SetChecked(db[option[1]]) end
+    local sell, repair = merchantEvents and CanAutoSell(), merchantEvents and CanAutoRepair()
+    checks[1]:SetEnabled(not not sell)
+    checks[2]:SetEnabled(not not (sell and db.autoSell))
+    checks[3]:SetEnabled(not not repair)
+    checks[1].label:SetText(L(sell and merchantOptions[1][3] or "Vente automatique indisponible"))
+    checks[3].label:SetText(L(repair and merchantOptions[3][3] or "Réparation automatique indisponible"))
+end
+
+local function RefreshMerchantEvents()
+    if not merchantEvents then return end
+    local sell = db.autoSell and CanAutoSell()
+    if merchantVisit and not sell then merchantVisit.items = nil end
+    if sell or (db.autoRepair and CanAutoRepair()) then
+        merchantEvents:RegisterEvent("MERCHANT_SHOW")
+        merchantEvents:RegisterEvent("MERCHANT_CLOSED")
+        merchantEvents:RegisterEvent("MERCHANT_CONFIRM_TRADE_TIMER_REMOVAL")
+        merchantEvents:RegisterEvent("ADDON_ACTION_BLOCKED")
+        merchantEvents:RegisterEvent("ADDON_ACTION_FORBIDDEN")
+    else
+        merchantVisit = nil
+        merchantEvents:UnregisterAllEvents()
+    end
+end
+
 local function Refresh()
     check:SetChecked(db.enabled)
     check:SetEnabled(not Unavailable())
     qualityCheck:SetChecked(db.qualityBorders)
     transmogCheck:SetChecked(db.transmogIcons)
+    RefreshMerchantEvents()
+    RefreshMerchantChecks(merchantChecks)
     status:SetText(Unavailable() or "")
     if reagentEvents then
         if db.qualityBorders then reagentEvents:RegisterEvent("ITEM_DATA_LOAD_RESULT")
@@ -520,6 +572,18 @@ local function SetTransmogIcons(value)
     db.transmogIcons = value == true
     Refresh()
     RefreshTransmogSetting()
+end
+
+local function CreateMerchantChecks(parent, prefix)
+    local checks = {}
+    for index, option in ipairs(merchantOptions) do
+        local key, name, label = unpack(option)
+        checks[index] = ns.UI.Check(parent, prefix .. name, L(label), 0, 0, function(value)
+            db[key] = value == true
+            ns.UI.Refresh()
+        end)
+    end
+    return checks
 end
 
 local function CloseQuickSettings(frame)
@@ -636,8 +700,9 @@ local function ChooseColor(quality)
     })
 end
 
-local function BuildAppearance(body, compact)
+local function BuildAppearance(body, compactOffset)
     local UI = ns.UI
+    local compact = compactOffset ~= nil
     local prefix = compact and "ArkannsQOLBagQuick" or "ArkannsQOLBag"
     local syncing
     local targets, checks, sliders, palette = {}, {}, {}, {}
@@ -667,13 +732,13 @@ local function BuildAppearance(body, compact)
         sliders[#sliders + 1] = {label = label, control = slider}
         return function() slider:SetValue(db[key]); Caption() end
     end
-    local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -119 or 0)
-    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and -165 or -56)
-    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -211 or -112)
-    targets["Couleurs de rareté"] = UI.Label(body, L("Couleurs et aperçu"), 20, compact and -256 or -162, 15)
+    local opacity = Slider("qualityOpacity", L("Opacité du contour"), compactOffset or 0)
+    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and compactOffset - 46 or -56)
+    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and compactOffset - 92 or -112)
+    targets["Couleurs de rareté"] = UI.Label(body, L("Couleurs et aperçu"), 20, compact and compactOffset - 137 or -162, 15)
     local toggleHelp = L("Cochez pour appliquer la couleur.")
-    local help = UI.Label(body, toggleHelp, 20, compact and -278 or -186)
-    local size, top = 28, compact and -300 or -210
+    local help = UI.Label(body, toggleHelp, 20, compact and compactOffset - 159 or -186)
+    local size, top = 28, compact and compactOffset - 181 or -210
     local categories = {0, 1, 2, 3, 4, 5, "quest", "reagent"}
     for index, quality in ipairs(categories) do
         local source = quality == "quest" and "Objets de quête" or quality == "reagent" and "Composants d’artisanat"
@@ -724,8 +789,8 @@ local function BuildAppearance(body, compact)
     if not compact then
         reset = UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
             UI.Confirm(L("Rétablir les bordures de rareté et leurs couleurs par défaut ?"), function()
-                for key, value in pairs(defaults) do
-                    if key ~= "enabled" and key ~= "transmogIcons" then db[key] = value end
+                for key, value in pairs(appearanceDefaults) do
+                    if key ~= "transmogIcons" then db[key] = value end
                 end
                 db.qualityColors, db.qualityHidden = {}, {}
                 Refresh()
@@ -809,21 +874,29 @@ local function CreateQuickSettings()
     local sort = UI.Check(quick, "ArkannsQOLBagQuickSort", L("Tri à l’ouverture"), 14, -37, SetEnabled)
     local borders = UI.Check(quick, "ArkannsQOLBagQuickBorders", L("Contours de rareté"), 14, -62, SetQualityBorders)
     local transmog = CreateTransmogCheck(quick, "ArkannsQOLBagQuickTransmog", 14, -87)
+    UI.Label(quick, L("À l’ouverture d’un marchand"), 18, -121, 15)
+    local checks = CreateMerchantChecks(quick, "ArkannsQOLBagQuick")
+    for index, control in ipairs(checks) do
+        control:ClearAllPoints()
+        control:SetPoint("TOPLEFT", index == 2 and 26 or 14, -121 - 28 * index)
+        control.label:SetWidth(index == 2 and 208 or 220)
+    end
     local appearance, footerY
     if qualityListening then
-        appearance, footerY = BuildAppearance(quick, true)
+        appearance, footerY = BuildAppearance(quick, -245)
     else
         borders:Disable()
-        UI.Label(quick, L("Bordures indisponibles sur ce client."), 18, -121)
-        footerY = -147
+        UI.Label(quick, L("Bordures indisponibles sur ce client."), 18, -245)
+        footerY = -271
     end
     UI.Button(quick, "ArkannsQOLBagQuickMore", L("Tous les réglages"), 18, footerY, 220, function() OpenSettings(category) end)
-    quick:SetSize(260, -footerY + 41)
+    quick:SetSize(278, -footerY + 41)
     refreshQuick = function()
         sort:SetChecked(db.enabled)
         sort:SetEnabled(not Unavailable())
         borders:SetChecked(db.qualityBorders)
         transmog:SetChecked(db.transmogIcons)
+        RefreshMerchantChecks(checks)
         if appearance then appearance() end
     end
     if UISpecialFrames then table.insert(UISpecialFrames, name) end
@@ -897,11 +970,151 @@ local function ConfirmAllBags()
     for frame in pairs(pending) do pending[frame] = true end
 end
 
+local function MerchantIsReady(visit)
+    if merchantVisit ~= visit or not MerchantFrame or IsBankOpen() then return false end
+    local combatStatus, combat = WoW.Read(InCombatLockdown)
+    local interaction = Enum.PlayerInteractionType.Merchant
+    local tab = MerchantFrame.selectedTab
+    return combatStatus == "ok" and not combat
+        and WoW.ReadValue(C_PlayerInteractionManager.IsInteractingWithNpcOfType, interaction) == true
+        and WoW.ReadValue(MerchantFrame.IsShown, MerchantFrame) == true and not Secret(tab) and tab == 1
+end
+
+local function RepairAtMerchant()
+    if not db.autoRepair or not CanAutoRepair() or WoW.ReadValue(CanMerchantRepair) ~= true then return end
+    local _, cost, canRepair = WoW.Read(GetRepairAllCost)
+    if canRepair ~= true or not WoW.IsFiniteNumber(cost) or cost <= 0 then return end
+    local money = WoW.ReadValue(GetMoney)
+    if WoW.IsFiniteNumber(money) and cost <= money and WoW.Read(RepairAllItems) == "error" then
+        repairFailed = true
+        ns.UI.Refresh()
+    end
+end
+
+local function BagAllowsSale(bag)
+    if bag == 0 then return WoW.ReadValue(C_Container.GetBackpackSellJunkDisabled) == false end
+    return WoW.ReadValue(C_Container.GetBagSlotFlag, bag, Enum.BagSlotFlags.ExcludeJunkSell) == false
+end
+
+local function ReadItemGUID(bag, slot)
+    local location = WoW.ReadValue(ItemLocation.CreateFromBagAndSlot, ItemLocation, bag, slot)
+    if location then return WoW.ReadValue(C_Item.GetItemGUID, location) end
+end
+
+local function GetSellableItem(bag, slot)
+    local item = WoW.ReadValue(C_Container.GetContainerItemInfo, bag, slot)
+    if type(item) ~= "table" or Secret(item.quality) or item.quality ~= Enum.ItemQuality.Poor
+        or Secret(item.isLocked) or item.isLocked ~= false
+        or Secret(item.hasNoValue) or item.hasNoValue ~= false
+        or not WoW.IsFiniteNumber(item.itemID) or not WoW.IsFiniteNumber(item.stackCount) then return end
+
+    local quest = WoW.ReadValue(C_Container.GetContainerItemQuestInfo, bag, slot)
+    if type(quest) ~= "table" or Secret(quest.isQuestItem) or quest.isQuestItem ~= false
+        or Secret(quest.questID) or quest.questID ~= nil then return end
+    local purchaseStatus, purchase = WoW.Read(C_Container.GetContainerItemPurchaseInfo, bag, slot, false)
+    if purchaseStatus ~= "ok" then return end
+    if purchase ~= nil and (type(purchase) ~= "table"
+        or Secret(purchase.money) or purchase.money ~= 0
+        or Secret(purchase.itemCount) or purchase.itemCount ~= 0
+        or Secret(purchase.currencyCount) or purchase.currencyCount ~= 0) then return end
+    if not db.sellEquipment and WoW.ReadValue(C_Item.IsEquippableItem, item.itemID) ~= false then return end
+    local guid = ReadItemGUID(bag, slot)
+    if type(guid) == "string" then return guid, item.stackCount end
+end
+
+local function SellNextItem(visit)
+    if not MerchantIsReady(visit) or not visit.items or not db.autoSell or not CanAutoSell() then return end
+    local cursorStatus, cursor = WoW.Read(GetCursorInfo)
+    local spellStatus, targeting = WoW.Read(SpellIsTargeting)
+    local repairStatus, repairing = WoW.Read(InRepairMode)
+    if cursorStatus ~= "ok" or cursor ~= nil or spellStatus ~= "ok" or targeting
+        or repairStatus ~= "ok" or repairing then return end
+    if visit.previous then
+        local previous = visit.previous
+        local status, item = WoW.Read(C_Container.GetContainerItemInfo, previous.bag, previous.slot)
+        if status ~= "ok" then return end
+        if item ~= nil then
+            local guid = ReadItemGUID(previous.bag, previous.slot)
+            if type(guid) ~= "string" then return end
+            if guid == previous.guid then
+                -- Wait for the sale to reach the bags. A refused sale is never retried.
+                visit.waits = visit.waits + 1
+                if visit.waits < 10 then C_Timer.After(.25, function() SellNextItem(visit) end)
+                else visit.items = nil end
+                return
+            end
+        end
+        visit.previous = nil
+    end
+    while visit.index <= #visit.items do
+        local item = visit.items[visit.index]
+        visit.index = visit.index + 1
+        if BagAllowsSale(item.bag) then
+            local guid, count = GetSellableItem(item.bag, item.slot)
+            if guid == item.guid and count == item.count then
+                visit.previous, visit.waits = item, 0
+                if WoW.Read(C_Container.UseContainerItem, item.bag, item.slot) ~= "ok" then
+                    sellFailed = true
+                    ns.UI.Refresh()
+                    return
+                end
+                if visit.items then C_Timer.After(.25, function() SellNextItem(visit) end) end
+                return
+            end
+        end
+    end
+    visit.items = nil
+end
+
+local function AtMerchant(visit)
+    if not MerchantIsReady(visit) then return end
+    RepairAtMerchant()
+    if not MerchantIsReady(visit) or not db.autoSell or not CanAutoSell() then return end
+    local items = {}
+    for bag = 0, NUM_TOTAL_BAG_FRAMES do
+        if BagAllowsSale(bag) then
+            local slots = WoW.ReadValue(C_Container.GetContainerNumSlots, bag)
+            if WoW.IsFiniteNumber(slots) then
+                for slot = 1, slots do
+                    local guid, count = GetSellableItem(bag, slot)
+                    if guid then items[#items + 1] = {bag = bag, slot = slot, guid = guid, count = count} end
+                end
+            end
+        end
+    end
+    visit.items, visit.index = items, 1
+    SellNextItem(visit)
+end
+
+local function OnMerchantEvent(_, event, name, method)
+    if event == "MERCHANT_SHOW" then
+        if merchantVisit then return end
+        local visit = {}
+        merchantVisit = visit
+        -- Let Blizzard finish showing the merchant and selecting the sell tab first.
+        C_Timer.After(0, function() AtMerchant(visit) end)
+    elseif event == "MERCHANT_CLOSED" then
+        merchantVisit = nil
+    elseif event == "MERCHANT_CONFIRM_TRADE_TIMER_REMOVAL" then
+        if merchantVisit then merchantVisit.items = nil end
+    elseif not Secret(name) and name == addonName and not Secret(method) and type(method) == "string" then
+        if method:find("UseContainerItem", 1, true) then sellFailed = true
+        elseif method:find("RepairAllItems", 1, true) then repairFailed = true
+        else return end
+        ns.UI.Refresh()
+    end
+end
+
 function ns.InitializeBagSort(rootCategory)
     if db then return end
     homeCategory = rootCategory
     db = NormalizeSettings(ForeverTooltipLibreDB.bagSort)
     ForeverTooltipLibreDB.bagSort = db
+    if C_Timer and C_Timer.After and Enum and Enum.PlayerInteractionType and Enum.PlayerInteractionType.Merchant
+        and C_PlayerInteractionManager and C_PlayerInteractionManager.IsInteractingWithNpcOfType then
+        merchantEvents = CreateFrame("Frame", "ArkannsQOLBagMerchantEvents")
+        merchantEvents:SetScript("OnEvent", OnMerchantEvent)
+    end
 
     getQualityColor = (C_Item and C_Item.GetItemQualityColor) or GetItemQualityColor
     if C_Container and C_Container.GetContainerItemInfo
@@ -939,6 +1152,7 @@ function ns.InitializeBagSort(rootCategory)
     scroll:SetScrollChild(body)
     local heading = ns.UI.Label(body, L("Sacs"), 0, 0, 20)
     local sortTitle = ns.UI.Label(body, L("Tri à l’ouverture"), 0, 0, 15)
+    local merchantTitle = ns.UI.Label(body, L("À l’ouverture d’un marchand"), 0, 0, 15)
     local displayTitle = ns.UI.Label(body, L("Affichage"), 0, 0, 15)
     check = ns.UI.Check(body, "ArkannsQOLBagsEnabled", L("Trier à l’ouverture manuelle"), 16, -54, SetEnabled)
     local sortHelp = ns.UI.Label(body, L("Hors combat et hors banque."), 20, -89)
@@ -947,11 +1161,14 @@ function ns.InitializeBagSort(rootCategory)
     qualityCheck = ns.UI.Check(body, "ArkannsQOLBagQualityBorders", L("Bordure selon la rareté"), 16, -191, SetQualityBorders)
     local searchTargets = {["Trier à l’ouverture manuelle"] = check, ["Bordure selon la rareté"] = qualityCheck,
         ["Transmos manquantes"] = transmogCheck}
+    merchantChecks = CreateMerchantChecks(body, "ArkannsQOLBag")
+    for index, option in ipairs(merchantOptions) do searchTargets[option[3]] = merchantChecks[index] end
+    local appearanceTargets
     local advanced, advancedButton, ShowAppearance, layoutAppearance, unavailable
     if qualityListening then
         advanced = CreateFrame("Frame", nil, body)
         advanced:SetPoint("TOPLEFT", 0, -264)
-        local footerY, appearanceTargets
+        local footerY
         refreshAppearance, footerY, appearanceTargets, layoutAppearance = BuildAppearance(advanced)
         for key, target in pairs(appearanceTargets) do searchTargets[key] = target end
         advanced:SetSize(282, -footerY + 36)
@@ -981,9 +1198,10 @@ function ns.InitializeBagSort(rootCategory)
             Place(label, x, y, available)
             return y + label:GetStringHeight()
         end
-        local function Check(control, x, y)
-            control.label:SetWidth(math.max(1, columnWidth - 32))
-            Place(control, x - 4, y)
+        local function Check(control, x, y, inset)
+            inset = inset or 0
+            control.label:SetWidth(math.max(1, columnWidth - 32 - inset))
+            Place(control, x + inset - 4, y)
             return y + math.max(32, control.label:GetStringHeight() + 12)
         end
         local y = Text(heading, 0, 0, width) + 20
@@ -994,6 +1212,10 @@ function ns.InitializeBagSort(rootCategory)
         local hasStatus = status:GetText() ~= ""
         status:SetShown(hasStatus)
         if hasStatus then y = Text(status, 0, y, columnWidth) + 8 end
+        y = Text(merchantTitle, 0, y + 12, columnWidth) + 10
+        for index, control in ipairs(merchantChecks) do
+            y = Check(control, 0, y, index == 2 and 12 or 0)
+        end
         local displayX = paired and columnWidth + 24 or 0
         local displayY = paired and top or y + 12
         displayY = Text(displayTitle, displayX, displayY, columnWidth) + 10
@@ -1065,12 +1287,13 @@ function ns.InitializeBagSort(rootCategory)
         Refresh = Refresh,
         SearchSettings = {"Trier à l’ouverture manuelle", "Bordure selon la rareté", "Transmos manquantes",
             "Personnaliser les bordures", "Couleurs de rareté", "Objets de quête", "Composants d’artisanat",
-            "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
+            "Opacité du contour", "Épaisseur du contour", "Halo intérieur",
+            merchantOptions[1][3], merchantOptions[2][3], merchantOptions[3][3]},
         OpenSettings = function(source)
             if not source then return end
             local target = searchTargets[source]
             if not target then target = qualityCheck end
-            if ShowAppearance and target ~= check and target ~= qualityCheck and target ~= transmogCheck then ShowAppearance(true) end
+            if ShowAppearance and (target == advancedButton or appearanceTargets[source]) then ShowAppearance(true) end
             if ns.UI.RevealControl then ns.UI.RevealControl(scroll, target) end
         end,
         Summary = function()
@@ -1113,6 +1336,12 @@ function ns.InitializeBagSort(rootCategory)
                     config.qualityHidden = LegacyHidden(config.qualityUncommonOnly, {})
                 end
                 config.qualityUncommonOnly = nil
+            end,
+            function(config, current)
+                for _, option in ipairs(merchantOptions) do
+                    local key = option[1]
+                    if config[key] == nil then config[key] = current[key] end
+                end
             end,
         },
         ImportSettings = function(config)

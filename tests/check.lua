@@ -483,6 +483,7 @@ do
         local control = CreateFrame("CheckButton", name)
         control.label = Control(control, text)
         control.SetChecked = function(self, value) self.checked = value end
+        control.SetEnabled = function(self, value) self.enabled = value end
         control:SetScript("OnClick", function(_, value) callback(value) end)
         return control
     end
@@ -497,6 +498,39 @@ do
         RegisterModule = function(_, module) bagModule = module end}
     bagNS.UI.RegisterSettingsPanel = Settings.RegisterCanvasLayoutSubcategory
     bagNS.UI.OpenCategory = function(category) opened = category:GetID(); return true end
+    bagNS.UI.Refresh = function() bagModule.Refresh() end
+    local callbacks = {}
+    local oldTimer, oldEnum, oldSecret = C_Timer, Enum, issecretvalue
+    local oldLockdown, oldCursor = InCombatLockdown, GetCursorInfo
+    C_Timer = {After = function(_, callback)
+        if MerchantFrame and MerchantFrame:IsShown() then callbacks[#callbacks + 1] = callback
+        else callback() end
+    end}
+    local function Tick() table.remove(callbacks, 1)() end
+    local function Drain()
+        while #callbacks > 0 do Tick() end
+    end
+    local secret = {}
+    issecretvalue = function(value) return value == secret or oldSecret and oldSecret(value) end
+    Enum = {ItemQuality = {Poor = 0}, BagSlotFlags = {ExcludeJunkSell = 32}, PlayerInteractionType = {Merchant = 5}}
+    local merchantOpen, combat, repairable, repairCount, money, cost = false, false, true, 0, 100, 10
+    MerchantFrame = {IsShown = function() return merchantOpen end, selectedTab = 1}
+    C_PlayerInteractionManager = {IsInteractingWithNpcOfType = function(kind)
+        assert(kind == Enum.PlayerInteractionType.Merchant)
+        return merchantOpen
+    end}
+    InCombatLockdown = function() return combat end
+    GetCursorInfo = noop
+    SpellIsTargeting = function() return false end
+    InRepairMode = SpellIsTargeting
+    CanMerchantRepair = function() return repairable end
+    GetMoney = function() return money end
+    GetRepairAllCost = function() return cost, true end
+    RepairAllItems = function(guild)
+        assert(not guild)
+        repairCount = repairCount + 1
+    end
+
     ForeverTooltipLibreDB.bagSort = {qualityInnerGlow = 100, qualityUncommonOnly = true}
     chunks["Modules/BagSort.lua"]("QoLToolkit", bagNS)
     bagNS.InitializeBagSort({GetID = function() return 1 end})
@@ -511,7 +545,8 @@ do
     assert(advanced.shown and body:GetHeight() > collapsedHeight)
     scroll.offset = 200
     frames.ArkannsQOLBagAdvanced:OnClick()
-    assert(not advanced.shown and body:GetHeight() == collapsedHeight and scroll.offset == 0)
+    assert(not advanced.shown and body:GetHeight() == collapsedHeight
+        and scroll.offset == math.min(200, math.max(0, collapsedHeight - scroll:GetHeight())))
     local bagsPanel = frames.ArkannsQOLBagsPanel
     bagsPanel:SetWidth(800); bagsPanel:OnSizeChanged()
     frames.ArkannsQOLBagAdvanced:OnClick()
@@ -625,8 +660,9 @@ do
         and bagModule.ExportSettings().qualityColors.reagent == "FF8000", "Unchecked reagents use the native border")
     assert(bagModule.ImportSettings(bagModule.ExportSettings()), "Reagent color and checkbox survive a profile round trip")
     local old = {enabled = false, qualityUncommonOnly = true}
-    bagModule.profileMigrations[#bagModule.profileMigrations](old, bagModule.ExportSettings())
+    for _, migrate in ipairs(bagModule.profileMigrations) do migrate(old, bagModule.ExportSettings()) end
     assert(old.qualityUncommonOnly == nil and old.qualityHidden[0] and old.qualityHidden[1])
+    assert(old.autoSell == false and old.sellEquipment == false and old.autoRepair == false)
     ColorPickerFrame = nil
 
     local tooltip = GameTooltip
@@ -647,6 +683,112 @@ do
     end
     assert(glow.shown and math.abs(glow.gradient[2][4] - .38) < .0001,
         "The backpack slider must restore the glow at the chosen intensity")
+
+    local events = frames.ArkannsQOLBagMerchantEvents
+    local registered = {}
+    events.RegisterEvent = function(_, event) registered[event] = true end
+    events.UnregisterAllEvents = function() registered = {} end
+    local function MerchantEvent(event, ...)
+        assert(registered[event], event .. " must be registered")
+        events:OnEvent(event, ...)
+    end
+    local function OpenMerchant()
+        merchantOpen = true
+        MerchantEvent("MERCHANT_SHOW")
+    end
+    local function CloseMerchant()
+        merchantOpen = false
+        MerchantEvent("MERCHANT_CLOSED")
+    end
+    local function Stock(id, quality, noValue)
+        return {itemID = id, guid = "Item-" .. id, stackCount = 1, quality = quality, isLocked = false, hasNoValue = noValue == true}
+    end
+    local inventory = {
+        [0] = {Stock(1, 0), Stock(2, 0), Stock(3, 1), Stock(4, 0, true), Stock(5, secret), Stock(6, 0), Stock(7, 0), Stock(8, 0)},
+        [1] = {Stock(9, 0)},
+        [2] = {Stock(10, 0)},
+    }
+    local slots = {[0] = 8, 1, 1}
+    local sold = {}
+    C_Container.GetContainerNumSlots = function(bag) return slots[bag] or 0 end
+    C_Container.GetContainerItemInfo = function(bag, index) return inventory[bag] and inventory[bag][index] end
+    C_Container.GetContainerItemQuestInfo = function(bag, index) return {isQuestItem = bag == 0 and index == 6} end
+    C_Container.GetContainerItemPurchaseInfo = function(bag, index)
+        if bag == 0 and index == 7 then return {money = 1, itemCount = 0, currencyCount = 0} end
+    end
+    C_Container.GetBackpackSellJunkDisabled = function() return false end
+    C_Container.GetBagSlotFlag = function(bag, flag) assert(flag == 32); return bag == 1 end
+    C_Item.IsEquippableItem = function(id) return id == 2 end
+    ItemLocation = {CreateFromBagAndSlot = function(_, bag, index) return {bag = bag, index = index} end}
+    C_Item.GetItemGUID = function(location) return inventory[location.bag][location.index].guid end
+    local waitForSale, finishSale
+    C_Container.UseContainerItem = function(bag, index)
+        sold[#sold + 1] = inventory[bag][index].itemID
+        finishSale = function() inventory[bag][index] = nil end
+        if not waitForSale then finishSale() end
+    end
+    bagModule.Refresh()
+    assert(not registered.MERCHANT_SHOW and not frames.ArkannsQOLBagQuickSellEquipment.enabled)
+    frames.ArkannsQOLBagQuickAutoSell:OnClick(true)
+    frames.ArkannsQOLBagQuickAutoRepair:OnClick(true)
+    assert(frames.ArkannsQOLBagAutoSell.checked and frames.ArkannsQOLBagSellEquipment.enabled
+        and frames.ArkannsQOLBagAutoRepair.checked, "Both panels share merchant settings")
+    if advanced.shown then frames.ArkannsQOLBagAdvanced:OnClick() end
+    bagModule.OpenSettings("Vendre les objets gris")
+    assert(revealedControl == frames.ArkannsQOLBagAutoSell and not advanced.shown)
+    waitForSale = true
+    OpenMerchant()
+    MerchantEvent("MERCHANT_SHOW")
+    Tick()
+    Tick()
+    assert(repairCount == 1 and #sold == 1 and sold[1] == 1)
+    finishSale()
+    waitForSale = false
+    inventory[0][8] = Stock(11, 0)
+    Drain()
+    assert(#sold == 2 and sold[2] == 10, "Skip gear, non-gray, valueless, secret, quest, refundable, changed and excluded items")
+    CloseMerchant()
+    frames.ArkannsQOLBagQuickSellEquipment:OnClick(true)
+    local profile = bagModule.ExportSettings()
+    assert(profile.autoSell and profile.sellEquipment and profile.autoRepair)
+    assert(bagModule.ImportSettings({enabled = false, autoSell = false}))
+    assert(not frames.ArkannsQOLBagQuickSellEquipment.enabled and not frames.ArkannsQOLBagAutoSell.checked)
+    assert(bagModule.ImportSettings(profile))
+    money = 0
+    OpenMerchant()
+    Tick()
+    assert(#sold == 3 and sold[3] == 2 and repairCount == 1)
+    CloseMerchant()
+    Drain()
+    assert(#sold == 3 and inventory[0][8].itemID == 11)
+    money, combat = 100, true
+    OpenMerchant()
+    Drain()
+    assert(#sold == 3 and repairCount == 1)
+    CloseMerchant()
+    combat, repairable = false, false
+    OpenMerchant()
+    Drain()
+    assert(#sold == 4 and sold[4] == 11 and repairCount == 1)
+    CloseMerchant()
+    inventory[0][1], inventory[0][2] = Stock(12, 0), Stock(13, 0)
+    waitForSale = true
+    OpenMerchant()
+    Drain()
+    assert(#sold == 5 and sold[5] == 12 and inventory[0][2].itemID == 13,
+        "A sale that never updates the bags stops the batch")
+    MerchantEvent("ADDON_ACTION_BLOCKED", "QoLToolkit", "C_Container.UseContainerItem")
+    assert(not frames.ArkannsQOLBagAutoSell.enabled and not frames.ArkannsQOLBagQuickSellEquipment.enabled)
+    CloseMerchant()
+    RepairAllItems = nil
+    assert(bagModule.ImportSettings({enabled = false, autoSell = false}))
+    assert(not frames.ArkannsQOLBagQuickAutoRepair.enabled and not registered.MERCHANT_SHOW)
+    C_Timer, Enum, issecretvalue = oldTimer, oldEnum, oldSecret
+    InCombatLockdown, GetCursorInfo = oldLockdown, oldCursor
+    MerchantFrame, ItemLocation, C_PlayerInteractionManager = nil, nil, nil
+    SpellIsTargeting, InRepairMode, CanMerchantRepair, GetMoney, GetRepairAllCost = nil, nil, nil, nil, nil
+    print("PASS: shared bag merchant settings, profiles, filtered sales, cancellation, and personal repairs")
+
     frames.ArkannsQOLBagQuickMore:OnClick()
     assert(not quick.shown and opened == 2)
     shortcut:OnClick("RightButton")

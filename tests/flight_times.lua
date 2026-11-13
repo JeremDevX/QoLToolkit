@@ -183,8 +183,12 @@ PollAt(start + 75, false)
 assert(ArkannsQOLFlightsDB["70888,0,101>202"][1] == 75, "Different stop sequences remain distinct")
 
 build, chain = "70999", {1, 2, 3}
+Event("TAXIMAP_OPENED")
+hooks.TaxiNodeOnButtonEnter(destination)
+assert(tooltipText == "Past measurement · ≈ 1:40")
 start = Begin()
-assert(badges[2].text == "0:00" and badges[3].text == "Elapsed time", "A different build must not reuse the community value")
+assert(badges[2].text == "≈ 1:40" and badges[3].text == "Estimated arrival",
+    "A game update must reuse the saved personal duration in the countdown")
 Event("PLAYER_LEAVING_WORLD")
 assert(not driver.scripts.OnUpdate and not ArkannsQOLFlightsDB["70999,0,101>303>202"])
 onTaxi = false
@@ -228,7 +232,6 @@ local function CheckFactionArt(faction, creature, atlasInfo)
     ns.InitializeFlightTimes({})
     module.SetEnabled(true)
     driver = frames.ArkannsQOLFlightEvents
-    ns.FlightTimesData["70999,0,101>303>202"] = 90
     local started = Begin()
     local frame, panel = frames.ArkannsQOLFlightTimer, frames.ArkannsQOLFlightTimerPanel
     assert(frame.mouse == false and panel.mouse == false, "Flight decorations allow game clicks through")
@@ -250,10 +253,10 @@ local function CheckFactionArt(faction, creature, atlasInfo)
     elseif faction == "Alliance" then
         assert(progress.color[3] > progress.color[1], "Alliance uses a blue accent")
     end
-    PollAt(started + 89, true)
+    PollAt(started + 99, true)
     assert(badges[2].text == "≈ 0:01" and progress.shown)
-    PollAt(started + 90, true)
-    assert(badges[2].text == "1:30" and badges[3].text == ns.L("Temps écoulé") and not progress.shown,
+    PollAt(started + 100, true)
+    assert(badges[2].text == "1:40" and badges[3].text == ns.L("Temps écoulé") and not progress.shown,
         "An exceeded estimate returns to elapsed time")
     module.SetEnabled(false)
     assert(not frame.shown and not driver.scripts.OnUpdate)
@@ -274,4 +277,34 @@ Load("Locales/Locale.lua")
 Load("Locales/enUS-Flights.lua")
 CheckFactionArt("Alliance", "Gryphon", {width = 240, height = 140})
 CheckFactionArt("Horde", "Wyvern", {width = 240, height = 140})
-print("PASS: flight timing, route isolation, export, profiles, faction art, native fallbacks, and FR/EN display lifecycle")
+
+-- A fresh login after a patch receives the existing account save from WoW.
+frames, hooks, buttons, badges = {}, {}, {}, {}
+ForeverTooltipLibreDB = {flights = {enabled = true}}
+build, rank = "70938", 0
+local currentKey = "70938,0,101>303>202"
+ArkannsQOLFlightsDB = {
+    [route] = {100},
+    ["70900,0,101>303>202"] = {110, 120, 130},
+    ["70910,0,101>303>202"] = {0},
+    ["70920,1,101>303>202"] = {85},
+    ["70925,0,101>202"] = {90},
+    ["70950,0,101>303>202"] = {150},
+}
+ns.FlightTimesData[currentKey] = 105
+Load("Modules/FlightTimes.lua")
+ns.InitializeFlightTimes({})
+driver = frames.ArkannsQOLFlightEvents
+Event("TAXIMAP_OPENED")
+hooks.OnMouseEnter(destination)
+assert(tooltipText == "Ancienne mesure · ≈ 2:00",
+    "Use the latest valid personal median for the same stops and speed before the shared estimate")
+assert(not ArkannsQOLFlightsDB[currentKey], "An estimate must not become a measurement")
+
+start = Begin()
+PollAt(start + 115, false)
+assert(ArkannsQOLFlightsDB[currentKey][1] == 115 and ArkannsQOLFlightsDB["70900,0,101>303>202"][2] == 120)
+Event("TAXIMAP_OPENED")
+hooks.TaxiNodeOnButtonEnter(destination)
+assert(tooltipText == "Durée mesurée · 1:55", "The first measurement on the new build takes priority")
+print("PASS: flight timing, saved estimates across builds, route isolation, export, profiles, and FR/EN display lifecycle")

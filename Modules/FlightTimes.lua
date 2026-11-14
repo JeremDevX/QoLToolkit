@@ -133,7 +133,7 @@ end
 local function Estimate(key)
     if not key then return end
     local personal = SampleMedian(records[key])
-    if personal then return personal, "Durée mesurée · %s" end
+    if personal then return personal end
 
     local build, routeAndSpeed = key:match("^(%d+),(.+)$")
     build = tonumber(build)
@@ -148,10 +148,10 @@ local function Estimate(key)
             end
         end
     end
-    if previous then return previous, "Ancienne mesure · %s" end
+    if previous then return previous end
 
     local community = ns.FlightTimesData[key]
-    if IsSeconds(community) then return community, "Durée partagée · %s" end
+    if IsSeconds(community) then return community end
 end
 
 local function DurationText(seconds)
@@ -220,9 +220,9 @@ local function AddTaxiTooltip(owner, slot)
         or WoW.ReadValue(GameTooltip.GetOwner, GameTooltip) ~= owner then return end
     local key = RouteKey(route)
     if not key then return end
-    local seconds, label = Estimate(key)
-    local text = seconds and L(label):format(DurationText(seconds)) or L("Durée inconnue")
-    GameTooltip:AddLine(text, 1, .82, 0, true)
+    local seconds = Estimate(key)
+    if not seconds then return end
+    GameTooltip:AddLine(DurationText(seconds), 1, .82, 0, true)
     GameTooltip:Show()
 end
 

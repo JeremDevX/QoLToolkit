@@ -173,7 +173,12 @@ buttons["Export durations"]()
 assert(not frames.ArkannsQOLFlightExport.selected, "An empty export does not expose copyable data")
 Event("TAXIMAP_OPENED")
 hooks.TaxiNodeOnButtonEnter(destination)
-assert(tooltipText == "Shared duration · 1:42")
+assert(tooltipText == "1:42")
+rank, tooltipText = 1, nil
+hooks.TaxiNodeOnButtonEnter(destination)
+hooks.OnMouseEnter(destination)
+assert(not tooltipText, "Neither map adds a line without a known duration")
+rank = 0
 combat, tooltipText = true, nil
 hooks.OnMouseEnter(destination)
 assert(not tooltipText, "The native tooltip is untouched in combat")
@@ -195,7 +200,7 @@ assert(ArkannsQOLFlightsDB[route][1] == 100 and not driver.scripts.OnUpdate and 
 canReadRoute = true
 Event("TAXIMAP_OPENED")
 hooks.OnMouseEnter(destination)
-assert(tooltipText == "Measured duration · 1:40", "Personal measurements have priority")
+assert(tooltipText == "1:40", "Personal measurements have priority")
 local start = Begin()
 assert(badges[2].text == "1:40" and not badges[3].shown, "Use the current personal measurement directly")
 hooks.TaxiRequestEarlyLanding()
@@ -229,7 +234,7 @@ assert(ArkannsQOLFlightsDB["70888,0,101>202"][1] == 75, "Different stop sequence
 build, chain = "70999", {1, 2, 3}
 Event("TAXIMAP_OPENED")
 hooks.TaxiNodeOnButtonEnter(destination)
-assert(tooltipText == "Past measurement · 1:40")
+assert(tooltipText == "1:40")
 start = Begin()
 assert(badges[2].text == "1:40" and not badges[3].shown,
     "A game update must reuse the saved personal duration in the countdown")
@@ -511,7 +516,7 @@ ns.InitializeFlightTimes({})
 driver = frames.ArkannsQOLFlightEvents
 Event("TAXIMAP_OPENED")
 hooks.OnMouseEnter(destination)
-assert(tooltipText == "Ancienne mesure · 2:00",
+assert(tooltipText == "2:00",
     "Use the latest valid personal median for the same stops and speed before the shared estimate")
 assert(not ArkannsQOLFlightsDB[currentKey], "An estimate must not become a measurement")
 
@@ -520,7 +525,7 @@ PollAt(start + 115, false)
 assert(ArkannsQOLFlightsDB[currentKey][1] == 115 and ArkannsQOLFlightsDB["70900,0,101>303>202"][2] == 120)
 Event("TAXIMAP_OPENED")
 hooks.TaxiNodeOnButtonEnter(destination)
-assert(tooltipText == "Durée mesurée · 1:55", "The first measurement on the new build takes priority")
+assert(tooltipText == "1:55", "The first measurement on the new build takes priority")
 
 C_DurationUtil = {CreateDuration = function()
     return {SetTimeFromStart = function(self, started, estimate)
@@ -543,7 +548,10 @@ assert(not progress.timer and not progress.shown, "An early landing releases the
 PollAt(start + 10, false)
 start = Begin()
 assert(progress.timer and progress.timer.started == start and progress.timer ~= timer)
-PollAt(start + 115, false)
+PollAt(start + 103, false)
 assert(not progress.timer and not frames.ArkannsQOLFlightTimer.shown, "Landing releases the timer")
+Event("TAXIMAP_OPENED")
+hooks.OnMouseEnter(destination)
+assert(tooltipText == "1:49", "A new flight measurement updates the displayed median")
 
 print("PASS: flight timing, saved estimates across builds, route isolation, export, profiles, and FR/EN display lifecycle")

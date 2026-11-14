@@ -241,6 +241,21 @@ for source, translation in pairs({
     ["indisponible"] = "unavailable",
     ["Transmo indisponible"] = "Transmog unavailable",
     ["Transmos manquantes"] = "Missing appearances",
+    ["Test paladin : utilise cette commande hors combat."] = "Paladin test: use this command outside combat.",
+    ["Test paladin arrêté. Habillage habituel rétabli."] = "Paladin test stopped. Your usual decoration has been restored.",
+    ["Test paladin : active d’abord le cadre concerné dans Portraits de classe."] = "Paladin test: first enable the relevant frame in Class Portraits.",
+    ["Test paladin actif. /qtpaladin off pour revenir à l’habillage habituel."] = "Paladin test active. Use /qtpaladin off to restore your usual decoration.",
+    ["Test paladin indisponible : cadre natif ou texture inaccessible. Sélectionne un joueur pour tester la cible."] = "Paladin test unavailable: native frame or texture inaccessible. Select a player to test the target.",
+    ["Le cadre natif sera rétabli après le combat."] = "The native frame will be restored after combat.",
+    ["Cadre paladin personnalisé actif. /qtpaladin2 off pour rétablir Blizzard."] = "Custom paladin frame active. Use /qtpaladin2 off to restore Blizzard.",
+    ["Test paladin personnalisé indisponible : le cadre Blizzard est conservé."] = "Custom paladin test unavailable: the Blizzard frame has been preserved.",
+    ["Cadres de classe : utilise cette commande hors combat."] = "Class frames: use this command outside combat.",
+    ["Cadres de classe : active d’abord le cadre concerné dans Portraits de classe."] = "Class frames: first enable the relevant frame in Class Portraits.",
+    ["Cadres de classe arrêtés. Habillage habituel rétabli."] = "Class frames stopped. Your usual decoration has been restored.",
+    ["Cadres de classe personnalisés actifs. /qtclassframes off pour rétablir Blizzard."] = "Custom class frames active. Use /qtclassframes off to restore Blizzard.",
+    ["Cadre de classe indisponible : le cadre Blizzard est conservé."] = "Class frame unavailable: the Blizzard frame has been preserved.",
+    ["Cadre complet de classe"] = "Full class frame",
+    ["Le cadre complet de classe est affiché directement en jeu."] = "The full class frame is displayed directly in game.",
 }) do
     ns.English[source] = translation
 end

@@ -34,6 +34,9 @@ Modules\RankGuard.lua
 Modules\TargetDistance.lua
 Modules\TargetPortraitArt.lua
 Modules\TargetPortrait.lua
+Modules\PaladinFrameColors.lua
+Modules\PaladinFrameIndicators.lua
+Modules\PaladinCustomTest.lua
 Modules\BagSort.lua
 Modules\FlightTimesData.lua
 Modules\FlightTimes.lua

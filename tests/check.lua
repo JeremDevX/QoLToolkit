@@ -32,6 +32,51 @@ assert(#iconHeader == 18 and iconHeader:byte(3) == 2 and iconHeader:byte(17) == 
 assert(iconHeader:byte(13) == 128 and iconHeader:byte(14) == 0
     and iconHeader:byte(15) == 128 and iconHeader:byte(16) == 0, "Keep the icon square at 128 pixels")
 
+local paladinFile = assert(io.open("Media/PaladinFrameTest.tga", "rb"))
+local paladinData = paladinFile:read("*a"); paladinFile:close()
+assert(paladinData:byte(3) == 2 and paladinData:byte(17) == 32,
+    "The temporary paladin test uses an uncompressed 32-bit TGA")
+assert(paladinData:byte(13) == 0 and paladinData:byte(14) == 4
+    and paladinData:byte(15) == 0 and paladinData:byte(16) == 4, "The paladin atlas is power-of-two at 1024px")
+local paladinNS = {}
+chunks["Modules/TargetPortraitArt.lua"]("QoLToolkit", paladinNS)
+local paladinArt = paladinNS.TargetPortraitArt.paladinTest
+assert(paladinArt.side == 1024, "Calibrate paladin slices against the actual installed TGA dimensions")
+local function PaladinAlpha(x, y)
+    x, y = math.floor(x), math.floor(y)
+    if math.floor(paladinData:byte(18) / 32) % 2 == 0 then y = 1023 - y end
+    return paladinData:byte(18 + paladinData:byte(1) + (y * 1024 + x) * 4 + 4)
+end
+assert(PaladinAlpha(255, 285) == 0 and PaladinAlpha(650, 240) == 0,
+    "The portrait aperture and spaces between paladin sprites remain transparent")
+assert(PaladinAlpha(650, 570) > 200 and PaladinAlpha(650, 686) > 200,
+    "Both paladin rail sprites contain opaque artwork")
+for _, key in ipairs({"topFill", "bottomFill"}) do
+    local rect = paladinArt[key]
+    assert(PaladinAlpha((rect[1] + rect[2]) / 2, rect[4] + 1) < 16,
+        "Paladin slice must not cut through the opaque stroke: " .. key)
+end
+
+local customFile = assert(io.open("Media/PaladinCustomFrame.tga", "rb"))
+local customData = customFile:read("*a"); customFile:close()
+local customArt = paladinNS.TargetPortraitArt.paladinCustom
+assert(customData:byte(3) == 2 and customData:byte(17) == 32,
+    "The full custom paladin frame uses an uncompressed 32-bit TGA")
+assert(customData:byte(13) == 0 and customData:byte(14) == 4
+    and customData:byte(15) == 0 and customData:byte(16) == 2
+    and customArt.width == 1024 and customArt.height == 512 and customArt.displayWidth == 232,
+    "The full custom frame keeps its 1024 by 512 source and proportional UI width")
+local function CustomPaladinAlpha(x, y)
+    if math.floor(customData:byte(18) / 32) % 2 == 0 then y = 511 - y end
+    return customData:byte(18 + customData:byte(1) + (y * 1024 + x) * 4 + 4)
+end
+assert(CustomPaladinAlpha(0, 0) == 0 and CustomPaladinAlpha(210, 230) == 0
+    and CustomPaladinAlpha(600, 230) == 0,
+    "The full custom skin leaves its exterior, portrait and central bar panel transparent")
+assert(CustomPaladinAlpha(625, 100) > 240 and CustomPaladinAlpha(213, 390) > 240
+    and customArt.name[2] + customArt.name[4] < customArt.health[2],
+    "Both text plaques stay opaque while the upper name plaque remains above the health row")
+
 local function CheckLocale(locale, expected)
     GetLocale = locale and function() return locale end or nil
     local ns = {}
@@ -930,7 +975,7 @@ end
 print("PASS: bag border geometry, inner glow, native restoration, and backpack settings")
 
 -- Keep each simulation isolated from the globals used above.
-for _, path in ipairs({"tests/session_history.lua","tests/session_history_ui.lua","tests/talent_plan.lua","tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/advanced_bounds.lua","tests/paladin_colors.lua","tests/paladin_indicators.lua","tests/ui_utilities.lua","tests/rank_events.lua","tests/ui_modules.lua","tests/flight_times.lua"}) do
+for _, path in ipairs({"tests/session_history.lua","tests/session_history_ui.lua","tests/talent_plan.lua","tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/advanced_bounds.lua","tests/class_frame_art.lua","tests/target_distance_layout.lua","tests/paladin_colors.lua","tests/paladin_indicators.lua","tests/ui_utilities.lua","tests/rank_events.lua","tests/ui_modules.lua","tests/flight_times.lua"}) do
     local chunk = assert(loadfile(path))
     local environment = setmetatable({}, {__index = testGlobals})
     environment._G = environment

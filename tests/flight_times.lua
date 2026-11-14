@@ -19,8 +19,6 @@ function methods:SetValue(value)
     if self.scripts.OnValueChanged then self.scripts.OnValueChanged(self, value) end
 end
 function methods:GetValue() return self.value end
-function methods:SetThumbTexture() self.thumb = CreateFrame("Texture", nil, self) end
-function methods:GetThumbTexture() return self.thumb end
 function methods:SetAlpha(alpha) self.alpha = alpha end
 function methods:SetScale(scale) self.scale = scale end
 function methods:SetShown(shown) self.shown = shown end
@@ -42,16 +40,24 @@ function methods:SetChecked(value) self.checked = value end
 function methods:Show() self.shown = true end
 function methods:Hide() self.shown = false end
 function methods:IsShown() return self.shown end
-function methods:SetFocus() self.focus = true end
+function methods:SetFocus()
+    if self.focus then return end
+    self.focus = true
+    if self.scripts.OnEditFocusGained then self.scripts.OnEditFocusGained(self) end
+end
 function methods:HasFocus() return self.focus == true end
-function methods:ClearFocus() self.focus = false end
+function methods:ClearFocus()
+    local focused = self.focus
+    self.focus = false
+    if focused and self.scripts.OnEditFocusLost then self.scripts.OnEditFocusLost(self) end
+end
 function methods:HighlightText() self.selected = true end
 function methods:RegisterEvent(event) self.events[event] = true end
 function methods:UnregisterAllEvents() self.events = {} end
 
-CreateFrame = function(kind, name, parent)
+CreateFrame = function(kind, name, parent, template)
     local frame = setmetatable({scripts = {}, events = {}, textures = {}, kind = kind, parent = parent,
-        width = 360, height = 240, shown = true}, {__index = methods})
+        width = 360, height = 240, shown = true, template = template}, {__index = methods})
     if name then frames[name] = frame end
     return frame
 end
@@ -297,6 +303,7 @@ local function SetRange(key, value)
 end
 local function EnterValue(key, value)
     local input = frames["ArkannsQOL_" .. key .. "Value"]
+    input:SetFocus()
     input:SetText(value)
     input.scripts.OnEnterPressed(input)
 end
@@ -309,6 +316,26 @@ Choose("flightBeasts", ns.L("Gauche"))
 Choose("flightBeastAlign", "Top")
 SetRange("flightBeastSize", 91)
 EnterValue("flightBeastGap", "17")
+local gapInput = frames.ArkannsQOL_flightBeastGapValue
+gapInput:SetFocus()
+gapInput:SetText("18")
+gapInput:ClearFocus()
+assert(live.ornaments.left.point[4] == -18, "Leaving the field must apply the typed value")
+gapInput:SetFocus()
+gapInput:SetText("17")
+gapInput.scripts.OnTabPressed(gapInput)
+assert(live.ornaments.left.point[4] == -17, "Tab must apply the typed value")
+gapInput:SetFocus()
+gapInput:SetText("-60")
+gapInput.scripts.OnEscapePressed(gapInput)
+assert(live.ornaments.left.point[4] == -17 and gapInput:GetText() == "17", "Escape must cancel editing")
+gapInput:SetFocus()
+SetRange("flightBeastGap", 19)
+gapInput:ClearFocus()
+assert(live.ornaments.left.point[4] == -19, "An untouched field must not undo a slider change")
+EnterValue("flightBeastGap", "17")
+local gapSlider = frames.ArkannsQOL_flightBeastGap
+assert(gapSlider.template == "UISliderTemplate" and gapSlider.point[2] == -86 and gapSlider.point[3] == 9)
 assert(live.ornaments.left.shown and not live.ornaments.right.shown)
 assert(live.ornaments.left.height == 91 and live.height == 91 and live.panel.point[5] == 29)
 assert(live.ornaments.left.point[4] == -17 and live.ornaments.left.point[5] == -29)

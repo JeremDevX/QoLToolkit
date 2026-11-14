@@ -580,19 +580,15 @@ local function RegisterSettings(root)
         end
         local input = UI.Input(row, "ArkannsQOL_" .. key .. "Value", 0, 0, 58)
         input:ClearAllPoints()
-        input:SetPoint("BOTTOMRIGHT", 0, 4)
-        local slider = CreateFrame("Slider", "ArkannsQOL_" .. key, row, "BackdropTemplate")
-        slider:SetPoint("BOTTOMLEFT", 0, 5)
-        slider:SetPoint("BOTTOMRIGHT", -70, 5)
+        input:SetPoint("BOTTOMRIGHT", 0, 6)
+        input:SetJustifyH("CENTER")
+        local slider = CreateFrame("Slider", "ArkannsQOL_" .. key, row, "UISliderTemplate")
+        slider:SetPoint("BOTTOMLEFT", 16, 9)
+        slider:SetPoint("BOTTOMRIGHT", -86, 9)
         slider:SetHeight(18)
-        slider:SetOrientation("HORIZONTAL")
         slider:SetMinMaxValues(minimum, maximum)
         slider:SetValueStep(1)
         slider:SetObeyStepOnDrag(true)
-        slider:SetBackdrop({bgFile = "Interface\\Buttons\\UI-SliderBar-Background",
-            edgeFile = "Interface\\Buttons\\UI-SliderBar-Border", edgeSize = 8})
-        slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
-        slider:GetThumbTexture():SetSize(28, 28)
         local function Commit(value)
             local number = Numeric(value, minimum, maximum)
             if number and config.appearance[key] ~= number then
@@ -604,17 +600,28 @@ local function RegisterSettings(root)
             if not syncing then Commit(value) end
         end)
         local function RestoreValue() input:SetText(AppearanceLabel(choice, config.appearance[key])) end
-        input:SetScript("OnEnterPressed", function(self)
-            local text = self:GetText():gsub("%%", "")
-            Commit(tonumber(text))
-            RestoreValue()
-            self:ClearFocus()
-        end)
+        local originalText
         input:SetScript("OnEditFocusGained", function(self)
-            self:SetText(tostring(config.appearance[key]))
+            originalText = tostring(config.appearance[key])
+            self:SetText(originalText)
             self:HighlightText()
         end)
-        input:SetScript("OnEditFocusLost", RestoreValue)
+        input:SetScript("OnEditFocusLost", function(self)
+            local text = self:GetText()
+            if originalText and text ~= originalText then
+                local number = text:match("^%s*([+-]?%d+)%s*%%?%s*$")
+                Commit(tonumber(number))
+            end
+            originalText = nil
+            RestoreValue()
+        end)
+        local function Finish(self) self:ClearFocus() end
+        input:SetScript("OnEnterPressed", Finish)
+        input:SetScript("OnTabPressed", Finish)
+        input:SetScript("OnEscapePressed", function(self)
+            originalText = nil
+            self:ClearFocus()
+        end)
         if unit then caption:SetText(L(source) .. " (%)") end
         return {frame = row, input = input, height = note and 78 or 60, update = function(value)
             if slider:GetValue() ~= value then slider:SetValue(value) end

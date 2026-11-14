@@ -3,6 +3,7 @@ for source, translation in pairs({
     ["Temps de vol"] = "Flight times",
     ["Chronométrer les vols"] = "Time flight paths",
     ["Affiche la durée des trajets et le temps restant en vol."] = "Shows route durations and time remaining in flight.",
+    ["Durée du trajet : %s"] = "Travel time: %s",
     ["Temps écoulé"] = "Elapsed time",
     ["Escale demandée"] = "Landing requested",
     ["En vol"] = "In flight",

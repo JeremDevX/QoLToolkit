@@ -222,7 +222,7 @@ local function AddTaxiTooltip(owner, slot)
     if not key then return end
     local seconds = Estimate(key)
     if not seconds then return end
-    GameTooltip:AddLine(DurationText(seconds), 1, .82, 0, true)
+    GameTooltip:AddLine(L("Durée du trajet : %s"):format(DurationText(seconds)), 1, .82, 0, true)
     GameTooltip:Show()
 end
 

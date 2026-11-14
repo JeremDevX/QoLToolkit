@@ -72,10 +72,11 @@ function methods:GetFontString()
     if not self.fontString then self.fontString=Frame(); self.fontString:SetText(self:GetText()) end
     return self.fontString
 end
-function methods:SetNormalTexture() self.normal=Frame() end
+function methods:SetNormalTexture(path) self.normal=Frame(); self.normal.path=path end
 function methods:GetNormalTexture() return self.normal end
-function methods:SetHighlightTexture() self.highlight=Frame() end
+function methods:SetHighlightTexture(path) self.highlight=Frame(); self.highlight.path=path end
 function methods:GetHighlightTexture() return self.highlight end
+function methods:SetPushedTexture(path) self.pushed=path end
 function methods:SetThumbTexture() self.thumb=Frame() end
 function methods:GetThumbTexture() return self.thumb end
 function methods:SetScrollChild(frame) self.child=frame end
@@ -698,9 +699,14 @@ query.scripts.OnEnterPressed()
 assert(root:IsShown() and not searchLayer:IsShown(),"Minimap search reaches its Home control from any module")
 assert(UI.OpenSettings("talents"))
 settingsWindow:SetSize(600,480)
-frames.ArkannsQOLSettingsResize.scripts.OnMouseDown(nil,"LeftButton")
+local resize=frames.ArkannsQOLSettingsResize
+assert(resize.parent==settingsWindow and resize.points.BOTTOMRIGHT and resize:GetText()=="")
+assert(resize:GetNormalTexture().path=="Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+assert(resize:GetHighlightTexture().path=="Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+assert(resize.pushed=="Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+resize.scripts.OnMouseDown(resize,"LeftButton")
 assert(settingsWindow.sizing=="BOTTOMRIGHT")
-frames.ArkannsQOLSettingsResize.scripts.OnMouseUp()
+resize.scripts.OnMouseUp()
 assert(not settingsWindow.sizing)
 env.UIParent:SetSize(560,420)
 UI.FitSettingsWindow()

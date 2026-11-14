@@ -340,6 +340,14 @@ local function CreateBadge(parent, name)
     return view
 end
 
+local function ClearProgressTimer()
+    if not flight or not flight.progressTimer then return end
+    -- Setting a fixed range releases the native timer (EncounterTimelineTimerEventMixin:Reset).
+    badge.progress:SetMinMaxValues(0, 0)
+    badge.progress:SetMinMaxValues(0, 1)
+    flight.progressTimer = false
+end
+
 local function ShowTime(elapsed)
     if not badge then
         badge = CreateBadge(UIParent, "ArkannsQOLFlightTimer")
@@ -351,13 +359,24 @@ local function ShowTime(elapsed)
         badge:Show()
     end
     local seconds = math.floor(elapsed)
+    local countingDown = flight.estimate and seconds < flight.estimate
+    if countingDown then
+        if flight.progressTimer == nil then
+            local duration = WoW.ReadValue(C_DurationUtil and C_DurationUtil.CreateDuration)
+            flight.progressTimer = duration ~= nil
+                and WoW.Read(duration.SetTimeFromStart, duration, flight.started, flight.estimate) == "ok"
+                and WoW.Read(badge.progress.SetTimerDuration, badge.progress, duration) == "ok"
+        end
+        if not flight.progressTimer then badge.progress:SetValue(elapsed / flight.estimate) end
+    else
+        ClearProgressTimer()
+    end
     if flight.lastSecond == seconds then return end
     flight.lastSecond = seconds
-    badge.countingDown = flight.estimate and seconds < flight.estimate
-    if badge.countingDown then
+    badge.countingDown = countingDown
+    if countingDown then
         badge.time:SetText(DurationText(flight.estimate - seconds))
         badge.caption:Hide()
-        badge.progress:SetValue(math.min(1, elapsed / flight.estimate))
     else
         badge.time:SetText(DurationText(seconds))
         badge.caption:SetText(L(flight.interrupted and "Escale demandée" or "Temps écoulé"))
@@ -367,6 +386,7 @@ local function ShowTime(elapsed)
 end
 
 local function Stop()
+    ClearProgressTimer()
     pending, flight = nil, nil
     driver:SetScript("OnUpdate", nil)
     if badge then badge:Hide() end

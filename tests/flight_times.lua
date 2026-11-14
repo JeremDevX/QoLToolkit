@@ -13,7 +13,10 @@ function methods:SetAtlas(atlas) self.atlas = atlas end
 function methods:SetColorTexture(...) self.color = {...} end
 function methods:SetStatusBarTexture(texture) self.texture = texture end
 function methods:SetStatusBarColor(...) self.color = {...} end
-function methods:SetMinMaxValues(minimum, maximum) self.minimum, self.maximum = minimum, maximum end
+function methods:SetMinMaxValues(minimum, maximum)
+    self.minimum, self.maximum = minimum, maximum
+    if minimum == 0 and maximum == 0 then self.timer = nil end
+end
 function methods:SetValue(value)
     self.value = value
     if self.scripts.OnValueChanged then self.scripts.OnValueChanged(self, value) end
@@ -182,6 +185,8 @@ PollAt(2, true)
 assert(badges[1].text == "Destination" and badges[1].fontSize == 14 and badges[2].text == "1:42" and not badges[3].shown)
 local progress = frames.ArkannsQOLFlightTimer.progress
 assert(progress.shown and progress.minimum == 0 and progress.maximum == 1 and progress.value == 0)
+PollAt(2.5, true)
+assert(progress.value == .5 / 102 and badges[2].text == "1:42", "The fallback bar updates between text changes")
 PollAt(62, true)
 assert(badges[2].text == "0:42" and math.abs(progress.value - 60 / 102) < .0001)
 PollAt(102, false)
@@ -516,4 +521,29 @@ assert(ArkannsQOLFlightsDB[currentKey][1] == 115 and ArkannsQOLFlightsDB["70900,
 Event("TAXIMAP_OPENED")
 hooks.TaxiNodeOnButtonEnter(destination)
 assert(tooltipText == "Durée mesurée · 1:55", "The first measurement on the new build takes priority")
+
+C_DurationUtil = {CreateDuration = function()
+    return {SetTimeFromStart = function(self, started, estimate)
+        self.started, self.estimate = started, estimate
+    end}
+end}
+function methods:SetTimerDuration(timer)
+    assert(not self.timer, "Bind the timer only once per flight")
+    self.timer = timer
+end
+start = Begin()
+progress = frames.ArkannsQOLFlightTimer.progress
+local timer = assert(progress.timer)
+assert(timer.started == start and timer.estimate == 115 and progress.shown)
+PollAt(start + 1.5, true)
+assert(progress.timer == timer and badges[2].text == "1:54", "Text updates leave the native timer running")
+hooks.TaxiRequestEarlyLanding()
+PollAt(start + 1.7, true)
+assert(not progress.timer and not progress.shown, "An early landing releases the timer")
+PollAt(start + 10, false)
+start = Begin()
+assert(progress.timer and progress.timer.started == start and progress.timer ~= timer)
+PollAt(start + 115, false)
+assert(not progress.timer and not frames.ArkannsQOLFlightTimer.shown, "Landing releases the timer")
+
 print("PASS: flight timing, saved estimates across builds, route isolation, export, profiles, and FR/EN display lifecycle")

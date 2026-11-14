@@ -1,20 +1,17 @@
-QoL Toolkit 0.1.5 for WoW Forever 1.60.1
+QoL Toolkit 0.1.6 for WoW Forever 1.60.1
 
 Added
 
-- Class Portraits. Decorate the native player and target portraits with class-themed ornaments. Choose Subtle, Ornate, or Spectacular styling; adjust colors, glow, size, and placement; and preview each class. Keep the additional target class medallion optional.
-- Flight Times. Show a faction-themed flight timer with elapsed time, an estimated arrival countdown and progress when a duration is known, and an early-landing status.
-- Session Journal. Add a subtle faction watermark that follows the journal's height.
+- Class Portraits. Use full class-themed player and target frames for all nine classes. Full frames are enabled by default and can be switched back to portrait ornaments for each frame. Paladin frames include class-specific resource colors and healing indicators.
+- Bags. Optionally sell poor-quality items and repair your own gear when visiting a merchant. A coin marks items eligible for automatic sale.
+- Effect Reminders. Set up class-specific reminders that warn when none of the effects in a selected family is active.
 
 Improved
 
-- Settings navigation. List all module pages in the wide sidebar and search from the current page without returning to Home. Keep the search query for repeated lookups.
-- Settings layout. Use more of the available screen width and place independent groups side by side in tooltips, distance, journal, talents, and spell rank settings. Compact windows return to one column.
-- Home. Align feature card dimensions and actions across modules and favorites. Keep Appearance, Layout, Profiles, and Diagnostics above the cards.
-- Appearance and bags. Simplify customization sections and improve responsive panel layouts.
+- Flight Times. Customize the timer ornaments and faction emblems. The settings preview is larger, and numeric fields support precise adjustments.
+- Flight Times. Smooth the in-flight progress bar and show a single labeled travel time for known routes on the flight map.
+- Bags and settings. Open backpack options using the Blizzard-style gear button and resize the settings window with the native resize grip.
 
 Fixed
 
-- Target Distance. Use public fallback anchors when the target name is restricted and preserve the selected name-relative placement in instances.
-- Portraits. Integrate ornaments behind the native portrait and preserve a disabled module and existing local customization when importing older profiles.
-- Settings search. Open the minimap visibility control from any module page.
+- Flight Times. Reuse recorded durations after a client update and keep the preview stable while editing sliders or entering values.

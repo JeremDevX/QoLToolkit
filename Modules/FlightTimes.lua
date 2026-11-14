@@ -492,8 +492,7 @@ local function RegisterSettings(root)
     local previewArea = CreateFrame("Frame", nil, panel)
     previewArea:SetPoint("TOPLEFT", 16, -42)
     previewArea:SetPoint("TOPRIGHT", -16, -42)
-    local previewHeight = 192
-    previewArea:SetHeight(previewHeight)
+    previewArea:SetHeight(82)
     local preview, screenPreview
     local previewCenterY = 0
 
@@ -586,7 +585,9 @@ local function RegisterSettings(root)
         slider:SetPoint("BOTTOMLEFT", 16, 9)
         slider:SetPoint("BOTTOMRIGHT", -86, 9)
         slider:SetHeight(18)
-        slider:SetMinMaxValues(minimum, maximum)
+        -- A positive native position also initializes the thumb when the setting starts at zero.
+        local offset = 1 - minimum
+        slider:SetMinMaxValues(1, maximum + offset)
         slider:SetValueStep(1)
         slider:SetObeyStepOnDrag(true)
         local function Commit(value)
@@ -597,7 +598,7 @@ local function RegisterSettings(root)
             end
         end
         slider:SetScript("OnValueChanged", function(_, value)
-            if not syncing then Commit(value) end
+            if not syncing then Commit(value - offset) end
         end)
         local function RestoreValue() input:SetText(AppearanceLabel(choice, config.appearance[key])) end
         local originalText
@@ -624,7 +625,8 @@ local function RegisterSettings(root)
         end)
         if unit then caption:SetText(L(source) .. " (%)") end
         return {frame = row, input = input, height = note and 78 or 60, update = function(value)
-            if slider:GetValue() ~= value then slider:SetValue(value) end
+            local position = value + offset
+            if slider:GetValue() ~= position then slider:SetValue(position) end
             if not input:HasFocus() then RestoreValue() end
         end}
     end
@@ -687,17 +689,16 @@ local function RegisterSettings(root)
         output:SetWidth(width)
         local extra = output:IsShown() and output:GetHeight() or 0
         body:SetSize(width, y + 120 + extra)
-        UI.ClampScroll(scroll, body:GetHeight())
         if preview then
-            local aspect = math.max(preview.ornaments.left.aspect or 32 / 68, preview.ornaments.right.aspect or 32 / 68)
-            local maxWidth = panelWidth + 2 * (maxBeastSize * aspect + maxBeastGap)
-            -- Fit the largest decorations around a fixed panel center.
-            local maxHeight = 2 * (maxBeastSize + maxBeastY) - panelHeight
-            local scale = math.min((width + 18) / maxWidth, (previewHeight - 8) / maxHeight, config.appearance.flightScale / 100 * .55)
+            local span = preview:GetHeight() + 2 * math.abs(previewCenterY)
+            local heightLimit = math.max(66, math.floor(panel:GetHeight() * .34) - 16)
+            local scale = math.min((width + 18) / preview:GetWidth(), heightLimit / span, config.appearance.flightScale / 100 * 1.1)
+            previewArea:SetHeight(math.max(82, math.ceil(span * scale) + 16))
             preview:SetScale(scale)
             preview:ClearAllPoints()
             preview:SetPoint("CENTER", previewArea, "CENTER", 0, previewCenterY)
         end
+        UI.ClampScroll(scroll, body:GetHeight())
     end
     export = UI.Button(body, nil, exportLabel, 0, 0, 215, function()
         local lines = ExportLines()

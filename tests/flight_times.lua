@@ -281,9 +281,11 @@ local preview, live = frames.ArkannsQOLFlightPreview, frames.ArkannsQOLFlightTim
 local oldProfile = module.ExportSettings()
 assert(preview.scale < 1 and preview.width * preview.scale <= settings.width - 32)
 local narrowScale = preview.scale
-settings:SetWidth(900)
+settings:SetSize(900, 650)
 settings.scripts.OnSizeChanged()
 assert(preview.scale > narrowScale and preview.width * preview.scale <= settings.width - 32)
+assert(preview.scale >= 1 and preview.parent.height <= 110, "Use the available width instead of a tall preview slot")
+local regularPreviewHeight = preview.parent.height
 assert(preview.progress.shown and not live.shown and not driver.scripts.OnUpdate)
 module.OpenSettings("Emblèmes de faction")
 assert(ns.revealed == frames.ArkannsQOL_flightEmblems)
@@ -299,7 +301,8 @@ local screenPreview = frames.ArkannsQOLFlightScreenSample
 assert(screenPreview.shown and not driver.scripts.OnUpdate and not live.shown)
 
 local function SetRange(key, value)
-    frames["ArkannsQOL_" .. key]:SetValue(value)
+    local slider = frames["ArkannsQOL_" .. key]
+    slider:SetValue(slider.value + value - module.ExportSettings().appearance[key])
 end
 local function EnterValue(key, value)
     local input = frames["ArkannsQOL_" .. key .. "Value"]
@@ -309,6 +312,14 @@ local function EnterValue(key, value)
 end
 
 start = Begin()
+for _, key in ipairs({"flightBeastGap", "flightBeastY", "flightEmblemY", "flightX", "flightEmblemOpacity", "flightTop"}) do
+    local slider = frames["ArkannsQOL_" .. key]
+    assert(slider.minimum >= 1 and slider.value >= slider.minimum, "The native thumb always has a positive position")
+    local zeroPosition = slider.value - oldProfile.appearance[key]
+    EnterValue(key, "0")
+    assert(slider.value == zeroPosition and module.ExportSettings().appearance[key] == 0)
+    SetRange(key, oldProfile.appearance[key])
+end
 local previewScale, timerTop = preview.scale, live.point[5] - live.height + live.panel.point[5] + live.panel.height
 Choose("flightBeasts", "Hidden")
 assert(not live.ornaments.left.shown and not preview.ornaments.right.shown and preview.width == 320)
@@ -366,6 +377,8 @@ EnterValue("flightTop", "181")
 assert(live.scale == 1.2 and math.abs(live.point[4] * live.scale + 83) < .00001
     and math.abs((live.point[5] - live.height + live.panel.point[5] + live.panel.height) * live.scale + 181) < .00001)
 assert(screenPreview.scale == live.scale and screenPreview.point[4] == live.point[4] and screenPreview.point[5] == live.point[5])
+assert(preview.parent.height > regularPreviewHeight and preview.width * preview.scale <= settings.width - 32,
+    "Reserve extra height only when the configured decorations need it")
 
 local progressCheck = frames.ArkannsQOLFlightShowProgress
 progressCheck:SetChecked(false)

@@ -10,10 +10,34 @@ local appearanceRefresh
 local expanded, effectiveAppearance, activeStyle = false, nil, nil
 local RestorePosition
 local events, observingEffects
-local effectEvents = {"UNIT_AURA", "MINIMAP_UPDATE_TRACKING", "UPDATE_SHAPESHIFT_FORM", "UPDATE_SHAPESHIFT_FORMS", "SPELLS_CHANGED"}
+local effectEvents = {"UNIT_AURA", "MINIMAP_UPDATE_TRACKING", "UPDATE_SHAPESHIFT_FORM", "UPDATE_SHAPESHIFT_FORMS", "SPELLS_CHANGED", "PLAYER_SPECIALIZATION_CHANGED"}
 local priorityLabels = {[1] = L("Haute"), [2] = L("Normale"), [3] = L("Basse")}
-local labels = {aura = L("Auras / postures"), buff = "Buffs", tracking = L("Minicarte")}
+local labels = {aura = L("Effets de classe"), buff = "Buffs", tracking = L("Minicarte")}
 local order = Model.KindOrder
+-- Spell IDs identify legacy rules and player-cast buffs. Localized names also match other ranks.
+local families = {
+    warriorStances = {class = "WARRIOR", name = L("Postures"), missing = L("Aucune posture active"), forms = true, allForms = true,
+        spells = {2457, 71, 2458}},
+    paladinAuras = {class = "PALADIN", name = L("Auras"), missing = L("Aucune aura active"), forms = true, allForms = true,
+        spells = {465, 7294, 19746, 19876, 19888, 19891, 20218}},
+    paladinSeals = {class = "PALADIN", name = L("Sceaux"), missing = L("Aucun sceau actif"),
+        spells = {20154, 21084, 21082, 20375, 20164, 20165, 20166, 1311649}},
+    druidForms = {class = "DRUID", name = L("Formes"), missing = L("Aucune forme active"), forms = true, allForms = true,
+        spells = {5487, 9634, 768, 783, 1066, 24858}},
+    priestShadowform = {class = "PRIEST", name = L("Forme d’ombre"), missing = L("Aucune forme d’ombre active"), forms = true,
+        spells = {15473}},
+    rogueStealth = {class = "ROGUE", name = L("Furtivité"), missing = L("Furtivité inactive"), forms = true,
+        spells = {1784, 1785, 1786, 1787, 1256867}},
+    hunterAspects = {class = "HUNTER", name = L("Aspects"), missing = L("Aucun aspect actif"),
+        spells = {13163, 13165, 5118, 13159, 13161, 20043, 469145, 415423}},
+    mageArmors = {class = "MAGE", name = L("Armures"), missing = L("Aucune armure active"),
+        spells = {168, 7302, 6117, 7300, 7301, 7320, 10219, 10220, 22782, 22783}},
+    warlockArmors = {class = "WARLOCK", name = L("Armure démoniaque"), missing = L("Aucune armure démoniaque active"),
+        spells = {687, 696, 706, 1086, 11733, 11734, 11735}},
+    shamanShields = {class = "SHAMAN", name = L("Boucliers élémentaires"), missing = L("Aucun bouclier élémentaire actif"),
+        spells = {324, 325, 905, 945, 8134, 10431, 10432, 408510, 408511}},
+}
+local playerClass
 
 local defaults = {
     layout = "vertical", columns = 2, width = 400, gap = 6, padding = 12,
@@ -83,30 +107,6 @@ local function StyleText(text, size, color)
     text:SetJustifyH(db.appearance.align)
     text:SetShadowColor(0, 0, 0, db.appearance.shadow and 0.8 or 0)
     text:SetShadowOffset(1, -1)
-end
-
-local function NormalizeBehavior()
-    for key, value in pairs({enabled = true, grouped = false, compact = false, expandOnHover = true}) do
-        if type(db[key]) ~= "boolean" then db[key] = value end
-    end
-    if type(db.visibleLimit) ~= "number" or db.visibleLimit ~= db.visibleLimit or db.visibleLimit < 1 or db.visibleLimit > 20 then db.visibleLimit = 6 end
-    db.visibleLimit = math.floor(db.visibleLimit)
-    for _, key in ipairs({"auras", "tracking"}) do
-        local clean, seen = {}, {}
-        for _, rule in ipairs(type(db[key]) == "table" and db[key] or {}) do
-            if type(rule) == "table" and type(rule.name) == "string" and rule.name ~= "" and #rule.name <= 160 and not rule.name:find("[|\r\n]") and not seen[rule.name:lower()] then
-                seen[rule.name:lower()] = true
-                if key == "tracking" then rule.kind = "tracking" elseif rule.kind ~= "aura" then rule.kind = "buff" end
-                if rule.priority ~= 1 and rule.priority ~= 2 and rule.priority ~= 3 then rule.priority = 2 end
-                rule.spellID = ValidID(rule.spellID) and rule.spellID or nil
-                rule.icon = ValidID(rule.icon) and rule.icon or nil
-                clean[#clean + 1] = rule
-            end
-        end
-        if type(db[key]) ~= "table" then db[key] = {} end
-        for index in pairs(db[key]) do db[key][index] = nil end
-        for index, rule in ipairs(clean) do db[key][index] = rule end
-    end
 end
 
 local function DisplayEffects(effects)
@@ -209,7 +209,7 @@ local function HasSpellLookup()
 end
 
 local function HasForms()
-    return HasSpellLookup() and type(GetNumShapeshiftForms) == "function" and type(GetShapeshiftFormInfo) == "function"
+    return type(GetNumShapeshiftForms) == "function" and type(GetShapeshiftFormInfo) == "function"
 end
 
 local function ReadCount(api)
@@ -241,10 +241,91 @@ local function Spell(value)
 end
 
 local function RuleName(rule)
+    if rule.family then return families[rule.family].name end
     return rule.spellID and Spell(rule.spellID) or rule.name
 end
 
+local function MatchesFamily(family, predicate)
+    for _, spellID in ipairs(family.spells) do
+        if predicate(spellID) then return true end
+    end
+    return false
+end
+
+local function FindFamily(rule)
+    if not playerClass then return end
+    local name = RuleName(rule):lower()
+    for id, family in pairs(families) do
+        if family.class == playerClass and MatchesFamily(family, function(spellID)
+            if rule.spellID == spellID then return true end
+            local spellName = Spell(spellID)
+            return spellName and spellName:lower() == name
+        end) then return id end
+    end
+end
+
+local function Class()
+    local _, _, class = WoW.Read(UnitClass, "player")
+    if type(class) == "string" then return class end
+end
+
+local function ValidRuleName(name)
+    return type(name) == "string" and name ~= "" and #name <= 160 and not name:find("[|\r\n]")
+end
+
+local function NormalizeAuras(auras, migrate)
+    local clean, seen = {}, {}
+    for _, rule in ipairs(type(auras) == "table" and auras or {}) do
+        if type(rule) == "table" then
+            local priority = priorityLabels[rule.priority] and rule.priority or 2
+            local family = families[rule.family] and rule.family
+            if not family and ValidRuleName(rule.name) then
+                local spellID = ValidID(rule.spellID) and rule.spellID or nil
+                if migrate then family = FindFamily({name = rule.name, spellID = spellID}) end
+                if not family and not seen[rule.name:lower()] then
+                    seen[rule.name:lower()] = true
+                    clean[#clean + 1] = {name = rule.name, kind = rule.kind == "aura" and "aura" or "buff",
+                        priority = priority, spellID = spellID, icon = ValidID(rule.icon) and rule.icon or nil}
+                end
+            end
+            if family then
+                local existing = seen[family]
+                if existing then
+                    existing.priority = math.min(existing.priority, priority)
+                else
+                    local entry = {family = family, priority = priority}
+                    seen[family] = entry
+                    clean[#clean + 1] = entry
+                end
+            end
+        end
+    end
+    return clean
+end
+
+local function NormalizeBehavior(migrate)
+    for key, value in pairs({enabled = true, grouped = false, compact = false, expandOnHover = true}) do
+        if type(db[key]) ~= "boolean" then db[key] = value end
+    end
+    if type(db.visibleLimit) ~= "number" or db.visibleLimit ~= db.visibleLimit or db.visibleLimit < 1 or db.visibleLimit > 20 then db.visibleLimit = 6 end
+    db.visibleLimit = math.floor(db.visibleLimit)
+    db.auras = NormalizeAuras(db.auras, migrate)
+    local tracking, seen = {}, {}
+    for _, rule in ipairs(type(db.tracking) == "table" and db.tracking or {}) do
+        if type(rule) == "table" and ValidRuleName(rule.name) and not seen[rule.name:lower()] then
+            seen[rule.name:lower()] = true
+            rule.kind = "tracking"
+            if not priorityLabels[rule.priority] then rule.priority = 2 end
+            rule.spellID = ValidID(rule.spellID) and rule.spellID or nil
+            rule.icon = ValidID(rule.icon) and rule.icon or nil
+            tracking[#tracking + 1] = rule
+        end
+    end
+    db.tracking = tracking
+end
+
 local function EffectIcon(rule)
+    if rule.family then return SafeIcon() end
     if not rule.icon then
         local _, _, icon = Spell(rule.spellID or rule.name)
         return SafeIcon(icon)
@@ -276,15 +357,16 @@ end
 
 local function FormInfo(index)
     local ok, icon, active, _, spellID = pcall(GetShapeshiftFormInfo, index)
-    if ok and ValidID(spellID) then return Spell(spellID), ActiveFlag(active), spellID, icon end
+    if ok and ValidID(spellID) then return ActiveFlag(active), spellID, icon end
 end
 
 local function Forms()
     local forms, count = {}, FormCount()
-    local known = count ~= nil
+    local known, activeKnown, anyActive = count ~= nil, count ~= nil, false
     for index = 1, count or 0 do
-        local name, active, spellID = FormInfo(index)
+        local active, spellID = FormInfo(index)
         local form = {active = active}
+        local name = spellID and Spell(spellID)
         if spellID then forms[spellID] = form end
         if name then
             local key = name:lower()
@@ -292,17 +374,19 @@ local function Forms()
         else
             known = false
         end
+        if active == nil then activeKnown = false end
+        if active then anyActive = true end
     end
-    return forms, known
+    return forms, known, activeKnown and count > 0 and not anyActive
 end
 
-local function Buffs()
+local function Buffs(filter)
     local buffs, known = {}, HasBuffs()
     if not known then return buffs, false end
     for index = 1, 255 do
-        local status, aura = WoW.Read(C_UnitAuras.GetAuraDataByIndex, "player", index, "HELPFUL")
+        local status, aura = WoW.Read(C_UnitAuras.GetAuraDataByIndex, "player", index, filter)
         if status ~= "ok" then return buffs, false end
-        if aura == nil then break end
+        if aura == nil then return buffs, known end
         if type(aura) == "table" and WoW.IsPublic(aura.name) and type(aura.name) == "string" then
             buffs[aura.name:lower()] = true
             if ValidID(aura.spellId) then buffs[aura.spellId] = true end
@@ -310,7 +394,48 @@ local function Buffs()
             known = false
         end
     end
-    return buffs, known
+    return buffs, false
+end
+
+local function FamilyKnown(family)
+    return MatchesFamily(family, function(spellID)
+        return C_SpellBook and WoW.ReadValue(C_SpellBook.IsSpellKnownOrInSpellBook, spellID) == true
+    end)
+end
+
+local function FamilyForm(family, forms)
+    for _, spellID in ipairs(family.spells) do
+        local name = Spell(spellID)
+        local form = forms[spellID] or (name and forms[name:lower()])
+        if form then return form end
+    end
+end
+
+local function FamilyMissing(family, observed)
+    if family.allForms then return observed.noActiveForm end
+    if family.forms then
+        local form = FamilyForm(family, observed.forms)
+        return form and form.active == false
+    end
+    if not HasSpellLookup() then return false end
+    if not observed.ownBuffsKnown or not FamilyKnown(family) then return false end
+    return not MatchesFamily(family, function(spellID)
+        local name = Spell(spellID)
+        return observed.ownBuffs[spellID] or (name and observed.ownBuffs[name:lower()])
+    end)
+end
+
+local function CanReadFamily(family)
+    if family.forms then return HasForms() end
+    return HasSpellLookup() and C_SpellBook and type(C_SpellBook.IsSpellKnownOrInSpellBook) == "function"
+        and HasBuffs()
+end
+
+local function HasClassEffects()
+    for _, family in pairs(families) do
+        if family.class == playerClass and CanReadFamily(family) then return true end
+    end
+    return false
 end
 
 local function Blocked()
@@ -335,6 +460,14 @@ local function SyncEffectEvents(active)
     observingEffects = active
 end
 
+local function HasRules()
+    if #db.tracking > 0 then return true end
+    for _, rule in ipairs(db.auras) do
+        if not rule.family or families[rule.family].class == playerClass then return true end
+    end
+    return false
+end
+
 local function EndTest()
     if not testMode then return end
     testMode = nil -- Clear before Hide: OnHide also ends the test (including Escape).
@@ -349,7 +482,7 @@ end
 
 Update = function()
     if not db then return end
-    local active = db.enabled and (#db.auras > 0 or #db.tracking > 0)
+    local active = db.enabled and HasRules()
     SyncEffectEvents(active)
     if not active and not testMode then reminder:Hide(); return end
     if Blocked() then
@@ -362,19 +495,32 @@ Update = function()
         local samples = {}
         for _, key in ipairs({"auras", "tracking"}) do
             for _, rule in ipairs(db[key]) do
-                if #samples < 8 then samples[#samples + 1] = {name = RuleName(rule), icon = EffectIcon(rule), priority = rule.priority, kind = key == "tracking" and "tracking" or rule.kind or "buff"} end
+                local family = families[rule.family]
+                if #samples < 8 and (not family or family.class == playerClass) then
+                    samples[#samples + 1] = {name = family and family.missing or RuleName(rule), icon = EffectIcon(rule),
+                        priority = rule.priority, kind = family and "aura" or rule.kind}
+                end
             end
         end
         if #samples == 0 then
-            samples = {{name = L("Aura de dévotion"), icon = 135893, kind = "aura", priority = 1}, {name = L("Bénédiction de puissance"), icon = 135906, kind = "buff", priority = 1}, {name = L("Bénédiction de sagesse"), icon = 135970, kind = "buff"}, {name = L("Détection des minerais"), icon = 136025, kind = "tracking"}, {name = L("Détection des herbes"), icon = 133939, kind = "tracking"}, {name = L("Élixir"), icon = 134838, kind = "buff"}, {name = L("Nourriture"), icon = 133971, kind = "buff", priority = 3}}
+            samples = {{name = L("Aucune aura active"), kind = "aura", priority = 1}, {name = L("Bénédiction de puissance"), icon = 135906, kind = "buff", priority = 1}, {name = L("Bénédiction de sagesse"), icon = 135970, kind = "buff"}, {name = L("Détection des minerais"), icon = 136025, kind = "tracking"}, {name = L("Détection des herbes"), icon = 133939, kind = "tracking"}, {name = L("Élixir"), icon = 134838, kind = "buff"}, {name = L("Nourriture"), icon = 133971, kind = "buff", priority = 3}}
         end
         Render(samples)
         return
     end
-    local observed = {tracking = #db.tracking > 0 and Tracking() or {}, resolveName = RuleName}
-    if #db.auras > 0 then
-        observed.buffs, observed.buffsKnown = Buffs()
-        observed.forms, observed.formsKnown = Forms()
+    local observed = {tracking = #db.tracking > 0 and Tracking() or {}, resolveName = RuleName, missingFamilies = {}}
+    for _, rule in ipairs(db.auras) do
+        local family = families[rule.family]
+        if (not family or family.forms and family.class == playerClass) and not observed.forms then
+            observed.forms, observed.formsKnown, observed.noActiveForm = Forms()
+        end
+        if not family and not observed.buffs then observed.buffs, observed.buffsKnown = Buffs("HELPFUL") end
+        if family and family.class == playerClass then
+            if not family.forms and not observed.ownBuffs then
+                observed.ownBuffs, observed.ownBuffsKnown = Buffs("HELPFUL|PLAYER")
+            end
+            if FamilyMissing(family, observed) then observed.missingFamilies[rule.family] = family.missing end
+        end
     end
     local missing = Model.Missing(db, observed)
     if #missing == 0 then reminder:Hide(); return end
@@ -386,7 +532,7 @@ end
 
 local function Kind(rule, key, forms, name)
     if key == "tracking" then return "tracking" end
-    if rule.kind == "aura" or Model.Match(rule, forms, name) then return "aura" end
+    if rule.family or rule.kind == "aura" or Model.Match(rule, forms, name) then return "aura" end
     return "buff"
 end
 
@@ -424,16 +570,17 @@ local Refresh
 Refresh = function()
     local entries = {}
     local tracking = #db.tracking > 0 and Tracking() or {}
-    local forms = #db.auras > 0 and Forms() or {}
+    local forms
     local unavailable = {}
     if not HasSpellLookup() then unavailable[#unavailable + 1] = L("recherche par ID") end
-    if not HasForms() then unavailable[#unavailable + 1] = L("auras / postures") end
+    if playerClass and not HasClassEffects() then unavailable[#unavailable + 1] = L("Effets de classe") end
     if not HasBuffs() then unavailable[#unavailable + 1] = "buffs" end
     if not HasTracking() then unavailable[#unavailable + 1] = L("minicarte") end
     if not HasMenus() then unavailable[#unavailable + 1] = "menus" end
     apiNotice:SetText(#unavailable > 0 and L("Indisponible : %s"):format(table.concat(unavailable, ", ")) or "")
     for _, key in ipairs({"auras", "tracking"}) do
         for _, rule in ipairs(db[key]) do
+            if key == "auras" and not rule.family and not forms then forms = Forms() end
             local name = RuleName(rule)
             local track = key == "tracking" and Model.Match(rule, tracking, name)
             entries[#entries + 1] = {rule = rule, key = key, kind = Kind(rule, key, forms, name),
@@ -518,6 +665,19 @@ local function AddEffect(name, kind, spellID, icon)
     status:SetText(L("%s : rappel ajouté."):format(name))
 end
 
+local function AddFamily(id)
+    local name = families[id].name
+    for _, rule in ipairs(db.auras) do
+        if rule.family == id then
+            status:SetText(L("%s est déjà dans la liste."):format(name))
+            return
+        end
+    end
+    db.auras[#db.auras + 1] = {family = id, priority = 2}
+    Refresh(); Update()
+    status:SetText(L("%s : rappel ajouté."):format(name))
+end
+
 local function AddManual()
     local value = manualInput:GetText():match("^%s*(.-)%s*$")
     if value == "" or #value > 160 or value:find("[|\r\n]") then
@@ -533,10 +693,15 @@ local function AddManual()
     name = id and name or value
     local rule = {name = name, spellID = spellID}
     local track = Model.Match(rule, Tracking())
-    local forms = not track and Forms()
-    local kind = track and "tracking" or (Model.Match(rule, forms) and "aura" or "buff")
-    if track then spellID, icon = track.spellID or spellID, track.texture or icon end
-    AddEffect(name, kind, spellID, icon)
+    local family = not track and FindFamily(rule)
+    if family then
+        AddFamily(family)
+    elseif track then
+        AddEffect(name, "tracking", track.spellID or spellID, track.texture or icon)
+    else
+        local kind = Model.Match(rule, Forms()) and "aura" or "buff"
+        AddEffect(name, kind, spellID, icon)
+    end
     manualInput:SetText(""); manualInput:ClearFocus()
 end
 
@@ -547,8 +712,7 @@ local function ChooseEffect(owner, kind)
         return
     end
     if not HasMenus() then status:SetText(L("Menu indisponible. Ajoute l’effet par nom.")); return end
-    if (kind == "tracking" and not HasTracking()) or (kind == "aura" and not HasForms())
-        or (kind == "buff" and not HasBuffs()) then
+    if (kind == "tracking" and not HasTracking()) or (kind == "buff" and not HasBuffs()) then
         status:SetText(L("%s : lecture indisponible."):format(labels[kind]))
         return
     end
@@ -566,16 +730,28 @@ local function ChooseEffect(owner, kind)
             if type(key) == "string" then Add(info.name, info.spellID, info.texture) end
         end
     elseif kind == "aura" then
-        for index = 1, FormCount() or 0 do
-            local name, _, spellID, icon = FormInfo(index)
-            Add(name, spellID, icon)
+        for id, family in pairs(families) do
+            if family.class == playerClass and CanReadFamily(family) then
+                local known
+                if family.allForms then
+                    local count = FormCount()
+                    known = count and count > 0
+                elseif family.forms then
+                    local forms = Forms()
+                    known = FamilyForm(family, forms)
+                else
+                    known = FamilyKnown(family)
+                end
+                if known then choices[#choices + 1] = {name = family.name, family = id} end
+            end
         end
     else
         local forms = Forms()
         for index = 1, 255 do
             local aura = WoW.ReadValue(C_UnitAuras.GetAuraDataByIndex, "player", index, "HELPFUL")
             if type(aura) ~= "table" then break end
-            if WoW.IsPublic(aura.name) and type(aura.name) == "string" and not forms[aura.name:lower()] then
+            if WoW.IsPublic(aura.name) and type(aura.name) == "string" and not forms[aura.name:lower()]
+                and not FindFamily({name = aura.name, spellID = ValidID(aura.spellId) and aura.spellId or nil}) then
                 Add(aura.name, aura.spellId, aura.icon)
             end
         end
@@ -584,7 +760,7 @@ local function ChooseEffect(owner, kind)
         return a.name:lower() < b.name:lower()
     end)
     if #choices == 0 then
-        status:SetText(kind == "tracking" and L("Aucun suivi disponible.") or (kind == "aura" and L("Aucune aura ou posture.") or L("Active le buff, puis rouvre le menu.")))
+        status:SetText(kind == "tracking" and L("Aucun suivi disponible.") or (kind == "aura" and L("Aucun effet de classe disponible.") or L("Active le buff, puis rouvre le menu.")))
         return
     end
     MenuUtil.CreateContextMenu(owner, function(_, root)
@@ -592,7 +768,10 @@ local function ChooseEffect(owner, kind)
         root:CreateTitle(labels[kind])
         for _, choice in ipairs(choices) do
             local effect = choice
-            root:CreateButton(effect.name, function() AddEffect(effect.name, kind, effect.spellID, effect.icon) end)
+            root:CreateButton(effect.name, function()
+                if effect.family then AddFamily(effect.family)
+                else AddEffect(effect.name, kind, effect.spellID, effect.icon) end
+            end)
         end
     end)
 end
@@ -913,8 +1092,9 @@ end
 function ns.InitializeReminders(parentCategory)
     if type(ArkannsQOLRemindersDB) ~= "table" then ArkannsQOLRemindersDB = {} end
     db = ArkannsQOLRemindersDB
+    playerClass = Class()
     NormalizeAppearance()
-    NormalizeBehavior()
+    NormalizeBehavior(true)
     for key, default in pairs({x = 0.5, y = 0.7}) do
         if type(db[key]) ~= "number" or db[key] ~= db[key] or db[key] < 0 or db[key] > 1 then db[key] = default end
     end
@@ -1028,7 +1208,7 @@ function ns.InitializeReminders(parentCategory)
         EndTest(); Update()
     end)
     local chooseButtons = {
-        Button("ArkannsQOLChooseAura", L("+ Auras / postures"), 16, -120, function(self) ChooseEffect(self, "aura") end),
+        Button("ArkannsQOLChooseAura", L("+ Effets de classe"), 16, -120, function(self) ChooseEffect(self, "aura") end),
         Button("ArkannsQOLChooseBuff", L("+ Buffs"), 216, -120, function(self) ChooseEffect(self, "buff") end),
         Button("ArkannsQOLChooseTracking", L("+ Minicarte"), 416, -120, function(self) ChooseEffect(self, "tracking") end),
     }
@@ -1038,7 +1218,7 @@ function ns.InitializeReminders(parentCategory)
     listBody = CreateFrame("Frame", nil, list)
     listBody:SetSize(580, 1)
     list:SetScrollChild(listBody)
-    emptyList = Text(L("Aucun effet. Ajoute une aura, un buff ou un suivi."), -198)
+    emptyList = Text(L("Aucun effet suivi."), -198)
     rows = {}
     manualInput = CreateFrame("EditBox", "ArkannsQOLManualInput", panel, "InputBoxTemplate")
     manualInput:SetPoint("TOPLEFT", 22, -370); manualInput:SetSize(370, 26)
@@ -1091,7 +1271,7 @@ function ns.InitializeReminders(parentCategory)
             apiNotice:Show()
             y = TextBlock(apiNotice, y, width)
         else apiNotice:Hide() end
-        chooseButtons[1]:SetEnabled(HasMenus() and HasForms() and true or false)
+        chooseButtons[1]:SetEnabled(HasMenus() and HasClassEffects() and true or false)
         chooseButtons[2]:SetEnabled(HasMenus() and HasBuffs() and true or false)
         chooseButtons[3]:SetEnabled(HasMenus() and HasTracking() and true or false)
         for index, button in ipairs(chooseButtons) do
@@ -1200,7 +1380,8 @@ function ns.InitializeReminders(parentCategory)
             OpenSettings = function(source)
                 if not source then return end
                 local effectControls = {
-                    ["Activer les rappels"] = enabled, ["Auras / postures"] = chooseButtons[1], ["Buffs"] = chooseButtons[2],
+                    ["Activer les rappels"] = enabled, ["Effets de classe"] = chooseButtons[1], ["Auras / postures"] = chooseButtons[1],
+                    ["Buffs"] = chooseButtons[2],
                     ["Minicarte"] = chooseButtons[3], ["Ajouter par nom / ID"] = manualInput, ["Regrouper par type d'effet"] = grouped,
                 }
                 local displayControls = {
@@ -1234,7 +1415,8 @@ function ns.InitializeReminders(parentCategory)
                 for key in pairs(defaults) do result.appearance[key] = db.appearance[key] end
                 for _, key in ipairs({"auras", "tracking"}) do
                     for _, rule in ipairs(db[key]) do
-                        result[key][#result[key] + 1] = {name = rule.name, kind = rule.kind, priority = rule.priority, spellID = rule.spellID, icon = rule.icon}
+                        result[key][#result[key] + 1] = {name = rule.name, kind = rule.kind, priority = rule.priority,
+                            spellID = rule.spellID, icon = rule.icon, family = rule.family}
                     end
                 end
                 return result
@@ -1243,12 +1425,20 @@ function ns.InitializeReminders(parentCategory)
                 if type(config.appearance) == "table" then
                     config.appearance.title = TitleText(config.appearance)
                 end
+                for _, rule in ipairs(type(config.auras) == "table" and config.auras or {}) do
+                    if type(rule) == "table" and families[rule.family] then
+                        rule.name, rule.family = families[rule.family].name, nil
+                    end
+                end
             end,
             profileMigrations = {
                 function(config)
                     if type(config.appearance) == "table" and config.appearance.customTitle == nil then
                         config.appearance.customTitle = false
                     end
+                end,
+                function(config)
+                    if type(config.auras) == "table" then config.auras = NormalizeAuras(config.auras, true) end
                 end,
             },
             ImportSettings = function(config)
@@ -1264,7 +1454,8 @@ function ns.InitializeReminders(parentCategory)
                         local rules = {}
                         for _, rule in ipairs(config[key]) do
                             if type(rule) == "table" then
-                                rules[#rules + 1] = {name = rule.name, kind = rule.kind, priority = rule.priority, spellID = rule.spellID, icon = rule.icon}
+                                rules[#rules + 1] = {name = rule.name, kind = rule.kind, priority = rule.priority,
+                                    spellID = rule.spellID, icon = rule.icon, family = rule.family}
                             end
                         end
                         for index in pairs(db[key]) do db[key][index] = nil end
@@ -1287,8 +1478,12 @@ function ns.InitializeReminders(parentCategory)
     events:SetScript("OnEvent", function(_, event, unit)
         if event == "UNIT_AURA" and (not WoW.IsPublic(unit) or unit ~= "player") then return end
         if event == "PLAYER_LOGOUT" then EndTest(); return end
+        if event == "PLAYER_ENTERING_WORLD" and not playerClass then
+            playerClass = Class()
+            if playerClass then NormalizeBehavior(true); Refresh() end
+        end
         if event == "DISPLAY_SIZE_CHANGED" or event == "UI_SCALE_CHANGED" then RestorePosition() end
         Update()
     end)
-    SyncEffectEvents(db.enabled and (#db.auras > 0 or #db.tracking > 0))
+    Update()
 end

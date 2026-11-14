@@ -23,9 +23,16 @@ function M.Missing(settings, observed)
         return observed.resolveName and observed.resolveName(rule) or rule.name
     end
     for _, rule in ipairs(settings.auras) do
-        local name = Name(rule)
-        if M.AuraPresent(rule, observed, name) == false then
-            missing[#missing + 1] = {name = name, kind = rule.kind or "buff", priority = rule.priority, icon = rule.icon}
+        if rule.family then
+            local name = observed.missingFamilies and observed.missingFamilies[rule.family]
+            if name then
+                missing[#missing + 1] = {name = name, kind = "aura", priority = rule.priority}
+            end
+        else
+            local name = Name(rule)
+            if M.AuraPresent(rule, observed, name) == false then
+                missing[#missing + 1] = {name = name, kind = rule.kind or "buff", priority = rule.priority, icon = rule.icon}
+            end
         end
     end
     for _, rule in ipairs(settings.tracking) do

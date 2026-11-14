@@ -795,7 +795,7 @@ function UI.BuildHome(panel)
     local settingLabels = {
         tooltips = {"Personnaliser les infobulles", "Suivre le curseur", "Position fixe", "Échelle", "Réglages propres à ce type", "Décalage du curseur",
             "Décalage X / Y (0 à 100)", "Masquer en combat", "Types d’infobulle", "Unités", "Objets", "Sorts", "Apparence propre à ce module"},
-        reminders = {"Activer les rappels", "Auras / postures", "Buffs", "Minicarte", "Ajouter par nom / ID", "Regrouper par type d'effet",
+        reminders = {"Activer les rappels", "Effets de classe", "Buffs", "Minicarte", "Ajouter par nom / ID", "Regrouper par type d'effet",
             "Mode compact : 2 effets", "Développer au survol", "Limite", "Taille du texte", "Opacité du fond", "Largeur", "Disposition",
             "Colonnes (grille)", "Espacement", "Marges", "Alignement", "Police", "Contour", "Ombre du texte", "Afficher le titre",
             "Titre personnalisé", "Taille du titre", "Afficher les icônes", "Taille des icônes", "Fond", "Texte", "Bordure", "Épaisseur de bordure"},

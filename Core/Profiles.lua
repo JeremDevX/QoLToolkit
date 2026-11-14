@@ -115,7 +115,8 @@ local fieldLabels = {
     iconSize = "Taille des icônes", showIcons = "Afficher les icônes", shadow = "Ombre du texte",
     textColor = "Couleur du texte", titleColor = "Couleur du titre", borderColor = "Couleur de bordure", backgroundAlpha = "Opacité du fond",
     target = "Portrait de cible", player = "Portrait du joueur", intensity = "Intensité des ornements",
-    medallion = "Médaillon de classe", classColor = "Couleur de classe", animated = "Animer le halo", glow = "Halo",
+    medallion = "Médaillon de classe", customFrame = "Cadre complet de classe",
+    classColor = "Couleur de classe", animated = "Animer le halo", glow = "Halo",
 }
 local function FieldLabel(key)
     if fieldLabels[key] then return L(fieldLabels[key]) end

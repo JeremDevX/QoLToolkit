@@ -16,10 +16,14 @@ function methods:SetWidth(w) self.width = w end
 function methods:SetHeight(h) self.height = h end
 function methods:GetWidth() return self.width end
 function methods:GetHeight() return self.height end
+function methods:GetTop() return self.nativeOrigin and self.nativeOrigin[2] + self.height end
+function methods:GetBottom() return self.nativeOrigin and self.nativeOrigin[2] end
 function methods:SetScale(s) self.scale = s end
 function methods:GetScale() return self.scale end
 function methods:GetEffectiveScale() return self.scale end
+function methods:GetParent() return self.parent end
 function methods:SetAlpha(a) self.alpha = a end
+function methods:SetDesaturation(value) self.desaturation = value end
 function methods:GetEffectiveAlpha() return self.alpha end
 function methods:SetPoint(...) self.points[#self.points + 1] = {...} end
 function methods:ClearAllPoints() self.points = {} end
@@ -83,7 +87,11 @@ local function Copy(value)
     if type(value) ~= "table" then return value end
     local copy = {}; for key, item in pairs(value) do copy[key] = Copy(item) end; return copy
 end
-local ns = {L = function(text) return text end, RegisterModule = function(id, module) modules[id] = module end}
+local ns = {L = function(text) return text end}
+function ns.RegisterModule(id, module)
+    modules[id] = module
+    if ns.modules then ns.modules[id] = module end
+end
 local ui = {Copy = Copy, StylePanel = noop, StyleFrame = noop, StyleButton = noop, Refresh = noop,
     GetStyle = function() return nil end, IsOverride = function() return false end, SetOverride = noop}
 ns.UI = ui
@@ -649,7 +657,8 @@ do
         local slot = ns.TargetPortraitArt.classSlots[token]
         return {r = .2 + slot / 20, g = .7, b = .9 - slot / 20}
     end}
-    local atlasInfo, fileTextures = {CircleMask = {width = 64, height = 64}}, {}
+    local atlasInfo, fileTextures = {CircleMask = {width = 64, height = 64},
+        ["UI-HUD-UnitFrame-Player-CombatIcon"] = {width = 16, height = 16}}, {}
     local function RegisterAsset(asset)
         atlasInfo[asset.atlas] = {width = asset.width, height = asset.height}
         fileTextures[asset.texture] = true
@@ -659,6 +668,7 @@ do
     for _, art in pairs(ns.TargetPortraitArt.classes) do
         RegisterAsset(art.rune)
     end
+    for _, art in pairs(ns.TargetPortraitArt.customFrames or {}) do fileTextures[art.texture] = true end
     env.C_Texture = {GetAtlasInfo = function(atlas)
         assert(atlasInfo[atlas], "An atlas used by the portrait must have a verified resource entry")
         if atlasesAvailable then return atlasInfo[atlas] end
@@ -674,8 +684,12 @@ do
     end
     function methods:SetTexture(texture, wrapH, wrapV)
         assert(self ~= targetPortrait and self ~= playerPortrait, "Never replace the native portrait texture")
-        assert(fileTextures[texture] or texture == "Interface\\CharacterFrame\\TempPortraitAlphaMask"
-            or texture == "Interface\\WorldStateFrame\\Icons-Classes", "Only use verified native fallback textures")
+        assert(fileTextures[texture] or texture == ns.TargetPortraitArt.paladinTest.texture
+            or texture == ns.TargetPortraitArt.paladinCustom.texture
+            or texture == "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+            or texture == "Interface\\WorldStateFrame\\Icons-Classes"
+            or texture == "Interface\\TargetingFrame\\UI-StatusBar"
+            or texture == "Interface\\Icons\\INV_Misc_QuestionMark", "Only use verified native fallback textures")
         self.texture, self.atlas = texture, nil
         return fallbackAvailable
     end
@@ -783,6 +797,11 @@ do
     local config = module.ExportSettings()
     assert(config.target.enabled and config.player.enabled and not config.medallion,
         "Old saved activation gains independent player and target decorations")
+    assert(config.target.customFrame and config.player.customFrame,
+        "Absent legacy style settings adopt full class frames without changing activation")
+    config.target.customFrame, config.player.customFrame = false, false
+    assert(module.ImportSettings(config), "Legacy ornament scenarios explicitly select the preserved old style")
+    config = module.ExportSettings()
     assert(config.target ~= config.player and config.target.color ~= config.player.color,
         "Player and target settings own independent tables")
     local untouched = module.ExportSettings()
@@ -871,7 +890,7 @@ do
         portraitCalls = portraitCalls + 1
     end
     local panel = frames.ArkannsQOLTargetPortraitSettings
-    panel:SetSize(576, 276); panel:Show(); panel.scripts.OnShow(panel)
+    panel:SetSize(576, 312); panel:Show(); panel.scripts.OnShow(panel)
     local placement = frames.ArkannsQOLTargetPortraitSize
     local body, scroll = placement.parent, placement.parent.parent
     assert(body:GetHeight() <= scroll:GetHeight(), "The default portrait style fits a compact page without scrolling")
@@ -1015,8 +1034,677 @@ do
         assert(target.shown and TextureFor(target, ns.TargetPortraitArt.classes[token].rune.atlas),
             "Each supported class has its own verified native ornament: " .. token)
     end
+    -- The temporary paladin test uses real native geometry and never changes its content or saved preferences.
+    local playerMain = Widget("Frame", nil, env.PlayerFrame)
+    local playerHealth = Widget("Frame", nil, playerMain); playerHealth:SetSize(124, 20)
+    local playerManaArea = Widget("Frame", nil, playerMain)
+    local playerMana = Widget("StatusBar", nil, playerManaArea); playerMana:SetSize(124, 10)
+    env.PlayerFrame.PlayerFrameContent = {PlayerFrameContentMain = playerMain}
+    playerMain.HealthBarsContainer, playerMain.ManaBarArea = playerHealth, playerManaArea
+    playerManaArea.ManaBar = playerMana
+    local targetMain = Widget("Frame", nil, env.TargetFrame)
+    local targetHealth = Widget("Frame", nil, targetMain); targetHealth:SetSize(126, 20)
+    local targetMana = Widget("StatusBar", nil, targetMain); targetMana:SetSize(134, 10)
+    env.TargetFrame.TargetFrameContent = {TargetFrameContentMain = targetMain}
+    targetMain.HealthBarsContainer, targetMain.ManaBar = targetHealth, targetMana
+    playerPortrait:SetSize(60, 60); targetPortrait:SetSize(58, 58)
+    playerPortrait.nativeOrigin, playerHealth.nativeOrigin, playerMana.nativeOrigin = {24, -79}, {85, -60}, {85, -71}
+    targetPortrait.nativeOrigin, targetHealth.nativeOrigin, targetMana.nativeOrigin = {148, -77}, {22, -48}, {22, -59}
+    local testCommand = assert(env.SlashCmdList.QOLTOOLKITPALADINTEST)
+    local priorTest = module.ExportSettings()
+    testCommand("")
+    assert(player.testActive and player.shown and not player.rings[1].shown and not player.glow.shown)
+    AssertHiddenOrnaments(player)
+    for _, part in pairs(player.testParts) do
+        assert(part.shown and part.parent == playerContainer and part.layer == "BACKGROUND")
+        assert(part.sublevel == (part == player.testParts.ring and 0 or 3), "The native portrait covers its ring while rails sit above the native border")
+        assert(part.texture == ns.TargetPortraitArt.paladinTest.texture)
+    end
+    assert(player.testParts.topStart.points[1][2] == playerHealth
+        and player.testParts.bottomStart.points[1][2] == playerMana, "Test rails anchor to the real native bars")
+    assert(player.testParts.topFill.points[2][2] == player.testParts.capTop
+        and player.testParts.bottomFill.points[2][2] == player.testParts.capBottom,
+        "Plain rail spans terminate at the cap's painted contacts")
+    assert(player.testParts.capTop.points[1][2] == playerHealth and player.testParts.capBottom.points[1][2] == playerHealth,
+        "Both cap corners share the same horizontal native edge")
+    assert(player.testParts.ring.width == 444 * 64 / 340 and player.testParts.ring.height == 499 * 64 / 340,
+        "The ring uses its source aperture rather than treating its off-center artwork as a centered square")
+    assert(playerHealth.width == 124 and playerMana.width == 124 and playerPortrait.width == 60,
+        "The test never resizes native portrait or status bars")
+    local playerTopWidth = player.testParts.topStart.width
+    playerHealth:SetWidth(180)
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(player.testParts.topStart.width == playerTopWidth and player.testParts.capTop.points[1][2] == playerHealth,
+        "Decorative ends keep their proportions while plain spans follow native geometry")
+    local anchorFactors = {TOPLEFT = {0, 1}, TOPRIGHT = {1, 1}, BOTTOMLEFT = {0, 0}, BOTTOMRIGHT = {1, 0}, CENTER = {.5, .5}}
+    local function Rect(region)
+        if region.nativeOrigin then return {region.nativeOrigin[1], region.nativeOrigin[2], region.width, region.height} end
+        local constraints = {{}, {}}
+        for _, point in ipairs(region.points) do
+            local own, relative, parent = anchorFactors[point[1]], anchorFactors[point[3]], Rect(point[2])
+            for axis = 1, 2 do
+                constraints[axis][#constraints[axis] + 1] = {own[axis], parent[axis] + relative[axis] * parent[axis + 2] + (point[axis + 3] or 0)}
+            end
+        end
+        local result = {}
+        for axis = 1, 2 do
+            local first, size = assert(constraints[axis][1]), axis == 1 and region.width or region.height
+            for _, item in ipairs(constraints[axis]) do
+                if item[1] ~= first[1] then size = (item[2] - first[2]) / (item[1] - first[1]); break end
+            end
+            result[axis], result[axis + 2] = first[2] - first[1] * size, size
+            assert(size > 0, "Every paladin piece has positive geometry")
+            for _, item in ipairs(constraints[axis]) do
+                assert(math.abs(result[axis] + item[1] * size - item[2]) < 1e-7, "Paladin anchors agree on the same horizontal/vertical line")
+            end
+        end
+        return result
+    end
+    local function Project(region, x, y)
+        local rect, uv = Rect(region), region.coords
+        return rect[1] + (x / 1024 - uv[1]) / (uv[2] - uv[1]) * rect[3],
+            rect[2] + rect[4] - (y / 1024 - uv[3]) / (uv[4] - uv[3]) * rect[4]
+    end
+    local function AssertContacts(frame, portrait, health, direction)
+        local parts = frame.testParts
+        local x, y = Project(parts.ring, 255, 285)
+        assert(math.abs(x - (portrait.nativeOrigin[1] + portrait.width / 2)) < 1e-7
+            and math.abs(y - (portrait.nativeOrigin[2] + portrait.height / 2)) < 1e-7,
+            "The painted aperture, including mirrored artwork, centers on the real portrait")
+        for _, contact in ipairs({{"topStart", "topFill", 570.5, "capTop", 771.5}, {"bottomStart", "bottomFill", 686.5, "capBottom", 970}}) do
+            local start, fill, cap = parts[contact[1]], parts[contact[2]], parts[contact[4]]
+            local _, startY = Project(start, 220, contact[3])
+            local fillX, fillY = Project(fill, 983.5, contact[3])
+            local capX, capY = Project(cap, 771.5, contact[5])
+            assert(math.abs(startY - fillY) < 1e-7 and math.abs(fillY - capY) < 1e-7,
+                "The actual opaque strokes meet at exactly the same height")
+            assert((fillX - capX) * direction >= 0 and (fillX - capX) * direction < 1,
+                "Painted horizontal rails overlap the cap instead of ending in its transparent padding")
+        end
+        local cap = Rect(parts.capTop)
+        local outer = direction == 1 and cap[1] + cap[3] or cap[1]
+        local native = direction == 1 and health.nativeOrigin[1] + health.width or health.nativeOrigin[1]
+        assert(math.abs(outer - native - direction * 6) < 1e-7, "The cap's outer edge follows the native bars without a detached extension")
+        assert(Rect(parts.capFill)[4] > 0 and parts.capGem.width == parts.capTop.width,
+            "Only the plain cap stem stretches; the gem retains its original aspect ratio")
+    end
+    AssertContacts(player, playerPortrait, playerHealth, 1)
+    local testWidgets = #widgets
+    combat = true
+    testCommand("off")
+    assert(player.testActive and #widgets == testWidgets, "The test command refuses mutations during combat")
+    targetPlayer = false
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(player.testParts.ring.shown, "A creature target does not change the player test")
+    targetPlayer, combat = true, false
+    testCommand("target")
+    assert(target.testActive and not player.testActive)
+    assert(not player.testParts.ring.shown and target.testParts.ring.shown)
+    assert(target.testParts.ring.coords[1] > target.testParts.ring.coords[2]
+        and target.testParts.ring.points[1][1] == "TOPRIGHT", "Target art mirrors around its right-hand portrait")
+    assert(target.testParts.topStart.points[1][1] == "BOTTOMRIGHT"
+        and target.testParts.capTop.points[1][1] == "TOPLEFT", "The target test extends to the left of its portrait")
+    AssertContacts(target, targetPortrait, targetHealth, -1)
+    fallbackAvailable = false
+    testCommand("player")
+    assert(not player.testActive and not target.testParts.ring.shown and not player.testParts.ring.shown,
+        "A missing bundled test texture clears old test pieces")
+    fallbackAvailable = true
+    testCommand("")
+    assert(player.testActive)
+    playerHealth.IsAnchoringSecret = function() return true end
+    testCommand("")
+    assert(not player.testActive and not player.testParts.ring.shown, "Secret bar anchors leave only the native frame")
+    playerHealth.IsAnchoringSecret = nil
+    testCommand("")
+    assert(player.testActive)
+    playerHealth.IsAnchoringSecret = function() return true end
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(not player.shown and not player.testParts.ring.shown, "A bar becoming secret also hides an already active test")
+    playerHealth.IsAnchoringSecret = nil
+    Event(driver, "PLAYER_TARGET_CHANGED")
+    assert(player.shown and player.testParts.ring.shown, "Public bar anchors restore the existing test without reallocating it")
+    playerHealth.GetTop = function() return "secret" end
+    testCommand("")
+    assert(not player.testActive and not player.testParts.ring.shown, "A secret bar position cannot enter cap span arithmetic")
+    playerHealth.GetTop = false
+    testCommand("")
+    assert(not player.testActive and not player.testParts.ring.shown, "An unavailable geometry API leaves the test hidden")
+    playerHealth.GetTop = nil
+    testCommand("")
+    assert(player.testActive, "Public bar geometry restores the calibrated test")
+    local setTestPoint = methods.SetPoint
+    function methods:SetPoint(...)
+        if self == player.testParts.topStart then error("Restricted test bar anchor") end
+        return setTestPoint(self, ...)
+    end
+    testCommand("")
+    assert(not player.testActive and not player.testParts.ring.shown and player.shown,
+        "A rejected test anchor safely falls back to the regular decoration")
+    methods.SetPoint = setTestPoint
+    testCommand("")
+    assert(player.testActive)
+    module.SetEnabled(false)
+    assert(not player.testParts.ring.shown, "Disabling the owning module releases test regions too")
+    module.SetEnabled(true)
+    assert(not player.testActive and not player.testParts.ring.shown, "Reactivation does not retain a session test")
+    testCommand("")
+    testCommand("off")
+    assert(not player.testActive and player.rings[1].shown and not player.testParts.ring.shown,
+        "Stopping the prototype restores the regular class decoration")
+    assert(module.ExportSettings().player.size == priorTest.player.size
+        and module.ExportSettings().player.opacity == priorTest.player.opacity
+        and module.ExportSettings().target.size == priorTest.target.size,
+        "The temporary test does not alter saved appearance or profile exports")
+    print("PASS: temporary paladin overlay, native bar anchors, mirrored target, combat refusal, cleanup, and restoration")
+    -- Second test: custom visuals with native secure clicks and update pipelines retained.
+    env.PlayerFrame.nativeOrigin = {0, -100}; env.PlayerFrame:SetSize(232, 100)
+    env.PlayerFrame.unit = "player"
+    local playerContent = Widget("Frame", nil, env.PlayerFrame)
+    playerContent.PlayerFrameContentMain = playerMain
+    env.PlayerFrame.PlayerFrameContent = playerContent
+    playerContent:SetAlpha(.8); playerContainer:SetAlpha(.9)
+    local nativeHealth = Widget("StatusBar", nil, playerHealth)
+    playerHealth.HealthBar = nativeHealth
+    nativeHealth:SetSize(124, 20); nativeHealth.nativeOrigin = {85, -60}
+    function methods:GetAlpha() return self.alpha end
+    function methods:GetMinMaxValues() return self.minimum, self.maximum end
+    function methods:SetMinMaxValues(minimum, maximum) self.minimum, self.maximum = minimum, maximum end
+    function methods:GetValue() return self.value end
+    function methods:SetValue(value) self.value = value end
+    function methods:SetStatusBarTexture(texture)
+        assert(texture == "Interface\\TargetingFrame\\UI-StatusBar")
+        self.barTexture = texture
+        self.barColor = {1, 1, 1, 1}
+        return fallbackAvailable
+    end
+    function methods:SetStatusBarColor(...) self.barColor = {...} end
+    function methods:GetStatusBarTexture()
+        assert(self.fillTexture or self.value == nil, "Forecast anchors are installed before the first health value")
+        self.fillTexture = self.fillTexture or Widget("Texture", nil, self)
+        return self.fillTexture
+    end
+    function methods:SetClipsChildren(value) self.clipsChildren = value end
+    function methods:SetFont(...) self.font = {...}; return true end
+    function methods:SetTextColor(...) self.textColor = {...} end
+    function methods:SetShadowColor(...) self.shadowColor = {...} end
+    function methods:SetShadowOffset(...) self.shadowOffset = {...} end
+    function methods:SetJustifyH(value) self.justifyH = value end
+    function methods:SetJustifyV(value) self.justifyV = value end
+    function methods:SetFormattedText(format, ...) self.text = string.format(format, ...) end
+    function methods:SetAllPoints(relative)
+        self:ClearAllPoints()
+        self:SetPoint("TOPLEFT", relative, "TOPLEFT", 0, 0)
+        self:SetPoint("BOTTOMRIGHT", relative, "BOTTOMRIGHT", 0, 0)
+    end
+    function methods:GetTop()
+        local rect = Rect(self)
+        return rect[2] + rect[4]
+    end
+    function methods:GetBottom() return Rect(self)[2] end
+    function methods:GetRect() return unpack(Rect(self)) end
+    local function NativeText(parent, text, shown)
+        local region = Widget("FontString", nil, parent)
+        region:SetText(text); region:SetShown(shown ~= false)
+        return region
+    end
+    env.PlayerName = NativeText(playerMain, "Léan Léandoras")
+    env.PlayerLevelText = NativeText(playerMain, "23")
+    playerHealth.HealthBarText = NativeText(playerHealth, "", false)
+    playerHealth.LeftText, playerHealth.RightText = NativeText(playerHealth, "100%"), NativeText(playerHealth, "769")
+    playerMana.ManaBarText = NativeText(playerMana, "", false)
+    playerMana.LeftText, playerMana.RightText = NativeText(playerMana, "100%"), NativeText(playerMana, "1014")
+    nativeHealth:SetMinMaxValues(0, 769); nativeHealth:SetValue(769)
+    playerMana:SetMinMaxValues(0, 1089); playerMana:SetValue(1014)
+    local hookCount = 0
+    env.hooksecurefunc = function(object, method, callback)
+        if type(object) == "string" then
+            local name, original = object, assert(env[object])
+            env[name] = function(...) original(...); method(...) end
+            hookCount = hookCount + 1
+            return
+        end
+        local before = assert(object[method], "Missing native method: " .. method)
+        object[method] = function(self, ...)
+            before(self, ...)
+            callback(self, ...)
+        end
+        hookCount = hookCount + 1
+    end
+    env.SetPortraitTexture = function(texture, unit, disableMasking)
+        assert(texture ~= playerPortrait and texture ~= targetPortrait
+            and (unit == "player" or unit == "target") and disableMasking)
+        texture.portraitUnit = unit
+    end
+    local contextual = Widget("Frame", nil, playerContent)
+    contextual.AttackIcon = Widget("Texture", nil, contextual); contextual.AttackIcon:Show()
+    playerContent.PlayerFrameContentContextual = contextual
+    local incoming = Widget("Frame", nil, nativeHealth); incoming:Show()
+    incoming.Fill = Widget("Texture", nil, incoming)
+    incoming.Fill.GetVertexColor = function() return .15, .9, .7, .65 end
+    incoming.FillMask = Widget("MaskTexture", nil, incoming)
+    incoming.FillMask.nativeOrigin = {160, -60}; incoming.FillMask:SetSize(18, 20)
+    nativeHealth.MyHealPredictionBar = incoming
+    -- Reproduce the live contract: mask geometry can be secret even when the
+    -- native calculator may still forward its values to display-only widgets.
+    incoming.FillMask.GetRect = function() return "secret", 0, 18, 20 end
+    local forecastAmount, forecastMaximum, forecastRefused = 100, 769, false
+    local targetForecastAmount, targetCombat = 75, true
+    env.UnitAffectingCombat = function(unit) return unit == "target" and targetCombat end
+    env.Enum.UnitMaximumHealthMode = {Default = 0}
+    env.Enum.UnitHealAbsorbMode = {ReducedByIncomingHeals = 0}
+    env.Enum.UnitIncomingHealClampMode = {MissingHealth = 0}
+    env.CreateUnitHealPredictionCalculator = function()
+        return {SetMaximumHealthMode = noop, SetHealAbsorbMode = noop,
+            SetIncomingHealClampMode = noop, SetIncomingHealOverflowPercent = noop,
+            GetMaximumHealth = function(self) return self.unit == "target" and 1000 or forecastMaximum end,
+            GetIncomingHeals = function(self) return self.unit == "target" and targetForecastAmount or forecastAmount, 40, 60, false end}
+    end
+    env.UnitGetDetailedHealPrediction = function(unit, healer, calculator)
+        assert((unit == "player" or unit == "target") and healer == "player")
+        calculator.unit = unit
+        if forecastRefused then error("Refused prediction") end
+    end
+    env.PlayerFrame_UpdateStatus, env.UnitFrameHealPredictionBars_Update = function() end, function() end
+    Load("Modules/PaladinFrameColors.lua")
+    Load("Modules/PaladinFrameIndicators.lua")
+    local colorUpdates, colorUnits, applyColors = 0, {}, ns.PaladinFrameColors.Apply
+    ns.PaladinFrameColors.Apply = function(health, power, unit)
+        colorUpdates = colorUpdates + 1
+        colorUnits[unit or "player"] = (colorUnits[unit or "player"] or 0) + 1
+        return applyColors(health, power, unit)
+    end
+    Load("Modules/PaladinCustomTest.lua")
+    local custom = ns.PaladinCustomTest
+    combat = true
+    local preCustomWidgets = #widgets
+    assert(not custom.Start() and #widgets == preCustomWidgets and playerContainer.alpha == .9,
+        "The full custom test cannot create frames or hide native art during combat")
+    combat = false
+    fallbackAvailable = false
+    assert(not custom.Start() and playerContainer.alpha == .9 and playerContent.alpha == .8,
+        "Missing custom texture resources preserve every native visual")
+    fallbackAvailable = true
+    assert(custom.Start(), "The full custom test starts from public native frame references")
+    local customFrame = assert(frames.ArkannsQOLPaladinCustomTest)
+    assert(customFrame.shown and customFrame.parent == env.PlayerFrame and not customFrame.mouse,
+        "The passive custom visuals inherit native frame movement, scale and visibility without taking clicks")
+    local customArt, customScale = ns.TargetPortraitArt.paladinCustom, 232 / 1024
+    local front = assert(customFrame.front)
+    assert(front.parent == customFrame and not front.mouse
+        and front:GetFrameLevel() == customFrame:GetFrameLevel() + 3
+        and customFrame.health:GetFrameLevel() == customFrame:GetFrameLevel() + 1
+        and customFrame.power:GetFrameLevel() == customFrame:GetFrameLevel() + 1,
+        "The passive front frame keeps the contour and text above both status bars")
+    local frameRect, frontRect = Rect(customFrame), Rect(front)
+    for index = 1, 4 do
+        assert(math.abs(frameRect[index] - frontRect[index]) < 1e-7,
+            "The front frame covers the complete custom frame without shifting its artwork")
+    end
+    assert(customFrame.skin.texture == customArt.texture and customFrame.skin.layer == "ARTWORK"
+        and customFrame.skin.parent == front and customFrame.skin.width == 232 and customFrame.skin.height == 116,
+        "The full custom frame uses one proportionally scaled skin")
+    assert(customFrame.skin.points[1][1] == "TOPLEFT" and customFrame.skin.points[1][2] == customFrame
+        and customFrame.skin.points[1][3] == "TOPLEFT", "The custom skin starts at its visual frame origin")
+    local skinCount, maskCount = 0, 0
+    for _, widget in ipairs(widgets) do
+        local parent = widget.parent
+        while parent and parent ~= customFrame do parent = parent.parent end
+        if parent == customFrame and widget.kind == "MaskTexture" then maskCount = maskCount + 1 end
+        if parent == customFrame and widget.kind == "Texture" then
+            if widget.texture == customArt.texture then skinCount = skinCount + 1 end
+            assert(widget.texture ~= ns.TargetPortraitArt.paladinTest.texture,
+                "The full custom frame does not reuse sliced overlay artwork")
+        end
+    end
+    assert(skinCount == 1 and not customFrame.decoration,
+        "The full custom frame has one skin and no overlay decoration frame")
+    assert(maskCount == 1 and customFrame.portrait.mask == customFrame.portraitMask,
+        "The front contour covers rectangular bar edges without adding masks beyond the portrait")
+    local body = customFrame.body
+    assert(body.parent == customFrame and body.layer == "BACKGROUND" and body.sublevel == -1
+        and body.points[1][1] == "TOPLEFT" and body.points[1][2] == customFrame
+        and body.points[1][4] == 330 * customScale and body.points[1][5] == -154 * customScale
+        and body.width == 618 * customScale and body.height == 162 * customScale
+        and body.fill[1] < .06 and body.fill[2] < .06 and body.fill[3] < .06 and body.fill[4] == 1,
+        "An opaque dark background fills the transparent central panel behind both bars")
+    for _, key in ipairs({"health", "power"}) do
+        local bar, rect = customFrame[key], customArt[key]
+        local point = bar.points[1]
+        assert(point[1] == "TOPLEFT" and point[2] == customFrame and point[3] == "TOPLEFT"
+            and point[4] == rect[1] * customScale and point[5] == -rect[2] * customScale
+            and bar.width == rect[3] * customScale and bar.height == rect[4] * customScale,
+            "The real status bar follows its calibrated skin rectangle: " .. key)
+        assert(rect[1] == 350 and rect[3] == 596 and rect[4] == 72 and rect[1] + rect[3] == 946,
+            "Both bars reach the inner right contour at the same width and height")
+    end
+    assert(customArt.health[2] == 158 and customArt.power[2] == 238
+        and customFrame.health.height == customFrame.power.height,
+        "Equal-height bars occupy the two calibrated rows beneath the skin")
+    local levelText, levelPoint = customFrame.text.level, customFrame.text.level.points[1]
+    assert(levelPoint[1] == "CENTER" and levelPoint[2] == front and levelPoint[3] == "TOPLEFT"
+        and levelPoint[4] == customArt.level[1] * customScale and levelPoint[5] == -customArt.level[2] * customScale
+        and levelText.width == customArt.level[3] * customScale,
+        "The level is centered on its opaque plaque below the portrait")
+    assert(levelText.font[2] == 14 and levelText.font[3] == "OUTLINE"
+        and levelText.textColor[1] >= .8 and levelText.textColor[2] >= .8 and levelText.textColor[3] >= .8
+        and levelText.textColor[4] == 1 and levelText.shadowColor[1] == 0
+        and levelText.shadowColor[2] == 0 and levelText.shadowColor[3] == 0 and levelText.shadowColor[4] == 1,
+        "The level stays readable with clear outlined text")
+    assert(customArt.level[2] > customArt.portrait[2] + customArt.portrait[3] / 2,
+        "The level text centers below the portrait face")
+    for _, entry in ipairs({{"name", 626.5, 100.5}, {"level", 212.5, 388.5}}) do
+        local text = customFrame.text[entry[1]]
+        local rect = Rect(text)
+        assert(text.parent == front and text.justifyH == "CENTER" and text.justifyV == "MIDDLE"
+            and math.abs(rect[1] + rect[3] / 2 - (frameRect[1] + entry[2] * customScale)) < 1e-7
+            and math.abs(rect[2] + rect[4] / 2 - (frameRect[2] + frameRect[4] - entry[3] * customScale)) < 1e-7,
+            "The text is centered horizontally and vertically on its opaque front plaque: " .. entry[1])
+    end
+    local function AssertCustomBarColors()
+        local health, power = customFrame.health.barColor, customFrame.power.barColor
+        assert(health[1] == .12 and health[2] == .68 and health[3] == .24 and health[4] == 1
+            and power[1] == .12 and power[2] == .32 and power[3] == .85 and power[4] == 1,
+            "The full custom test reapplies green health and blue mana after loading fill textures")
+    end
+    AssertCustomBarColors()
+    assert(customFrame.text.name.points[1][5] == -customArt.name[2] * customScale
+        and customArt.name[2] + customArt.name[4] < customArt.health[2],
+        "The real name widget occupies the upper plaque rather than the health rows")
+    local forecast = assert(customFrame.indicators.forecast)
+    assert(customFrame.indicators.combat.shown and forecast.shown and forecast.value == 100,
+        "Starting the full prototype displays incoming heals despite secret native mask geometry")
+    assert(customFrame.indicators.combat.parent == front
+        and forecast:GetFrameLevel() > customFrame.health:GetFrameLevel()
+        and forecast:GetFrameLevel() < front:GetFrameLevel(),
+        "The forecast covers the fill while the contour and text stay above it")
+    for _, key in ipairs({"health", "power"}) do
+        for _, suffix in ipairs({"Left", "Center", "Right"}) do
+            local text = customFrame.text[key .. suffix]
+            assert(text.parent == front and text.points[1][2] == customFrame[key],
+                "Stat text stays anchored to its bar above the prediction")
+        end
+    end
+    contextual.AttackIcon:Hide(); env.PlayerFrame_UpdateStatus()
+    assert(not customFrame.indicators.combat.shown)
+    forecastAmount = 0; env.UnitFrameHealPredictionBars_Update(env.PlayerFrame)
+    assert(forecast.value == 0, "Cancelled heals clear through the real post-hook")
+    forecastAmount = 100; env.UnitFrameHealPredictionBars_Update(env.PlayerFrame)
+    assert(forecast.value == 100 and forecast.shown)
+    assert(playerContainer.alpha == 0 and playerContent.alpha == 0 and env.PlayerFrame.shown,
+        "Only the old visual containers are faded; the secure player button stays visible and usable")
+    assert(customFrame.health.value == 769 and customFrame.power.value == 1014
+        and customFrame.health.maximum == 769 and customFrame.power.maximum == 1089)
+    assert(customFrame.text.name.text == "Léan Léandoras" and customFrame.text.level.text == "23")
+    assert(customFrame.text.healthLeft.text == "100%" and customFrame.text.healthRight.text == "769"
+        and not customFrame.text.healthCenter.shown, "Native text formats and visibility are mirrored without duplication")
+    assert(customFrame.portrait.portraitUnit == "player" and customFrame.portrait ~= playerPortrait)
+    local beforeColors = colorUpdates
+    nativeHealth:SetValue(500); nativeHealth:SetMinMaxValues(0, 1000)
+    assert(colorUpdates == beforeColors + 2, "Native reserve and maximum changes refresh gradient colors")
+    assert(customFrame.health.value == 500 and customFrame.health.maximum == 1000,
+        "Custom bars follow the native update pipeline instead of starting a second polling loop")
+    local opaque = setmetatable({}, {__tostring = function() error("Do not stringify secret data") end,
+        __lt = function() error("Do not compare secret data") end, __add = function() error("Do not calculate secret data") end})
+    nativeHealth:SetValue(opaque)
+    nativeHealth:SetMinMaxValues(0, opaque)
+    playerHealth.RightText:SetText(opaque)
+    assert(customFrame.health.value == opaque and customFrame.health.maximum == opaque
+        and customFrame.text.healthRight.text == opaque, "Opaque native data passes directly to permitted display widgets")
+    playerHealth.LeftText:Hide()
+    assert(not customFrame.text.healthLeft.shown)
+    playerHealth.LeftText:SetShown(true)
+    playerHealth.RightText:SetFormattedText("%d / %d", 500, 1000)
+    assert(customFrame.text.healthLeft.shown and customFrame.text.healthRight.text == "500 / 1000")
+    local customDriver = assert(frames.ArkannsQOLClassFrameEvents)
+    for _, event in ipairs({"UNIT_HEAL_PREDICTION", "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_HEAL_ABSORB_AMOUNT_CHANGED"}) do
+        assert(customDriver.events[event] == "player", "Prediction updates subscribe to the player event: " .. event)
+    end
+    combat = true
+    forecastAmount, forecastMaximum = opaque, opaque
+    Event(customDriver, "UNIT_HEAL_PREDICTION", "player")
+    assert(forecast.shown and forecast.value == opaque and forecast.maximum == opaque,
+        "The real heal event forwards opaque calculator results in combat without reading native mask geometry")
+    forecastRefused = true
+    Event(customDriver, "UNIT_HEALTH", "player")
+    assert(not forecast.shown, "A refused calculator update clears the preceding prediction")
+    forecastRefused, forecastAmount, forecastMaximum = false, 125, 1000
+    Event(customDriver, "UNIT_MAXHEALTH", "player")
+    assert(forecast.shown and forecast.value == 125 and forecast.maximum == 1000,
+        "The next valid event restores the existing forecast")
+    forecastAmount = 0
+    Event(customDriver, "UNIT_HEAL_PREDICTION", "player")
+    assert(forecast.value == 0, "Heal completion or cancellation clears the forecast without testing its amount")
+    combat = false
+    combat = true
+    assert(not custom.Stop() and customFrame.shown, "Restoration requested in combat waits for the safe transition")
+    combat = false
+    Event(customDriver, "PLAYER_REGEN_ENABLED")
+    assert(not customFrame.shown and playerContainer.alpha == .9 and playerContent.alpha == .8,
+        "Stopping the test restores both native visual containers to their original opacity")
+    local inactiveValue = customFrame.health.value
+    local inactiveColors = colorUpdates
+    nativeHealth:SetValue(700)
+    assert(customFrame.health.value == inactiveValue, "Permanent hooks become inert after stopping the test")
+    assert(colorUpdates == inactiveColors and not customFrame.indicators.combat.shown
+        and not customFrame.indicators.predictions.MyHealPredictionBar.shown and not forecast.shown,
+        "Stopped tests leave color and indicator hooks inert")
+    local priorHooks, priorWidgets = hookCount, #widgets
+    assert(custom.Start() and hookCount == priorHooks and #widgets == priorWidgets,
+        "Repeated custom tests reuse widgets and never stack native hooks")
+    AssertCustomBarColors()
+    env.SlashCmdList.QOLTOOLKITPALADINTEST("")
+    assert(not customFrame.shown and player.testActive and playerContainer.alpha == .9,
+        "The first test restores native visuals before applying its overlay")
+    assert(custom.Start() and not player.testActive, "The second test stops the first overlay without changing profiles")
+    local disablePlayer = module.ExportSettings(); disablePlayer.player.enabled = false
+    assert(module.ImportSettings(disablePlayer) and not customFrame.shown and playerContainer.alpha == .9,
+        "Disabling the player portrait through its real settings also restores the full native frame")
+    disablePlayer.player.enabled = true
+    assert(module.ImportSettings(disablePlayer) and custom.Start())
+    playerContent:SetAlpha(.45)
+    assert(custom.Stop() and playerContent.alpha == .45, "Restoration preserves an opacity changed by another owner")
+    assert(custom.Start())
+    module.SetEnabled(false)
+    assert(not customFrame.shown and playerContainer.alpha == .9, "The owner module's switch also stops the second test")
+    module.SetEnabled(true)
+    local getter = nativeHealth.GetValue
+    nativeHealth.GetValue = function() error("Refused native value") end
+    assert(not custom.Start() and playerContainer.alpha == .9 and not customFrame.shown,
+        "Refused native data never leaves the player without its original frame")
+    nativeHealth.GetValue = getter
+    assert(custom.Start())
+    local textGetter = playerHealth.RightText.GetText
+    playerHealth.RightText.GetText = function() error("Refused native text") end
+    playerHealth.RightText:SetText("500")
+    assert(not customFrame.shown and playerContainer.alpha == .9, "A native text read refused during an update restores Blizzard")
+    playerHealth.RightText.GetText = textGetter
+    assert(custom.Start())
+    Event(customDriver, "UNIT_ENTERED_VEHICLE", "player")
+    assert(not customFrame.shown and playerContainer.alpha == .9, "Vehicle transitions restore the native interface")
+    env.PlayerFrame.unit = "vehicle"
+    assert(not custom.Start() and playerContainer.alpha == .9, "The prototype cannot replace a vehicle unit frame")
+    env.PlayerFrame.unit = "player"
+    print("PASS: full custom paladin visuals, native values/text, opaque display data, combat deferral, hooks, mode switches, and native restoration")
+    -- The same passive renderer supports real player and target sources at the same time.
+    env.TargetFrame.unit = "target"
+    env.TargetFrame.nativeOrigin = {300, -100}; env.TargetFrame:SetSize(232, 100)
+    local targetContent = Widget("Frame", nil, env.TargetFrame)
+    targetContent.TargetFrameContentMain = targetMain
+    env.TargetFrame.TargetFrameContent = targetContent
+    targetMain:SetParent(targetContent)
+    targetContainer:SetAlpha(.85); targetContent:SetAlpha(.65)
+    local targetContextual = Widget("Frame", nil, targetContent)
+    local nativeAuras = Widget("Frame", nil, targetContextual)
+    targetContent.TargetFrameContentContextual, targetContextual.Auras = targetContextual, nativeAuras
+    targetContextual:Show(); nativeAuras:Show()
+    nativeAuras:SetPoint("TOPLEFT", env.TargetFrame, "BOTTOMLEFT", 5, 9)
+    local aurasOnTop, auraProtected = false, false
+    function nativeAuras:IsFlowLayoutMirroredVertically() return aurasOnTop end
+    function nativeAuras:CanChangeProtectedState() return not combat or not auraProtected end
+    function nativeAuras:AdjustPointsOffset(x, y)
+        assert(self:CanChangeProtectedState(), "Do not move protected auras in combat")
+        for _, point in ipairs(self.points) do point[4], point[5] = point[4] + x, point[5] + y end
+    end
+    function env.TargetFrame:GetAuraContainer() return nativeAuras end
+    function env.TargetFrame:AnchorAuraContainer()
+        nativeAuras:ClearAllPoints()
+        nativeAuras:SetPoint(aurasOnTop and "BOTTOMLEFT" or "TOPLEFT", self,
+            aurasOnTop and "TOPLEFT" or "BOTTOMLEFT", 5, aurasOnTop and -6 or 9)
+    end
+    local buffRow, debuffRow = Widget("Frame", nil, nativeAuras), Widget("Frame", nil, nativeAuras)
+    buffRow:SetPoint("TOPLEFT", nativeAuras, "TOPLEFT", 0, 0)
+    debuffRow:SetPoint("TOPLEFT", nativeAuras, "TOPLEFT", 0, -24)
+    nativeAuras.scripts.OnEnter, nativeAuras.scripts.OnLeave = function() return "native tooltip" end, noop
+    function nativeAuras:GetEffectiveAlpha()
+        local alpha, parent = self.alpha, self.parent
+        while parent do alpha, parent = alpha * parent.alpha, parent.parent end
+        return alpha
+    end
+    local auraAlpha, auraPoint, auraEnter = nativeAuras:GetEffectiveAlpha(), nativeAuras.points[1], nativeAuras.scripts.OnEnter
+    targetContent:SetAlpha(0)
+    assert(nativeAuras:GetEffectiveAlpha() == 0, "Hiding all target content reproduces the missing native aura display")
+    targetContent:SetAlpha(.65)
+    local targetNativeHealth = Widget("StatusBar", nil, targetHealth)
+    targetHealth.HealthBar = targetNativeHealth
+    targetNativeHealth:SetMinMaxValues(0, 1000); targetNativeHealth:SetValue(600)
+    targetMana:SetMinMaxValues(0, 800); targetMana:SetValue(400)
+    targetMain.Name, targetMain.LevelText = NativeText(targetMain, "Cible mage"), NativeText(targetMain, "24")
+    targetHealth.HealthBarText = NativeText(targetHealth, "", false)
+    targetHealth.LeftText, targetHealth.RightText = NativeText(targetHealth, "60%"), NativeText(targetHealth, "600")
+    targetMana.ManaBarText = NativeText(targetMana, "", false)
+    targetMana.LeftText, targetMana.RightText = NativeText(targetMana, "50%"), NativeText(targetMana, "400")
+    local enabledFrames = module.ExportSettings()
+    enabledFrames.player.enabled, enabledFrames.target.enabled = true, true
+    assert(module.ImportSettings(enabledFrames))
+    playerClass, targetClass, targetPlayer = "PALADIN", "MAGE", true
+    forecastAmount, forecastMaximum, targetForecastAmount = 30, 1000, 75
+    assert(not custom.Start("secret") and not custom.Start("player", "secret") and not custom.Stop("secret"),
+        "Secret unit/class arguments are rejected before indexing or comparison")
+    local variantsCommand = assert(env.SlashCmdList.QOLTOOLKITCLASSFRAMES)
+    variantsCommand("both")
+    local targetFrame = assert(frames.ArkannsQOLClassCustomTarget)
+    assert(nativeAuras:GetEffectiveAlpha() == auraAlpha and nativeAuras.shown
+        and nativeAuras.parent == targetContextual and nativeAuras.points[1] == auraPoint
+        and nativeAuras.scripts.OnEnter == auraEnter and auraEnter() == "native tooltip",
+        "Native target auras stay visible with their original layout and tooltip pipeline")
+    assert(nativeAuras.points[1][4] == 5 and nativeAuras.points[1][5] == -3
+        and buffRow.points[1][5] == 0 and debuffRow.points[1][5] == -24,
+        "The complete buff/debuff container moves down twelve units without changing the spacing between rows")
+    env.TargetFrame:AnchorAuraContainer(); env.TargetFrame:AnchorAuraContainer()
+    assert(nativeAuras.points[1][5] == -3, "Native aura relayout reapplies a single drop without accumulating offsets")
+    aurasOnTop = true; env.TargetFrame:AnchorAuraContainer()
+    assert(nativeAuras.points[1][5] == -6, "An explicit native buffs-on-top layout keeps its own position")
+    aurasOnTop = false; env.TargetFrame:AnchorAuraContainer()
+    combat = true; env.TargetFrame:AnchorAuraContainer()
+    assert(nativeAuras.points[1][5] == -3, "Unprotected native auras retain the gap during combat relayout")
+    auraProtected = true; env.TargetFrame:AnchorAuraContainer()
+    assert(nativeAuras.points[1][5] == 9, "A protected native aura layout is left to the client during combat")
+    combat = false
+    auraProtected = false; env.TargetFrame:AnchorAuraContainer()
+    assert(nativeAuras.points[1][5] == -3)
+    assert(customFrame.shown and targetFrame.shown and targetFrame.parent == env.TargetFrame
+        and playerContainer.alpha == 0 and targetContainer.alpha == 0 and targetMain.alpha == 0 and targetContent.alpha == .65,
+        "Both native secure buttons keep separate, simultaneously active custom visuals")
+    local mageArt = ns.TargetPortraitArt.customFrames.MAGE
+    assert(targetFrame.skin.texture == mageArt.texture and targetFrame.skin.coords[1] == 1
+        and targetFrame.skin.coords[2] == 0 and targetFrame.skin.coords[3] == 0 and targetFrame.skin.coords[4] == 1,
+        "The target uses exactly the same class image with a horizontal UV flip")
+    local targetScale = mageArt.displayWidth / mageArt.width
+    assert(targetFrame.portrait.points[1][4] == (mageArt.width - mageArt.portrait[1]) * targetScale
+        and targetFrame.health.points[1][4] == (mageArt.width - mageArt.health[1] - mageArt.health[3]) * targetScale
+        and targetFrame.text.name.points[1][4] == (mageArt.width - mageArt.name[1] - mageArt.name[3]) * targetScale
+        and targetFrame.text.level.points[1][4] == (mageArt.width - mageArt.level[1]) * targetScale,
+        "Target portrait, bar, name and level follow reflected pixel coordinates")
+    assert(targetFrame.portrait.portraitUnit == "target" and customFrame.portrait.portraitUnit == "player"
+        and targetFrame.text.name.text == "Cible mage" and targetFrame.text.level.text == "24"
+        and targetFrame.text.healthLeft.text == "60%" and targetFrame.text.healthRight.text == "600"
+        and targetFrame.health.value == 600 and targetFrame.power.value == 400 and colorUnits.target,
+        "Target text, portrait, reserve values and colors come from the target rather than the player")
+    assert(targetFrame.indicators.forecast.value == 75 and customFrame.indicators.forecast.value == 30,
+        "Each unit owns an independent heal calculator and forecast")
+    targetForecastAmount = 90
+    env.UnitFrameHealPredictionBars_Update(env.TargetFrame)
+    assert(targetFrame.indicators.forecast.value == 90 and customFrame.indicators.forecast.value == 30,
+        "A target heal update cannot replace the player's forecast")
+    targetCombat = false; Event(customDriver, "UNIT_FLAGS", "target")
+    assert(not targetFrame.indicators.combat.shown)
+    targetCombat = true; Event(customDriver, "UNIT_FLAGS", "target")
+    assert(targetFrame.indicators.combat.shown, "Target combat follows its public unit state")
+    local playerValue = customFrame.health.value
+    targetNativeHealth:SetValue(opaque); targetNativeHealth:SetMinMaxValues(0, opaque)
+    targetHealth.RightText:SetText(opaque)
+    assert(targetFrame.health.value == opaque and targetFrame.health.maximum == opaque
+        and targetFrame.text.healthRight.text == opaque and customFrame.health.value == playerValue,
+        "Target opaque data goes directly to its own display sinks")
+    local classes = ns.TargetPortraitArt.order
+    local stableHooks, stableWidgets = hookCount, #widgets
+    for _, token in ipairs(classes) do
+        playerClass, targetClass = token, token
+        assert(custom.Start("player"))
+        Event(customDriver, "PLAYER_TARGET_CHANGED")
+        assert(customFrame.shown and targetFrame.shown
+            and customFrame.skin.texture == ns.TargetPortraitArt.customFrames[token].texture
+            and targetFrame.skin.texture == customFrame.skin.texture and nativeAuras:GetEffectiveAlpha() == auraAlpha,
+            "All nine public class tokens select their own image for both units: " .. token)
+        local style = ns.TargetPortraitArt.customFrames[token]
+        for _, visual in ipairs({customFrame, targetFrame}) do
+            assert(visual.skin.desaturation == (style.desaturation or 0)
+                and visual.skin.color[1] == (style.brightness or 1)
+                and visual.skin.color[2] == (style.brightness or 1)
+                and visual.skin.color[3] == (style.brightness or 1) and visual.skin.color[4] == 1
+                and visual.alpha == 1 and visual.portrait.alpha == 1
+                and visual.health.alpha == 1 and visual.text.name.alpha == 1,
+                "Only the skin receives class-specific brightness and desaturation: " .. token)
+        end
+    end
+    playerClass = "MAGE"; assert(custom.Start("player"))
+    playerClass = "PALADIN"; assert(custom.Start("player"))
+    assert(customFrame.skin.desaturation == 0 and customFrame.skin.color[1] == 1,
+        "Returning from a subdued mage skin resets the approved paladin style")
+    assert(hookCount == stableHooks and #widgets == stableWidgets,
+        "Switching class variants reuses existing frames, sources, hooks and forecast anchors")
+    combat = true
+    local beforeTargetFallback = #widgets
+    targetClass = "secret"; Event(customDriver, "PLAYER_TARGET_CHANGED")
+    assert(not targetFrame.shown and targetContainer.alpha == .85 and targetContent.alpha == .65 and targetMain.alpha == 1
+        and customFrame.shown and #widgets == beforeTargetFallback,
+        "A secret target class restores native visuals immediately during combat without creating resources")
+    assert(nativeAuras.points[1][5] == 9, "Leaving the custom player frame restores the native aura position")
+    targetPlayer, targetClass = false, "WARRIOR"
+    Event(customDriver, "PLAYER_TARGET_CHANGED")
+    assert(not targetFrame.shown and targetContainer.alpha == .85 and customFrame.shown,
+        "NPC warrior-class metadata never replaces the native creature frame")
+    targetPlayer, targetClass = true, "MAGE"
+    Event(customDriver, "PLAYER_TARGET_CHANGED")
+    assert(not targetFrame.shown and targetContainer.alpha == .85,
+        "A suspended target waits until combat ends before preparing a different class layout")
+    combat = false; Event(customDriver, "PLAYER_REGEN_ENABLED")
+    assert(targetFrame.shown and targetFrame.skin.texture == mageArt.texture and targetContainer.alpha == 0,
+        "The requested target mode resumes on the first safe transition")
+    fallbackAvailable = false; Event(customDriver, "PLAYER_TARGET_CHANGED")
+    assert(not targetFrame.shown and targetContainer.alpha == .85 and customFrame.shown,
+        "A missing class image restores that native unit without stopping the other frame")
+    fallbackAvailable = true; Event(customDriver, "PLAYER_TARGET_CHANGED")
+    assert(targetFrame.shown)
+    assert(custom.Stop("target") and not targetFrame.shown and customFrame.shown and targetContent.alpha == .65
+        and targetMain.alpha == 1 and nativeAuras:GetEffectiveAlpha() == auraAlpha and nativeAuras.points[1][5] == 9,
+        "Stopping one unit restores only its own native containers")
+    variantsCommand("target ROGUE")
+    assert(targetFrame.shown and targetFrame.skin.texture == ns.TargetPortraitArt.customFrames.ROGUE.texture)
+    targetClass = "PRIEST"; Event(customDriver, "PLAYER_TARGET_CHANGED")
+    assert(targetFrame.skin.texture == ns.TargetPortraitArt.customFrames.ROGUE.texture,
+        "An explicit preview class remains selected until the session command changes it")
+    local profile = module.ExportSettings()
+    assert(not profile.customFrames and not profile.previewClass and not profile.player.customClass,
+        "Variant selection is session-only and never enters settings or profiles")
+    variantsCommand("off")
+    assert(not targetFrame.shown and not customFrame.shown and playerContainer.alpha == .9
+        and targetContainer.alpha == .85 and targetContent.alpha == .65,
+        "The public off command restores both original native frames")
+    print("PASS: nine class variants, exact target image mirroring, two units, opaque sinks, combat fallback and session-only previews")
     atlasesAvailable = false
-    env.ForeverTooltipLibreDB.targetPortrait = {enabled = true}
+    env.ForeverTooltipLibreDB.targetPortrait = {enabled = true, target = {customFrame = false}, player = {customFrame = false}}
     nextWidget = #widgets + 1
     Load("Modules/TargetPortrait.lua"); ns.InitializeTargetPortrait({})
     module, driver = modules.targetPortrait, widgets[nextWidget]
@@ -1024,8 +1712,120 @@ do
     assert(target.shown and target.rings[1].texture == ns.TargetPortraitArt.ring.texture,
         "Missing atlases use verified native file fallbacks")
     fallbackAvailable = false
-    env.ForeverTooltipLibreDB.targetPortrait = {enabled = true}
+    env.ForeverTooltipLibreDB.targetPortrait = {enabled = true, target = {customFrame = false}, player = {customFrame = false}}
     Load("Modules/TargetPortrait.lua"); ns.InitializeTargetPortrait({})
     assert(not frames.ArkannsQOLClassPortraitTarget.shown, "Missing artwork leaves the native portrait usable")
+    -- Simulate the normal addon initialization after a reload, with no slash command.
+    fallbackAvailable, atlasesAvailable, classAvailable = true, true, true
+    combat, targetPlayer, playerClass, targetClass = false, true, "MAGE", "PRIEST"
+    env.ForeverTooltipLibreDB.targetPortrait = {enabled = true,
+        target = {enabled = true, intensity = "epic", size = 117}, player = {enabled = true, glow = .19}}
+    Load("Modules/PaladinCustomTest.lua")
+    Load("Modules/TargetPortrait.lua")
+    ns.InitializeTargetPortrait({})
+    local defaultModule, defaultTest = modules.targetPortrait, ns.PaladinCustomTest
+    local defaultPlayer = assert(frames.ArkannsQOLPaladinCustomTest)
+    local defaultTarget = assert(frames.ArkannsQOLClassCustomTarget)
+    local defaultDriver = assert(frames.ArkannsQOLClassFrameEvents)
+    local defaults = defaultModule.ExportSettings()
+    assert(defaultPlayer.shown and defaultTarget.shown and defaults.player.customFrame and defaults.target.customFrame,
+        "Normal initialization activates both class frames without a test command")
+    assert(defaults.target.size == 117 and defaults.target.intensity == "epic" and defaults.player.glow == .19,
+        "Default full frames preserve saved legacy ornament settings for a later return")
+    assert(defaultPlayer.skin.texture == ns.TargetPortraitArt.customFrames.MAGE.texture
+        and defaultTarget.skin.texture == ns.TargetPortraitArt.customFrames.PRIEST.texture,
+        "Default activation chooses the current public class of each unit")
+    local defaultPanel = frames.ArkannsQOLTargetPortraitSettings
+    defaultPanel:SetSize(250, 312); defaultPanel:Show(); defaultPanel.scripts.OnShow(defaultPanel)
+    local customCheck = assert(frames.ArkannsQOLTargetPortraitCustomFrame)
+    local defaultScroll
+    for _, widget in ipairs(widgets) do
+        if widget.kind == "ScrollFrame" and widget.parent == defaultPanel then defaultScroll = widget end
+    end
+    assert(defaultScroll and defaultScroll.child:GetWidth() <= defaultPanel.width - 50,
+        "Full-frame controls and help stay inside the narrow scroll viewport")
+    local showUnit = frames.ArkannsQOLTargetPortraitUnitEnabled
+    assert(customCheck.shown and customCheck.checked and not frames.ArkannsQOLTargetPortraitIntensity.shown
+        and not frames.ArkannsQOLTargetPortraitAdvanced.shown and not frames.ArkannsQOLTargetPortraitEffects.shown
+        and not frames.ArkannsQOLTargetPortraitPreviewClass.shown,
+        "Full-frame mode shows its setting and hides unrelated ornament controls and tabs")
+    assert(showUnit.points[1][4] + 22 + showUnit.label.width <= defaultPanel.width
+        and frames.ArkannsQOLTargetPortraitUnit.points[1][4] + frames.ArkannsQOLTargetPortraitUnit.width <= defaultPanel.width,
+        "Full-frame headers remain inside a 250px settings panel")
+    Check("CustomFrame", false)
+    assert(not defaultTarget.shown and defaultPlayer.shown and targetContainer.alpha == .85,
+        "The per-unit checkbox restores the target's native frame while the player remains custom")
+    Click("ArkannsQOLTargetPortraitEffects")
+    local legacyAppearance = defaultModule.ExportSettings()
+    legacyAppearance.target.customFrame = true
+    assert(defaultModule.ImportSettings(legacyAppearance))
+    assert(customCheck.shown and customCheck.checked and not frames.ArkannsQOLTargetPortraitEffects.shown
+        and not frames.ArkannsQOLTargetPortraitGlow.shown and defaultTarget.shown,
+        "Importing full-frame settings returns from Effects to the visible Style section")
+    local fullProfile = defaultModule.ExportSettings()
+    local offPlayer = defaultModule.ExportSettings(); offPlayer.player.enabled = false
+    assert(defaultModule.ImportSettings(offPlayer) and not defaultPlayer.shown and defaultTarget.shown,
+        "Default full frames respect an existing disabled player unit")
+    assert(defaultModule.ImportSettings(fullProfile) and defaultPlayer.shown)
+    defaultModule.SetEnabled(false)
+    assert(not defaultPlayer.shown and not defaultTarget.shown)
+    defaultModule.SetEnabled(true)
+    assert(defaultPlayer.shown and defaultTarget.shown, "Re-enabling the module restores its configured defaults")
+    local sessionOff = assert(env.SlashCmdList.QOLTOOLKITCLASSFRAMES)
+    sessionOff("off")
+    Event(defaultDriver, "PLAYER_ENTERING_WORLD")
+    assert(not defaultPlayer.shown and not defaultTarget.shown,
+        "The explicit off command prevents automatic reactivation for the remainder of the session")
+    Check("CustomFrame", false); Check("CustomFrame", true)
+    assert(defaultTarget.shown and not defaultPlayer.shown,
+        "Changing the target's configured style explicitly re-arms only that unit")
+    assert(defaultTest.Start("player"))
+    combat = true
+    Event(defaultDriver, "UNIT_ENTERED_VEHICLE", "target")
+    targetPlayer = false; Event(defaultDriver, "PLAYER_TARGET_CHANGED")
+    assert(not defaultTarget.shown and targetContainer.alpha == .85,
+        "A non-player target keeps native visuals when default mode changes during combat")
+    targetPlayer = true
+    combat = false; Event(defaultDriver, "PLAYER_REGEN_ENABLED")
+    assert(defaultTarget.shown)
+    -- Return the player to automatic ownership, then test a vehicle round trip.
+    local rearm = defaultModule.ExportSettings(); rearm.player.customFrame = false
+    assert(defaultModule.ImportSettings(rearm))
+    rearm.player.customFrame = true; assert(defaultModule.ImportSettings(rearm))
+    env.PlayerFrame.unit = "vehicle"
+    Event(defaultDriver, "UNIT_ENTERED_VEHICLE", "player")
+    assert(not defaultPlayer.shown and playerContainer.alpha == .9)
+    env.PlayerFrame.unit = "player"
+    Event(defaultDriver, "UNIT_EXITED_VEHICLE", "player")
+    assert(defaultPlayer.shown, "Default player frames resume after leaving a vehicle without a slash command")
+    env.PlayerFrame.unit = "vehicle"; Event(defaultDriver, "UNIT_ENTERED_VEHICLE", "player")
+    defaultModule.SetEnabled(false)
+    env.PlayerFrame.unit = "player"
+    defaultModule.SetEnabled(true)
+    assert(defaultPlayer.shown,
+        "Re-enabling after a vehicle exit missed while disabled does not retain a stale vehicle suspension")
+    local roundTrip = defaultModule.ExportSettings()
+    roundTrip.target.customFrame = false
+    assert(defaultModule.ImportSettings(roundTrip) and not defaultTarget.shown)
+    roundTrip.target.customFrame = true
+    assert(defaultModule.ImportSettings(roundTrip) and defaultTarget.shown,
+        "The new style preference round-trips through the existing profile import/export contract")
+    assert(ns.Profiles.Save("Class frame defaults"))
+    roundTrip.target.customFrame = false
+    assert(defaultModule.ImportSettings(roundTrip) and not defaultTarget.shown)
+    assert(ns.Profiles.Apply(assert(ns.Profiles.Preview("Class frame defaults", {targetPortrait = true}))) and defaultTarget.shown)
+    assert(ns.Profiles.Undo() and not defaultTarget.shown and defaultPlayer.shown,
+        "Applying and undoing a real profile restores each unit's complete-frame preference")
+    roundTrip.target.customFrame = true
+    assert(defaultModule.ImportSettings(roundTrip) and nativeAuras.points[1][5] == -3)
+    auraProtected, combat = true, true
+    defaultModule.SetEnabled(false)
+    assert(nativeAuras.points[1][5] == -3 and defaultDriver.events.PLAYER_REGEN_ENABLED,
+        "A protected pending aura restoration retains the safe-transition event after both units are disabled")
+    combat = false; Event(defaultDriver, "PLAYER_REGEN_ENABLED")
+    assert(nativeAuras.points[1][5] == 9 and not next(defaultDriver.events),
+        "The native aura position is restored once on combat exit and the idle driver is released")
+    auraProtected = false
+    print("PASS: default class-frame initialization, migration, per-unit settings, compact controls, session off and automatic vehicle recovery")
 end
 print("PASS: class portrait settings, class transitions, combat deferral, previews, legacy profiles, and native fallbacks")

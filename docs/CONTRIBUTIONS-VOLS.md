@@ -1,6 +1,6 @@
 # Temps de vol
 
-Dans `/qt` → **Outils** → **Temps de vol**, le chronomètre est actif par défaut. La carte affiche la durée connue au survol d’une destination. Le premier vol affiche le temps écoulé si aucune durée n’est connue. L’addon conserve ensuite la médiane des cinq derniers vols valides pour ce trajet, ce build et ce bonus de vitesse. Les vols interrompus et les trajets dont les escales ou le bonus ne sont pas identifiables ne contribuent pas à la base.
+Dans `/qt` → **Outils** → **Temps de vol**, le chronomètre est actif par défaut. La carte affiche la durée connue au survol d’une destination. Le premier vol affiche le temps écoulé si aucune durée n’est connue. L’addon calcule la médiane des cinq derniers vols valides pour ce trajet, ce build et ce bonus de vitesse. Après un patch, il utilise la médiane du dernier build mesuré pour le même trajet et le même bonus comme estimation jusqu’à un nouveau vol complet. Les vols interrompus et les trajets dont les escales ou le bonus ne sont pas identifiables ne contribuent pas à la base.
 
 ## Contribuer
 
@@ -18,4 +18,4 @@ python docs/flight_contributions.py --database "$flightDb" build
 
 Un nouvel export actualise la mesure du contributeur pour le trajet, le build et le bonus correspondants. Une durée publique demande trois contributeurs concordants au minimum et une majorité stricte dans la marge de trois secondes ou 3 %, selon la valeur la plus élevée. Un export client reste une déclaration. L’alias évite de compter plusieurs envois d’une même personne comme des confirmations indépendantes.
 
-Vérifie le diff de `Modules/FlightTimesData.lua` et ajoute ce fichier généré à la prochaine version normale de l’addon. Le fichier ne contient que les durées agrégées et leurs clés. Une mesure personnelle correspondant au trajet, au build et au bonus prend la priorité sur cette table.
+Vérifie le diff de `Modules/FlightTimesData.lua` et ajoute ce fichier généré à la prochaine version normale de l’addon. Le fichier ne contient que les durées agrégées et leurs clés. Une mesure personnelle correspondant au trajet et au bonus prend la priorité sur cette table, même si elle vient d’un build antérieur.

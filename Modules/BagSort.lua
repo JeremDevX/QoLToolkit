@@ -3,6 +3,14 @@ local L = ns.L
 local WoW = ns.WoW
 local db, panel, check, qualityCheck, transmogCheck, status, category, homeCategory, refreshAppearance
 local quick, quickBag, refreshQuick, ToggleQuickSettings
+local merchantChecks, merchantEvents, merchantVisit, sellFailed, repairFailed
+local coinListening, coinQueued, PaintSaleCoin, RefreshSaleCoins, QueueSaleCoinRefresh
+local saleCoins = {}
+local saleCoinEvents = {"GET_ITEM_INFO_RECEIVED", "ITEM_LOCK_CHANGED", "BAG_SLOT_FLAGS_UPDATED"}
+local function HideSaleCoins(coins)
+    if not coins then return end
+    for _, coin in ipairs(coins) do coin:Hide() end
+end
 local listening, bankOpen, failed, scheduled
 local qualityListening, getQualityColor, appearanceQueued, reagentEvents, waitingForReagents
 local transmogEvents, transmogQueued
@@ -10,9 +18,16 @@ local pending = {}
 local qualityBorders, samples, shortcuts = {}, {}, {}
 local transmogIcons = {}
 local shortcutMargins = {}
-local defaults = {
-    enabled = false, qualityBorders = true, qualityOpacity = 100, qualityThickness = 1,
+local appearanceDefaults = {
+    qualityBorders = true, qualityOpacity = 100, qualityThickness = 1,
     qualityInnerGlow = 0, transmogIcons = true,
+}
+local defaults = {enabled = false, autoSell = false, sellEquipment = false, autoRepair = false}
+for key, value in pairs(appearanceDefaults) do defaults[key] = value end
+local merchantOptions = {
+    {"autoSell", "AutoSell", "Vendre les objets gris"},
+    {"sellEquipment", "SellEquipment", "Inclure l’équipement gris"},
+    {"autoRepair", "AutoRepair", "Réparation automatique"},
 }
 local borderTexture = "Interface\\Common\\WhiteIconFrame"
 local glowTexture = "Interface\\Buttons\\WHITE8X8"
@@ -29,8 +44,8 @@ local transmogRefreshEvents = {
     "TRANSMOG_COLLECTION_UPDATED", "TRANSMOG_COLLECTION_ITEM_UPDATE", "TRANSMOG_COLLECTION_SOURCE_ADDED",
     "TRANSMOG_COLLECTION_SOURCE_REMOVED", "TRANSMOG_COSMETIC_COLLECTION_SOURCE_ADDED", "TRANSMOG_SOURCE_COLLECTABILITY_UPDATE",
 }
-local shortcutWidth, shortcutRight = 42, -32
-local titleRight = shortcutRight - shortcutWidth - 4
+local shortcutSize, shortcutRight = 24, -32
+local titleRight = shortcutRight - shortcutSize - 4
 
 local function ValidSetting(key, value, default)
     if type(default) == "boolean" then return type(value) == "boolean" end
@@ -428,15 +443,18 @@ end
 local function OnItemQuality(button, quality, item)
     local showQuality = qualityListening and db.qualityBorders
     local showTransmog = transmogEvents and db.transmogIcons
-    if not (showQuality or showTransmog) or Secret(button) or not button or not button.GetParent or not button.CreateTexture then return end
+    local showCoin = coinListening and db.autoSell
+    if not (showQuality or showTransmog or showCoin) or Secret(button) or not button or not button.GetParent or not button.CreateTexture then return end
     local frame = button.containerFrame or button:GetParent()
     if IsPersonalBag(frame) and (frame == ContainerFrameCombinedBags
         or ContainerFrameUtil_GetShownFrameForID(frame:GetBagID()) == frame) then
         if showQuality then PaintQualityBorder(button, BagBorderCategory(button, quality, item)) end
         if showTransmog then PaintTransmogIcon(button) end
+        if showCoin then PaintSaleCoin(button) end
     else
         HideBorder(qualityBorders[button])
         if transmogIcons[button] then transmogIcons[button]:Hide() end
+        HideSaleCoins(saleCoins[button])
     end
 end
 
@@ -495,11 +513,63 @@ local function Unavailable()
     end
 end
 
+local function CanAutoSell()
+    return not sellFailed and C_Container and NUM_TOTAL_BAG_FRAMES
+        and C_Container.GetContainerNumSlots and C_Container.GetContainerItemInfo and C_Container.UseContainerItem
+        and C_Container.GetContainerItemQuestInfo and C_Container.GetContainerItemPurchaseInfo
+        and C_Container.GetBackpackSellJunkDisabled and C_Container.GetBagSlotFlag
+        and GetCursorInfo and SpellIsTargeting and InRepairMode
+        and C_Item and C_Item.IsEquippableItem and C_Item.GetItemGUID
+        and ItemLocation and ItemLocation.CreateFromBagAndSlot
+        and Enum and Enum.ItemQuality and Enum.ItemQuality.Poor
+        and Enum.BagSlotFlags and Enum.BagSlotFlags.ExcludeJunkSell
+end
+
+local function CanAutoRepair()
+    return not repairFailed and CanMerchantRepair and GetRepairAllCost and GetMoney and RepairAllItems
+end
+
+local function ShowSaleCoins()
+    return coinListening and merchantEvents and db.autoSell and CanAutoSell()
+end
+
+local function RefreshMerchantChecks(checks)
+    for index, option in ipairs(merchantOptions) do checks[index]:SetChecked(db[option[1]]) end
+    local sell, repair = merchantEvents and CanAutoSell(), merchantEvents and CanAutoRepair()
+    checks[1]:SetEnabled(not not sell)
+    checks[2]:SetEnabled(not not (sell and db.autoSell))
+    checks[3]:SetEnabled(not not repair)
+    checks[1].label:SetText(L(sell and merchantOptions[1][3] or "Vente automatique indisponible"))
+    checks[3].label:SetText(L(repair and merchantOptions[3][3] or "Réparation automatique indisponible"))
+end
+
+local function RefreshMerchantEvents()
+    if not merchantEvents then return end
+    local sell = db.autoSell and CanAutoSell()
+    if merchantVisit and not sell then merchantVisit.items = nil end
+    if sell or (db.autoRepair and CanAutoRepair()) then
+        merchantEvents:RegisterEvent("MERCHANT_SHOW")
+        merchantEvents:RegisterEvent("MERCHANT_CLOSED")
+        merchantEvents:RegisterEvent("MERCHANT_CONFIRM_TRADE_TIMER_REMOVAL")
+        merchantEvents:RegisterEvent("ADDON_ACTION_BLOCKED")
+        merchantEvents:RegisterEvent("ADDON_ACTION_FORBIDDEN")
+        for _, event in ipairs(saleCoinEvents) do
+            if ShowSaleCoins() then merchantEvents:RegisterEvent(event) else merchantEvents:UnregisterEvent(event) end
+        end
+    else
+        merchantVisit = nil
+        merchantEvents:UnregisterAllEvents()
+    end
+end
+
 local function Refresh()
     check:SetChecked(db.enabled)
     check:SetEnabled(not Unavailable())
     qualityCheck:SetChecked(db.qualityBorders)
     transmogCheck:SetChecked(db.transmogIcons)
+    RefreshMerchantEvents()
+    RefreshMerchantChecks(merchantChecks)
+    RefreshSaleCoins()
     status:SetText(Unavailable() or "")
     if reagentEvents then
         if db.qualityBorders then reagentEvents:RegisterEvent("ITEM_DATA_LOAD_RESULT")
@@ -520,6 +590,30 @@ local function SetTransmogIcons(value)
     db.transmogIcons = value == true
     Refresh()
     RefreshTransmogSetting()
+end
+
+local function CreateMerchantChecks(parent, prefix)
+    local checks = {}
+    for index, option in ipairs(merchantOptions) do
+        local key, name, label = unpack(option)
+        checks[index] = ns.UI.Check(parent, prefix .. name, L(label), 0, 0, function(value)
+            db[key] = value == true
+            ns.UI.Refresh()
+        end)
+    end
+    checks[3]:HookScript("OnEnter", function(self)
+        if not GameTooltip or GameTooltip:IsForbidden() then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L(merchantOptions[3][3]))
+        GameTooltip:AddLine(L("Utilise l’argent du personnage."), 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    local function HideTooltip(self)
+        if GameTooltip and not GameTooltip:IsForbidden() and GameTooltip:GetOwner() == self then GameTooltip:Hide() end
+    end
+    checks[3]:HookScript("OnLeave", HideTooltip)
+    checks[3]:HookScript("OnHide", HideTooltip)
+    return checks
 end
 
 local function CloseQuickSettings(frame)
@@ -561,15 +655,52 @@ local function AttachShortcut(frame)
     end
     local button = shortcuts[frame]
     if not button then
-        button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        button = CreateFrame("Button", nil, frame, "UIPanelCloseButtonNoScripts")
         shortcuts[frame] = button
-        button:SetSize(shortcutWidth, 20)
+        button:SetSize(shortcutSize, shortcutSize)
+        button.NarrationGetName = function() return L("Réglages des sacs") end
         if frame.CloseButton then
-            button:SetPoint("RIGHT", frame.CloseButton, "LEFT", -4, 0)
+            local closeArt = WoW.ReadValue(frame.CloseButton.GetNormalTexture, frame.CloseButton)
+            button:SetPoint("RIGHT", closeArt or frame.CloseButton, "LEFT", -4, 0)
         else
             button:SetPoint("TOPRIGHT", frame, "TOPRIGHT", shortcutRight, -3)
         end
-        button:SetText("QOL")
+        local getAtlas = C_Texture and C_Texture.GetAtlasInfo
+        local closeAtlas = WoW.ReadValue(getAtlas, "RedButton-Exit")
+        local closeFile
+        if type(closeAtlas) == "table" then
+            if WoW.IsFiniteNumber(closeAtlas.file) and closeAtlas.file > 0 then closeFile = closeAtlas.file
+            elseif WoW.IsPublic(closeAtlas.filename) and type(closeAtlas.filename) == "string" then
+                closeFile = closeAtlas.filename
+            end
+        end
+        if closeFile and closeFile ~= ""
+            and WoW.IsFiniteNumber(closeAtlas.leftTexCoord) and WoW.IsFiniteNumber(closeAtlas.rightTexCoord)
+            and WoW.IsFiniteNumber(closeAtlas.topTexCoord) and WoW.IsFiniteNumber(closeAtlas.bottomTexCoord) then
+            -- The X is baked into the sprite. Sample the red strip to its left and leave the native border exposed.
+            local fill = button:CreateTexture(nil, "OVERLAY", nil, -1)
+            local left, top = closeAtlas.leftTexCoord, closeAtlas.topTexCoord
+            local width, height = closeAtlas.rightTexCoord - left, closeAtlas.bottomTexCoord - top
+            fill:SetTexture(closeFile)
+            fill:SetTexCoord(left + width * .16, left + width * .19, top + height * .22, top + height * .75)
+            fill:SetPoint("TOPLEFT", button, "TOPLEFT", 4, -3)
+            fill:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -4, 3)
+        else
+            for _, state in ipairs({
+                {button.SetNormalTexture, button.GetNormalTexture, "Up"},
+                {button.SetPushedTexture, button.GetPushedTexture, "Down"},
+            }) do
+                state[1](button, "Interface\\Buttons\\UI-Panel-Button-" .. state[3])
+                state[2](button):SetTexCoord(0, .625, 0, .6875)
+            end
+        end
+        local icon = button:CreateTexture(nil, "OVERLAY", nil, 1)
+        icon:SetSize(18, 18)
+        icon:SetPoint("CENTER", button, "CENTER", 0, 0)
+        -- Blizzard uses this cog in its Edit Mode layout menu.
+        if icon:SetTexture("Interface\\WorldMap\\GEAR_64GREY") ~= true then
+            icon:SetTexture("Interface\\Icons\\INV_Misc_Wrench_01")
+        end
         button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         button:SetScript("OnClick", function(self, mouseButton)
             if not IsPersonalBag(frame) then return end
@@ -579,7 +710,7 @@ local function AttachShortcut(frame)
         button:SetScript("OnEnter", function(self)
             if not GameTooltip or GameTooltip:IsForbidden() then return end
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
-            GameTooltip:SetText("QoL Toolkit")
+            GameTooltip:SetText(L("Réglages des sacs"))
             GameTooltip:AddLine(L("Clic gauche · Réglages rapides"), 1, 1, 1)
             GameTooltip:AddLine(L("Clic droit · Accueil de l’addon"), 1, 1, 1)
             GameTooltip:Show()
@@ -646,7 +777,7 @@ local function BuildAppearance(body, compact)
         local label = UI.Label(body, "", 20, y)
         local slider = CreateFrame("Slider", prefix .. "_" .. key, body, "BackdropTemplate")
         slider:SetPoint("TOPLEFT", 18, y - 22)
-        slider:SetSize(compact and 222 or 244, 16)
+        slider:SetSize(244, 16)
         slider:SetOrientation("HORIZONTAL")
         slider:SetMinMaxValues(isThickness and 1 or 0, isThickness and maxThickness or 100)
         slider:SetValueStep(isThickness and 1 or 5)
@@ -656,6 +787,7 @@ local function BuildAppearance(body, compact)
         slider:GetThumbTexture():SetSize(28, 28)
         local format = isThickness and "%s · %d" or L("%s · %d %%")
         local function Caption() label:SetText(format:format(name, db[key])) end
+        Caption()
         slider:SetScript("OnValueChanged", function(_, value)
             if syncing then return end
             db[key] = math.floor(value + .5)
@@ -667,13 +799,13 @@ local function BuildAppearance(body, compact)
         sliders[#sliders + 1] = {label = label, control = slider}
         return function() slider:SetValue(db[key]); Caption() end
     end
-    local opacity = Slider("qualityOpacity", L("Opacité du contour"), compact and -119 or 0)
-    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), compact and -165 or -56)
-    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), compact and -211 or -112)
-    targets["Couleurs de rareté"] = UI.Label(body, L("Couleurs et aperçu"), 20, compact and -256 or -162, 15)
+    local opacity = Slider("qualityOpacity", L("Opacité du contour"), 0)
+    local thickness = Slider("qualityThickness", L("Épaisseur du contour"), -56)
+    local innerGlow = Slider("qualityInnerGlow", L("Halo intérieur"), -112)
+    targets["Couleurs de rareté"] = UI.Label(body, L("Couleurs et aperçu"), 20, -162, 15)
     local toggleHelp = L("Cochez pour appliquer la couleur.")
-    local help = UI.Label(body, toggleHelp, 20, compact and -278 or -186)
-    local size, top = 28, compact and -300 or -210
+    local help = UI.Label(body, toggleHelp, 20, -186)
+    local size, top = 28, -210
     local categories = {0, 1, 2, 3, 4, 5, "quest", "reagent"}
     for index, quality in ipairs(categories) do
         local source = quality == "quest" and "Objets de quête" or quality == "reagent" and "Composants d’artisanat"
@@ -724,8 +856,8 @@ local function BuildAppearance(body, compact)
     if not compact then
         reset = UI.Button(body, "ArkannsQOLBagAppearanceDefaults", L("Apparence par défaut"), 18, footerY, 190, function()
             UI.Confirm(L("Rétablir les bordures de rareté et leurs couleurs par défaut ?"), function()
-                for key, value in pairs(defaults) do
-                    if key ~= "enabled" and key ~= "transmogIcons" then db[key] = value end
+                for key, value in pairs(appearanceDefaults) do
+                    if key ~= "transmogIcons" then db[key] = value end
                 end
                 db.qualityColors, db.qualityHidden = {}, {}
                 Refresh()
@@ -734,8 +866,9 @@ local function BuildAppearance(body, compact)
         end)
     end
     local function Layout(width)
-        local paired = width >= 560
-        local columnWidth = paired and (width - 24) / 2 or width
+        local gap = compact and 16 or 24
+        local paired = width >= (compact and 450 or 560)
+        local columnWidth = paired and (width - gap) / 2 or width
         local function Place(widget, x, y, available)
             widget:ClearAllPoints(); widget:SetPoint("TOPLEFT", x, -y)
             if available then widget:SetWidth(available) end
@@ -743,11 +876,13 @@ local function BuildAppearance(body, compact)
         local y = 0
         for _, field in ipairs(sliders) do
             Place(field.label, 0, y, columnWidth)
-            y = y + field.label:GetStringHeight() + 10
-            Place(field.control, 4, y, math.max(1, math.min(330, columnWidth - 8)))
-            y = y + 38
+            local clearance = compact and 8 or 10
+            field.control:ClearAllPoints()
+            field.control:SetPoint("TOPLEFT", field.label, "BOTTOMLEFT", 4, -clearance)
+            field.control:SetWidth(math.max(1, math.min(330, columnWidth - 8)))
+            y = y + field.label:GetStringHeight() + clearance + (compact and 24 or 38)
         end
-        local rightX, paletteY = paired and columnWidth + 24 or 0, paired and 0 or y + 8
+        local rightX, paletteY = paired and columnWidth + gap or 0, paired and 0 or y + 8
         local title = targets["Couleurs de rareté"]
         Place(title, rightX, paletteY, columnWidth)
         paletteY = paletteY + title:GetStringHeight() + 8
@@ -762,8 +897,8 @@ local function BuildAppearance(body, compact)
         end
         paletteY = paletteY + math.ceil(#palette / columns) * 40
         local bottom = math.max(y, paletteY) + 8
-        Place(reset, 0, bottom, math.min(220, width))
-        body:SetSize(width, bottom + 38)
+        if reset then Place(reset, 0, bottom, math.min(220, width)) end
+        body:SetSize(width, bottom + (reset and 38 or 0))
     end
     return function()
         syncing = true
@@ -773,7 +908,7 @@ local function BuildAppearance(body, compact)
         innerGlow()
         syncing = false
         RefreshSamples()
-    end, footerY, targets, not compact and Layout or nil
+    end, footerY, targets, Layout
 end
 
 local function SetEnabled(value)
@@ -806,25 +941,63 @@ local function CreateQuickSettings()
     local close = CreateFrame("Button", name .. "Close", quick, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", quick, "TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function() CloseQuickSettings() end)
-    local sort = UI.Check(quick, "ArkannsQOLBagQuickSort", L("Tri à l’ouverture"), 14, -37, SetEnabled)
-    local borders = UI.Check(quick, "ArkannsQOLBagQuickBorders", L("Contours de rareté"), 14, -62, SetQualityBorders)
-    local transmog = CreateTransmogCheck(quick, "ArkannsQOLBagQuickTransmog", 14, -87)
-    local appearance, footerY
+    local sort = UI.Check(quick, "ArkannsQOLBagQuickSort", L("Tri à l’ouverture"), 0, 0, SetEnabled)
+    local borders = UI.Check(quick, "ArkannsQOLBagQuickBorders", L("Contours de rareté"), 0, 0, SetQualityBorders)
+    local transmog = CreateTransmogCheck(quick, "ArkannsQOLBagQuickTransmog", 0, 0)
+    local merchantTitle = UI.Label(quick, L("À l’ouverture d’un marchand"), 0, 0, 15)
+    local checks = CreateMerchantChecks(quick, "ArkannsQOLBagQuick")
+    local appearance, refreshAppearanceControls, layoutAppearance
     if qualityListening then
-        appearance, footerY = BuildAppearance(quick, true)
+        appearance = CreateFrame("Frame", nil, quick)
+        local _, unusedTargets
+        refreshAppearanceControls, _, unusedTargets, layoutAppearance = BuildAppearance(appearance, true)
     else
         borders:Disable()
-        UI.Label(quick, L("Bordures indisponibles sur ce client."), 18, -121)
-        footerY = -147
+        borders.label:SetText(L("Bordures indisponibles"))
     end
-    UI.Button(quick, "ArkannsQOLBagQuickMore", L("Tous les réglages"), 18, footerY, 220, function() OpenSettings(category) end)
-    quick:SetSize(260, -footerY + 41)
+    local more = UI.Button(quick, "ArkannsQOLBagQuickMore", L("Tous les réglages"), 0, 0, 234,
+        function() OpenSettings(category) end)
+    local quickChecks = {sort, borders, transmog}
+    local function Place(widget, x, y)
+        widget:ClearAllPoints()
+        widget:SetPoint("TOPLEFT", x, -y)
+    end
     refreshQuick = function()
         sort:SetChecked(db.enabled)
         sort:SetEnabled(not Unavailable())
         borders:SetChecked(db.qualityBorders)
         transmog:SetChecked(db.transmogIcons)
-        if appearance then appearance() end
+        RefreshMerchantChecks(checks)
+        local screenWidth = WoW.ReadValue(UIParent.GetWidth, UIParent)
+        local width = WoW.IsFiniteNumber(screenWidth) and math.min(524, math.max(270, screenWidth - 36)) or 524
+        local contentWidth = width - 36
+        local paired = contentWidth >= 450
+        local columnWidth = paired and (contentWidth - 16) / 2 or contentWidth
+        quick:SetWidth(width)
+        local function PlaceCheck(control, x, y, inset)
+            control:SetSize(24, 24)
+            control.label:SetWidth(columnWidth - 26 - inset)
+            Place(control, x + inset, y)
+            return y + math.max(24, control.label:GetStringHeight() + 10)
+        end
+        local y = 36
+        for _, control in ipairs(quickChecks) do y = PlaceCheck(control, 14, y, 0) end
+        local rightX, rightY = paired and 14 + columnWidth + 16 or 14, paired and 36 or y + 7
+        merchantTitle:SetWidth(columnWidth)
+        Place(merchantTitle, rightX + 4, rightY)
+        rightY = rightY + merchantTitle:GetStringHeight() + 5
+        for index, control in ipairs(checks) do
+            rightY = PlaceCheck(control, rightX, rightY, index == 2 and 12 or 0)
+        end
+        y = math.max(y, rightY) + 10
+        if appearance then
+            Place(appearance, 18, y)
+            refreshAppearanceControls()
+            layoutAppearance(contentWidth)
+            y = y + appearance:GetHeight()
+        end
+        Place(more, (width - 234) / 2, y)
+        quick:SetHeight(y + 40)
     end
     if UISpecialFrames then table.insert(UISpecialFrames, name) end
 end
@@ -835,8 +1008,8 @@ ToggleQuickSettings = function(frame)
     quick:ClearAllPoints()
     quick:SetPoint("TOPRIGHT", frame, "TOPLEFT", -6, -2)
     quickBag = frame
-    quick:Show()
     refreshQuick()
+    quick:Show()
 end
 
 local function Suspend()
@@ -872,6 +1045,7 @@ local function OnBagOpened(_, frame)
     AttachShortcut(frame)
     if not IsPersonalBag(frame) then return end
     QueueTransmogRefresh()
+    QueueSaleCoinRefresh()
     if not CanSort() then return end
     pending[frame] = false
     if not scheduled then
@@ -897,17 +1071,231 @@ local function ConfirmAllBags()
     for frame in pairs(pending) do pending[frame] = true end
 end
 
+local function MerchantIsReady(visit)
+    if merchantVisit ~= visit or not MerchantFrame or IsBankOpen() then return false end
+    local combatStatus, combat = WoW.Read(InCombatLockdown)
+    local interaction = Enum.PlayerInteractionType.Merchant
+    local tab = MerchantFrame.selectedTab
+    return combatStatus == "ok" and not combat
+        and WoW.ReadValue(C_PlayerInteractionManager.IsInteractingWithNpcOfType, interaction) == true
+        and WoW.ReadValue(MerchantFrame.IsShown, MerchantFrame) == true and not Secret(tab) and tab == 1
+end
+
+local function RepairAtMerchant()
+    if not db.autoRepair or not CanAutoRepair() or WoW.ReadValue(CanMerchantRepair) ~= true then return end
+    local _, cost, canRepair = WoW.Read(GetRepairAllCost)
+    if canRepair ~= true or not WoW.IsFiniteNumber(cost) or cost <= 0 then return end
+    local money = WoW.ReadValue(GetMoney)
+    if WoW.IsFiniteNumber(money) and cost <= money and WoW.Read(RepairAllItems) == "error" then
+        repairFailed = true
+        ns.UI.Refresh()
+    end
+end
+
+local function BagAllowsSale(bag)
+    if bag == 0 then return WoW.ReadValue(C_Container.GetBackpackSellJunkDisabled) == false end
+    return WoW.ReadValue(C_Container.GetBagSlotFlag, bag, Enum.BagSlotFlags.ExcludeJunkSell) == false
+end
+
+local function ReadItemGUID(bag, slot)
+    local location = WoW.ReadValue(ItemLocation.CreateFromBagAndSlot, ItemLocation, bag, slot)
+    if location then return WoW.ReadValue(C_Item.GetItemGUID, location) end
+end
+
+local function GetSellableItem(bag, slot)
+    local item = WoW.ReadValue(C_Container.GetContainerItemInfo, bag, slot)
+    if type(item) ~= "table" or Secret(item.quality) or item.quality ~= Enum.ItemQuality.Poor
+        or Secret(item.isLocked) or item.isLocked ~= false
+        or Secret(item.hasNoValue) or item.hasNoValue ~= false
+        or not WoW.IsFiniteNumber(item.itemID) or not WoW.IsFiniteNumber(item.stackCount) then return end
+
+    local quest = WoW.ReadValue(C_Container.GetContainerItemQuestInfo, bag, slot)
+    if type(quest) ~= "table" or Secret(quest.isQuestItem) or quest.isQuestItem ~= false
+        or Secret(quest.questID) or quest.questID ~= nil then return end
+    local purchaseStatus, purchase = WoW.Read(C_Container.GetContainerItemPurchaseInfo, bag, slot, false)
+    if purchaseStatus ~= "ok" then return end
+    if purchase ~= nil and (type(purchase) ~= "table"
+        or Secret(purchase.money) or purchase.money ~= 0
+        or Secret(purchase.itemCount) or purchase.itemCount ~= 0
+        or Secret(purchase.currencyCount) or purchase.currencyCount ~= 0) then return end
+    if not db.sellEquipment and WoW.ReadValue(C_Item.IsEquippableItem, item.itemID) ~= false then return end
+    local guid = ReadItemGUID(bag, slot)
+    if type(guid) == "string" and guid ~= "" then return guid, item end
+end
+
+local function ReadVendorPrice(item)
+    return (select(11, C_Item.GetItemInfo(item)))
+end
+
+PaintSaleCoin = function(button)
+    if button.IsForbidden and button:IsForbidden() then return end
+    local coins = saleCoins[button]
+    local bag = WoW.ReadValue(button.GetBagID, button)
+    local slot = WoW.ReadValue(button.GetID, button)
+    local price
+    if ShowSaleCoins() and IsPersonalBagID(bag) and WoW.IsFiniteNumber(slot) and slot > 0 then
+        local _, item = GetSellableItem(bag, slot)
+        if item and BagAllowsSale(bag) and WoW.IsPublic(item.hyperlink) then
+            local unitPrice = WoW.ReadValue(ReadVendorPrice, item.hyperlink or item.itemID)
+            if WoW.IsFiniteNumber(unitPrice) then price = unitPrice * item.stackCount end
+        end
+    end
+    if not WoW.IsFiniteNumber(price) or price <= 0 then return HideSaleCoins(coins) end
+
+    if not coins then
+        coins = {}
+        for index = 1, 4 do
+            local outline = index % 2 == 1
+            local size = outline and 22 or 20
+            local x = index <= 2 and -4 or 4
+            local coin = button:CreateTexture(nil, "OVERLAY", nil, index + 2)
+            coin:SetSize(size, size)
+            coin:SetPoint("CENTER", button, "CENTER", x, -x * .75)
+            if outline then coin:SetVertexColor(0, 0, 0, .85) end
+            coins[index] = coin
+        end
+        saleCoins[button] = coins
+        button:HookScript("OnHide", function() HideSaleCoins(coins) end)
+    end
+    local denomination = price >= 10000 and "Gold" or price >= 100 and "Silver" or "Copper"
+    local atlas = "coin-" .. denomination:lower()
+    local hasAtlas = C_Texture and WoW.ReadValue(C_Texture.GetAtlasInfo, atlas)
+    for _, coin in ipairs(coins) do
+        if hasAtlas then
+            coin:SetAtlas(atlas)
+            coin:Show()
+        else
+            coin:SetShown(coin:SetTexture("Interface\\MoneyFrame\\UI-" .. denomination .. "Icon") == true)
+        end
+    end
+end
+
+RefreshSaleCoins = function()
+    if not ShowSaleCoins() then
+        for _, coins in pairs(saleCoins) do HideSaleCoins(coins) end
+        return
+    end
+    for _, frame in ContainerFrameUtil_EnumerateContainerFrames() do
+        if (not frame.IsForbidden or not frame:IsForbidden()) and IsPersonalBag(frame)
+            and WoW.ReadValue(frame.IsVisible, frame) == true and frame.EnumerateValidItems then
+            for _, button in frame:EnumerateValidItems() do PaintSaleCoin(button) end
+        end
+    end
+end
+
+QueueSaleCoinRefresh = function()
+    if coinQueued or not ShowSaleCoins() or not ContainerFrameUtil_GetShownFrameForID() then return end
+    coinQueued = true
+    C_Timer.After(0, function()
+        coinQueued = false
+        if ContainerFrameUtil_GetShownFrameForID() then RefreshSaleCoins() end
+    end)
+end
+
+local function SellNextItem(visit)
+    if not MerchantIsReady(visit) or not visit.items or not db.autoSell or not CanAutoSell() then return end
+    local cursorStatus, cursor = WoW.Read(GetCursorInfo)
+    local spellStatus, targeting = WoW.Read(SpellIsTargeting)
+    local repairStatus, repairing = WoW.Read(InRepairMode)
+    if cursorStatus ~= "ok" or cursor ~= nil or spellStatus ~= "ok" or targeting
+        or repairStatus ~= "ok" or repairing then return end
+    if visit.previous then
+        local previous = visit.previous
+        local status, item = WoW.Read(C_Container.GetContainerItemInfo, previous.bag, previous.slot)
+        if status ~= "ok" then return end
+        if item ~= nil then
+            local guid = ReadItemGUID(previous.bag, previous.slot)
+            if type(guid) ~= "string" then return end
+            if guid == previous.guid then
+                -- Wait for the sale to reach the bags. A refused sale is never retried.
+                visit.waits = visit.waits + 1
+                if visit.waits < 10 then C_Timer.After(.25, function() SellNextItem(visit) end)
+                else visit.items = nil end
+                return
+            end
+        end
+        visit.previous = nil
+    end
+    while visit.index <= #visit.items do
+        local item = visit.items[visit.index]
+        visit.index = visit.index + 1
+        if BagAllowsSale(item.bag) then
+            local guid, current = GetSellableItem(item.bag, item.slot)
+            if guid == item.guid and current.stackCount == item.count then
+                visit.previous, visit.waits = item, 0
+                if WoW.Read(C_Container.UseContainerItem, item.bag, item.slot) ~= "ok" then
+                    sellFailed = true
+                    ns.UI.Refresh()
+                    return
+                end
+                if visit.items then C_Timer.After(.25, function() SellNextItem(visit) end) end
+                return
+            end
+        end
+    end
+    visit.items = nil
+end
+
+local function AtMerchant(visit)
+    if not MerchantIsReady(visit) then return end
+    RepairAtMerchant()
+    if not MerchantIsReady(visit) or not db.autoSell or not CanAutoSell() then return end
+    local items = {}
+    for bag = 0, NUM_TOTAL_BAG_FRAMES do
+        if BagAllowsSale(bag) then
+            local slots = WoW.ReadValue(C_Container.GetContainerNumSlots, bag)
+            if WoW.IsFiniteNumber(slots) then
+                for slot = 1, slots do
+                    local guid, item = GetSellableItem(bag, slot)
+                    if guid then items[#items + 1] = {bag = bag, slot = slot, guid = guid, count = item.stackCount} end
+                end
+            end
+        end
+    end
+    visit.items, visit.index = items, 1
+    SellNextItem(visit)
+end
+
+local function OnMerchantEvent(_, event, name, method)
+    if event == "MERCHANT_SHOW" then
+        if merchantVisit then return end
+        local visit = {}
+        merchantVisit = visit
+        -- Let Blizzard finish showing the merchant and selecting the sell tab first.
+        C_Timer.After(0, function() AtMerchant(visit) end)
+    elseif event == "MERCHANT_CLOSED" then
+        merchantVisit = nil
+    elseif event == "MERCHANT_CONFIRM_TRADE_TIMER_REMOVAL" then
+        if merchantVisit then merchantVisit.items = nil end
+    elseif event == "GET_ITEM_INFO_RECEIVED" then
+        if WoW.IsPublic(method) and method == true then QueueSaleCoinRefresh() end
+    elseif event == "ITEM_LOCK_CHANGED" or event == "BAG_SLOT_FLAGS_UPDATED" then
+        QueueSaleCoinRefresh()
+    elseif not Secret(name) and name == addonName and not Secret(method) and type(method) == "string" then
+        if method:find("UseContainerItem", 1, true) then sellFailed = true
+        elseif method:find("RepairAllItems", 1, true) then repairFailed = true
+        else return end
+        ns.UI.Refresh()
+    end
+end
+
 function ns.InitializeBagSort(rootCategory)
     if db then return end
     homeCategory = rootCategory
     db = NormalizeSettings(ForeverTooltipLibreDB.bagSort)
     ForeverTooltipLibreDB.bagSort = db
+    if C_Timer and C_Timer.After and Enum and Enum.PlayerInteractionType and Enum.PlayerInteractionType.Merchant
+        and C_PlayerInteractionManager and C_PlayerInteractionManager.IsInteractingWithNpcOfType then
+        merchantEvents = CreateFrame("Frame", "ArkannsQOLBagMerchantEvents")
+        merchantEvents:SetScript("OnEvent", OnMerchantEvent)
+    end
 
     getQualityColor = (C_Item and C_Item.GetItemQualityColor) or GetItemQualityColor
     if C_Container and C_Container.GetContainerItemInfo
         and hooksecurefunc and SetItemButtonQuality and NUM_TOTAL_BAG_FRAMES
         and ContainerFrameUtil_EnumerateContainerFrames and ContainerFrameUtil_GetShownFrameForID then
         qualityListening = type(getQualityColor) == "function"
+        coinListening = C_Item and type(C_Item.GetItemInfo) == "function"
         if qualityListening and C_Item and type(C_Item.GetItemInfo) == "function" then
             reagentEvents = CreateFrame("Frame", "ArkannsQOLBagQualityEvents")
             reagentEvents:SetScript("OnEvent", function(_, _, _, success)
@@ -925,7 +1313,10 @@ function ns.InitializeBagSort(rootCategory)
                 QueueTransmogRefresh()
             end)
         end
-        if qualityListening or transmogEvents then hooksecurefunc("SetItemButtonQuality", OnItemQuality) end
+        if qualityListening or transmogEvents or coinListening then hooksecurefunc("SetItemButtonQuality", OnItemQuality) end
+        if coinListening and C_Container.SetBackpackSellJunkDisabled then
+            hooksecurefunc(C_Container, "SetBackpackSellJunkDisabled", QueueSaleCoinRefresh)
+        end
     end
 
     panel = CreateFrame("Frame", "ArkannsQOLBagsPanel", UIParent, "BackdropTemplate")
@@ -939,6 +1330,7 @@ function ns.InitializeBagSort(rootCategory)
     scroll:SetScrollChild(body)
     local heading = ns.UI.Label(body, L("Sacs"), 0, 0, 20)
     local sortTitle = ns.UI.Label(body, L("Tri à l’ouverture"), 0, 0, 15)
+    local merchantTitle = ns.UI.Label(body, L("À l’ouverture d’un marchand"), 0, 0, 15)
     local displayTitle = ns.UI.Label(body, L("Affichage"), 0, 0, 15)
     check = ns.UI.Check(body, "ArkannsQOLBagsEnabled", L("Trier à l’ouverture manuelle"), 16, -54, SetEnabled)
     local sortHelp = ns.UI.Label(body, L("Hors combat et hors banque."), 20, -89)
@@ -947,11 +1339,14 @@ function ns.InitializeBagSort(rootCategory)
     qualityCheck = ns.UI.Check(body, "ArkannsQOLBagQualityBorders", L("Bordure selon la rareté"), 16, -191, SetQualityBorders)
     local searchTargets = {["Trier à l’ouverture manuelle"] = check, ["Bordure selon la rareté"] = qualityCheck,
         ["Transmos manquantes"] = transmogCheck}
+    merchantChecks = CreateMerchantChecks(body, "ArkannsQOLBag")
+    for index, option in ipairs(merchantOptions) do searchTargets[option[3]] = merchantChecks[index] end
+    local appearanceTargets
     local advanced, advancedButton, ShowAppearance, layoutAppearance, unavailable
     if qualityListening then
         advanced = CreateFrame("Frame", nil, body)
         advanced:SetPoint("TOPLEFT", 0, -264)
-        local footerY, appearanceTargets
+        local footerY
         refreshAppearance, footerY, appearanceTargets, layoutAppearance = BuildAppearance(advanced)
         for key, target in pairs(appearanceTargets) do searchTargets[key] = target end
         advanced:SetSize(282, -footerY + 36)
@@ -981,9 +1376,10 @@ function ns.InitializeBagSort(rootCategory)
             Place(label, x, y, available)
             return y + label:GetStringHeight()
         end
-        local function Check(control, x, y)
-            control.label:SetWidth(math.max(1, columnWidth - 32))
-            Place(control, x - 4, y)
+        local function Check(control, x, y, inset)
+            inset = inset or 0
+            control.label:SetWidth(math.max(1, columnWidth - 32 - inset))
+            Place(control, x + inset - 4, y)
             return y + math.max(32, control.label:GetStringHeight() + 12)
         end
         local y = Text(heading, 0, 0, width) + 20
@@ -994,6 +1390,10 @@ function ns.InitializeBagSort(rootCategory)
         local hasStatus = status:GetText() ~= ""
         status:SetShown(hasStatus)
         if hasStatus then y = Text(status, 0, y, columnWidth) + 8 end
+        y = Text(merchantTitle, 0, y + 12, columnWidth) + 10
+        for index, control in ipairs(merchantChecks) do
+            y = Check(control, 0, y, index == 2 and 12 or 0)
+        end
         local displayX = paired and columnWidth + 24 or 0
         local displayY = paired and top or y + 12
         displayY = Text(displayTitle, displayX, displayY, columnWidth) + 10
@@ -1065,12 +1465,13 @@ function ns.InitializeBagSort(rootCategory)
         Refresh = Refresh,
         SearchSettings = {"Trier à l’ouverture manuelle", "Bordure selon la rareté", "Transmos manquantes",
             "Personnaliser les bordures", "Couleurs de rareté", "Objets de quête", "Composants d’artisanat",
-            "Opacité du contour", "Épaisseur du contour", "Halo intérieur"},
+            "Opacité du contour", "Épaisseur du contour", "Halo intérieur",
+            merchantOptions[1][3], merchantOptions[2][3], merchantOptions[3][3]},
         OpenSettings = function(source)
             if not source then return end
             local target = searchTargets[source]
             if not target then target = qualityCheck end
-            if ShowAppearance and target ~= check and target ~= qualityCheck and target ~= transmogCheck then ShowAppearance(true) end
+            if ShowAppearance and (target == advancedButton or appearanceTargets[source]) then ShowAppearance(true) end
             if ns.UI.RevealControl then ns.UI.RevealControl(scroll, target) end
         end,
         Summary = function()
@@ -1113,6 +1514,12 @@ function ns.InitializeBagSort(rootCategory)
                     config.qualityHidden = LegacyHidden(config.qualityUncommonOnly, {})
                 end
                 config.qualityUncommonOnly = nil
+            end,
+            function(config, current)
+                for _, option in ipairs(merchantOptions) do
+                    local key = option[1]
+                    if config[key] == nil then config[key] = current[key] end
+                end
             end,
         },
         ImportSettings = function(config)

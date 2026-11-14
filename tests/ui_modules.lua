@@ -172,6 +172,139 @@ frames.ArkannsQOLReminderSettings:SetWidth(340)
 frames.ArkannsQOLReminderSettings.scripts.OnSizeChanged()
 assert(frames.ArkannsQOLAppearanceTab.points[1][3] < frames.ArkannsQOLEffectsTab.points[1][3], "Narrow tabs stack")
 
+do
+    modules.reminders.StopPreview()
+    local class, forms, learned, buffs, unknown = nil, {}, {}, {}, {}
+    local spellNames = {
+        [465] = "Devotion Aura", [7294] = "Retribution Aura", [20165] = "Seal of Light",
+        [13165] = "Aspect of the Hawk", [14322] = "Aspect of the Hawk", [13159] = "Aspect of the Pack",
+        [168] = "Frost Armor", [7302] = "Ice Armor", [10220] = "Ice Armor",
+        [687] = "Demon Skin", [706] = "Demon Armor", [324] = "Lightning Shield", [408510] = "Water Shield",
+    }
+    env.UnitClass = function() return class, class end
+    env.issecretvalue = function(value) return value == unknown end
+    env.GetNumShapeshiftForms = function() return #forms end
+    env.GetShapeshiftFormInfo = function(index) return 134400, forms[index][2], true, forms[index][1] end
+    env.C_Spell = {GetSpellInfo = function(spellID)
+        if spellNames[spellID] then return {spellID = spellID, name = spellNames[spellID], iconID = 134400} end
+    end}
+    env.C_SpellBook = {IsSpellKnownOrInSpellBook = function(spellID) return learned[spellID] == true end}
+    env.C_UnitAuras = {GetAuraDataByIndex = function(unit, index, filter)
+        assert(unit == "player")
+        local visible = 0
+        for _, aura in ipairs(buffs) do
+            if filter == "HELPFUL" or (filter == "HELPFUL|PLAYER" and aura.own) then
+                visible = visible + 1
+                if visible == index then return {spellId = aura[1], name = aura[2] or spellNames[aura[1]]} end
+            end
+        end
+    end}
+    local function Initialize(token, legacy)
+        class = token
+        env.ArkannsQOLRemindersDB = {auras = legacy}
+        ns.InitializeReminders({})
+        return modules.reminders
+    end
+    local function Fire(event, unit)
+        local driver = frames.ArkannsQOLReminderEvents
+        driver.scripts.OnEvent(driver, event, unit)
+    end
+    local function Alert(text)
+        local frame = frames.ArkannsQOLReminder
+        assert(frame.shown == (text ~= nil), "Unexpected class reminder for " .. class .. " (expected " .. tostring(text) .. ")")
+        if text then assert(frames.ArkannsQOLReminderItem1.text:GetText() == text) end
+    end
+    local function OpenClassMenu()
+        menuItems = {}
+        local button = frames.ArkannsQOLChooseAura
+        button.scripts.OnClick(button)
+    end
+
+    forms, learned = {{465, false}, {7294, false}}, {[20165] = true}
+    local descriptor = Initialize("PALADIN", {
+        {name = "Aura de dévotion", kind = "aura", spellID = 465, priority = 3},
+        {name = "Retribution Aura", kind = "aura", spellID = 7294, priority = 1},
+    })
+    Alert("Aucune aura active")
+    local saved = descriptor.ExportSettings()
+    assert(#saved.auras == 1 and saved.auras[1].family == "paladinAuras" and saved.auras[1].priority == 1)
+    forms[2][2] = true
+    Fire("UPDATE_SHAPESHIFT_FORM"); Alert()
+    forms[2][2], buffs = unknown, {{7294}}
+    Fire("UNIT_AURA", "player"); Alert()
+    forms[2][2] = false
+    Fire("UPDATE_SHAPESHIFT_FORM"); Alert("Aucune aura active")
+    OpenClassMenu()
+    assert(menuItems.Auras and menuItems.Sceaux and not menuItems["Devotion Aura"])
+    menuItems.Sceaux()
+    assert(frames.ArkannsQOLReminderItem2.shown and frames.ArkannsQOLReminderItem2.text:GetText() == "Aucun sceau actif")
+    buffs = {{20165, own = true}}
+    Fire("UNIT_AURA", "player"); Alert("Aucune aura active")
+    assert(not frames.ArkannsQOLReminderItem2.shown, "A seal satisfies only the seal reminder")
+    combat = true; Fire("PLAYER_REGEN_DISABLED"); Alert()
+    combat = false; Fire("PLAYER_REGEN_ENABLED"); Alert("Aucune aura active")
+    assert(descriptor.ImportSettings(saved))
+    Initialize("PALADIN", descriptor.ExportSettings().auras)
+    Alert("Aucune aura active")
+    ns.modules = modules
+    Load("Core/Profiles.lua")
+    local legacyProfile = modules.reminders.ExportSettings()
+    legacyProfile._appearanceOverride = ns.UI.IsOverride("reminders")
+    legacyProfile.auras = {{name = "Retribution Aura", kind = "aura", spellID = 7294, priority = 2}}
+    env.ForeverTooltipLibreDB = {profiles = {
+        Legacy = {version = 3, class = "PALADIN", moduleVersions = {reminders = 1}, modules = {reminders = legacyProfile}},
+    }}
+    local plan = assert(ns.Profiles.Preview("Legacy", {reminders = true}))
+    assert(plan.modules[1].after.auras[1].family == "paladinAuras")
+    assert(ns.Profiles.Apply(plan))
+    assert(modules.reminders.ExportSettings().auras[1].priority == 2)
+    assert(ns.Profiles.Undo())
+    assert(modules.reminders.ExportSettings().auras[1].priority == 1)
+    env.ForeverTooltipLibreDB = nil
+    forms = {}; Fire("UPDATE_SHAPESHIFT_FORMS"); Alert()
+
+    for _, case in ipairs({
+        {"WARRIOR", 2457, 71, "Postures", "Aucune posture active"},
+        {"DRUID", 5487, 768, "Formes", "Aucune forme active"},
+        {"PRIEST", 15473, 27827, "Forme d’ombre", "Aucune forme d’ombre active"},
+        {"ROGUE", 1784, 1256867, "Furtivité", "Furtivité inactive"},
+    }) do
+        forms, buffs = {{case[2], false}}, {}
+        Initialize(case[1]); Alert()
+        OpenClassMenu(); menuItems[case[4]]()
+        Alert(case[5])
+        forms[1][2] = true
+        if class == "WARRIOR" or class == "DRUID" or class == "ROGUE" then forms = {{case[3], true}} end
+        Fire("UPDATE_SHAPESHIFT_FORMS"); Alert()
+    end
+
+    for _, case in ipairs({
+        {"HUNTER", 13165, 14322, "Aspects", "Aucun aspect actif"},
+        {"MAGE", 7302, 10220, "Armures", "Aucune armure active"},
+        {"WARLOCK", 687, 706, "Armure démoniaque", "Aucune armure démoniaque active"},
+        {"SHAMAN", 324, 408510, "Boucliers élémentaires", "Aucun bouclier élémentaire actif"},
+    }) do
+        forms, buffs, learned = {}, {{case[3]}}, {[case[2]] = true}
+        local module = Initialize(case[1], saved.auras)
+        Alert()
+        OpenClassMenu(); menuItems[case[4]]()
+        Alert(case[5])
+        buffs[1].own = true
+        Fire("UNIT_AURA", "player"); Alert()
+        buffs = {{nil, unknown, own = true}}
+        Fire("UNIT_AURA", "player"); Alert()
+        buffs = {}
+        Fire("UNIT_AURA", "player"); Alert(case[5])
+        learned = {}
+        Fire("SPELLS_CHANGED"); Alert()
+        module.SetEnabled(false)
+        learned[case[2]] = true
+        Fire("SPELLS_CHANGED"); Alert()
+    end
+    env.issecretvalue = nil
+    print("PASS: class effect families, alternative effects, own buffs, legacy rules, profiles, combat and unavailable data")
+end
+
 Load("Modules/SessionJournalModel.lua")
 Load("Modules/SessionHistory.lua")
 Load("Modules/SessionJournal.lua")

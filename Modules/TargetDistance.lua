@@ -8,6 +8,7 @@ local directInterval, estimateInterval, hiddenInterval = .05, .10, .20
 local maxProbeRange = 100 -- Ignore global or unlimited-range spells.
 local refreshInterval = directInterval
 local db, refreshSettings, badge, label, anchor, rejectedAnchor, spellRanges
+local anchoredPlayer, anchoredCustom = false, false
 local closeRange, mediumRange = 10, 30
 local colors = {
     tooltip = {{.48, .92, .55}, {1, .82, .28}, {1, .45, .45}},
@@ -327,13 +328,18 @@ local function UpdateDistance()
     refreshInterval = interval or hiddenInterval
     if not text then return HideDistance() end
 
+    local player = Read(UnitIsPlayer, "target") == true
+    local custom = player and ns.PaladinCustomTest and Read(ns.PaladinCustomTest.IsActive, "target") == true or false
+    local placementChanged = anchoredPlayer ~= player or anchoredCustom ~= custom
+    -- A shared native name region survives target changes. Defer the new player layout in combat.
+    if placementChanged and Read(InCombatLockdown) ~= false then return HideDistance() end
     if not badge then
         badge, label = CreateBadge(driver)
         badge:Hide()
     end
     local layer, level = Read(frame.GetFrameStrata, frame), Read(frame.GetFrameLevel, frame)
     if frameStrata[layer] then badge:SetFrameStrata(layer) end
-    if IsFiniteNumber(level) and level >= 0 then badge:SetFrameLevel(level + 1) end
+    if IsFiniteNumber(level) and level >= 0 then badge:SetFrameLevel(level + (custom and 9 or 1)) end
     local targetScale, parentScale = Read(frame.GetEffectiveScale, frame), Read(driver.GetEffectiveScale, driver)
     if IsFiniteNumber(targetScale) and IsFiniteNumber(parentScale) and targetScale > 0 and parentScale > 0 then
         badge:SetScale(targetScale / parentScale)
@@ -343,7 +349,7 @@ local function UpdateDistance()
     if IsFiniteNumber(alpha) and IsFiniteNumber(parentAlpha) and parentAlpha > 0 then
         badge:SetAlpha(math.max(0, math.min(1, alpha / parentAlpha)))
     end
-    if anchor ~= relativeTo then
+    if anchor ~= relativeTo or placementChanged then
         badge:ClearAllPoints()
         local point, x = "TOP", appearance.x
         local y = (IsPublic(name) and relativeTo == name and 8 or 15) + appearance.y
@@ -352,11 +358,12 @@ local function UpdateDistance()
             -- https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_UnitFrame/Mainline/TargetFrame.xml#L114
             point, x, y = "TOPRIGHT", appearance.x - 136, appearance.y - 18
         end
+        if player then y = y + 12 end -- Clear the complete class frame's upper name plaque.
         if not pcall(badge.SetPoint, badge, "BOTTOM", relativeTo, point, x, y) then
             rejectedAnchor, anchor = relativeTo, nil
             return HideDistance()
         end
-        anchor = relativeTo
+        anchor, anchoredPlayer, anchoredCustom = relativeTo, player, custom
     end
     local tier = GetDistanceTier(lower, upper)
     if tier ~= activeTier then

@@ -13,7 +13,8 @@ local anchoredPortrait, rejectedPortrait, paintedClass
 local revision, selectedUnit, previewClass = 0, "target", "MAGE"
 local sample, previewActive, settingsPanel, previewButton
 local decorations = {target = {}, player = {}}
-local defaults = {enabled = true, intensity = "ornate", size = 100, borderSize = 2, gap = 0,
+local paladinTestUnit -- Session-only prototype; never exported to profiles or saved.
+local defaults = {enabled = true, customFrame = true, intensity = "ornate", size = 100, borderSize = 2, gap = 0,
     opacity = 1, glow = .35, animated = false, classColor = true, color = {1, .82, .35}, x = 0, y = 0}
 local ranges = {size = {80, 140}, borderSize = {1, 4}, gap = {0, 10}, opacity = {.2, 1},
     glow = {0, 1}, x = {-40, 40}, y = {-40, 40}}
@@ -60,6 +61,7 @@ local function StopDecoration(frame)
     if not frame then return end
     frame:Hide()
     for _, ornament in ipairs(frame.ornaments) do ornament:Hide() end
+    for _, part in pairs(frame.testParts or {}) do part:Hide() end
     frame.pulse:Stop()
     frame.glowHost:SetAlpha(1)
 end
@@ -120,6 +122,7 @@ local function CreateDecoration(parent, name)
     end)
     frame:SetScript("OnHide", function()
         for _, ornament in ipairs(frame.ornaments) do ornament:Hide() end
+        for _, part in pairs(frame.testParts or {}) do part:Hide() end
         frame.pulse:Stop()
         frame.glowHost:SetAlpha(1)
     end)
@@ -150,9 +153,107 @@ local function LayoutDecoration(frame, config, unit)
     frame.config, frame.paintedClass = Normalize(config), nil
 end
 
+local function LayoutPaladinTest(frame, owner, portrait, unit, config)
+    local content = owner[unit == "player" and "PlayerFrameContent" or "TargetFrameContent"]
+    if not WoW.IsPublic(content) or not content then return false end
+    local main = content[unit == "player" and "PlayerFrameContentMain" or "TargetFrameContentMain"]
+    if not WoW.IsPublic(main) or not main then return false end
+    local health = main.HealthBarsContainer
+    local manaArea = unit == "player" and main.ManaBarArea or main
+    if not WoW.IsPublic(health) or not health or not WoW.IsPublic(manaArea) or not manaArea then return false end
+    local mana = manaArea.ManaBar
+    if not WoW.IsPublic(mana) or not mana then return false end
+    for _, region in ipairs({portrait, health, mana}) do
+        if WoW.ReadValue(region.IsForbidden, region) ~= false
+            or (region.IsAnchoringSecret and WoW.ReadValue(region.IsAnchoringSecret, region) ~= false) then return false end
+    end
+    local diameter = WoW.ReadValue(portrait.GetHeight, portrait)
+    if not WoW.IsFiniteNumber(diameter) or diameter <= 0 then return false end
+    local healthTop, manaBottom = WoW.ReadValue(health.GetTop, health), WoW.ReadValue(mana.GetBottom, mana)
+    if not WoW.IsFiniteNumber(healthTop) or not WoW.IsFiniteNumber(manaBottom) or healthTop <= manaBottom then return false end
+    local art = Art.paladinTest
+    frame.testAnchors = {portrait, health, mana}
+    frame.testParts = frame.testParts or {}
+    for _, key in ipairs({"ring", "topStart", "topFill", "bottomStart", "bottomFill", "capTop", "capFill", "capBottom", "capGem"}) do
+        local part = frame.testParts[key]
+        if not part then
+            -- Native portrait (BACKGROUND 1) covers any generated pixels inside the ring aperture.
+            -- Rails sit above the native border (BACKGROUND 2), below native content frames.
+            part = frame:GetParent():CreateTexture(nil, "BACKGROUND", nil, key == "ring" and 0 or 3)
+            part:Hide()
+            frame.testParts[key] = part
+        end
+        if not part:SetTexture(art.texture) then return false end
+        local rect = art[key]
+        local left, right = rect[1] / art.side, rect[2] / art.side
+        if unit == "target" then left, right = right, left end
+        part:SetTexCoord(left, right, rect[3] / art.side, rect[4] / art.side)
+        part:SetAlpha(config.opacity)
+        part:ClearAllPoints()
+    end
+    local parts, mirror = frame.testParts, unit == "target"
+    local near, far = mirror and "RIGHT" or "LEFT", mirror and "LEFT" or "RIGHT"
+    local direction = mirror and -1 or 1
+    local scale = (diameter + 4) / art.aperture
+    local topScale, bottomScale, capScale = 5 / 49, 5 / 43, 5 / 31
+    local topGap, bottomGap = unit == "target" and 3 or 15, 3
+    local function Size(key, factor)
+        local rect = art[key]
+        parts[key]:SetSize((rect[2] - rect[1]) * factor, (rect[4] - rect[3]) * factor)
+    end
+    -- Align actual painted contact lines, including each slice's transparent padding.
+    local topPad = (art.topFill[4] - 570.5) * topScale
+    local bottomPad = (686.5 - art.bottomFill[3]) * bottomScale
+    local capTopPad = (771.5 - art.capTop[3]) * capScale
+    local capBottomPad = (art.capBottom[4] - 970) * capScale
+    local contactX = direction * ((771.5 - art.capTop[1]) * capScale + .5)
+    local ringX = art.ringCenter[1] - art.ring[1]
+    Size("ring", scale)
+    local ok = pcall(function()
+        parts.ring:SetPoint("TOP" .. near, portrait, "CENTER", -direction * ringX * scale, (art.ringCenter[2] - art.ring[3]) * scale)
+        Size("capTop", capScale)
+        Size("capBottom", capScale)
+        Size("capGem", capScale)
+        -- The outer edge sits beside the bars, rather than one entire cap width beyond them.
+        parts.capTop:SetPoint("TOP" .. far, health, "TOP" .. far, direction * 6, topGap + topPad + capTopPad)
+        parts.capBottom:SetPoint("BOTTOM" .. far, health, "TOP" .. far, direction * 6,
+            manaBottom - healthTop - bottomGap - bottomPad - capBottomPad)
+        parts.capFill:SetPoint("TOPLEFT", parts.capTop, "BOTTOMLEFT", 0, .25)
+        parts.capFill:SetPoint("BOTTOMRIGHT", parts.capBottom, "TOPRIGHT", 0, -.25)
+        parts.capGem:SetPoint("CENTER", parts.capFill, "CENTER")
+        Size("topStart", topScale)
+        parts.topStart:SetPoint("BOTTOM" .. near, health, "TOP" .. near, -direction * 6, topGap)
+        parts.topFill:SetHeight((art.topFill[4] - art.topFill[3]) * topScale)
+        parts.topFill:SetPoint("BOTTOM" .. near, parts.topStart, "BOTTOM" .. far, -direction * .5, 0)
+        parts.topFill:SetPoint("BOTTOM" .. far, parts.capTop, "TOP" .. near, contactX, -capTopPad - topPad)
+        Size("bottomStart", bottomScale)
+        parts.bottomStart:SetPoint("TOP" .. near, mana, "BOTTOM" .. near, -direction * 6, -bottomGap)
+        parts.bottomFill:SetHeight((art.bottomFill[4] - art.bottomFill[3]) * bottomScale)
+        parts.bottomFill:SetPoint("TOP" .. near, parts.bottomStart, "TOP" .. far, -direction * .5, 0)
+        parts.bottomFill:SetPoint("TOP" .. far, parts.capBottom, "BOTTOM" .. near, contactX, capBottomPad + bottomPad)
+    end)
+    return ok
+end
+
+ns.LayoutPaladinFrameTest = LayoutPaladinTest
+
 local function PaintDecoration(frame, class)
     local config, artwork = frame.config, Art.classes[class]
-    if not config or not artwork or not frame.rings[1].available then return false end
+    if not config or not artwork then return false end
+    if frame.testActive then
+        for _, region in ipairs(frame.testAnchors) do
+            if WoW.ReadValue(region.IsForbidden, region) ~= false
+                or (region.IsAnchoringSecret and WoW.ReadValue(region.IsAnchoringSecret, region) ~= false) then return false end
+        end
+        frame.ornamentCount = 0
+        for _, ornament in ipairs(frame.ornaments) do ornament:Hide() end
+        for _, ring in ipairs(frame.rings) do ring:Hide() end
+        frame.glow:Hide()
+        frame.pulse:Stop()
+        for _, part in pairs(frame.testParts) do part:Show() end
+        return true
+    end
+    if not frame.rings[1].available then return false end
     if frame.paintedClass ~= class then
         local color = config.color
         if config.classColor then
@@ -183,6 +284,7 @@ end
 
 local function RefreshDecoration(unit)
     local state, config = decorations[unit], db[unit]
+    if ns.PaladinCustomTest and ns.PaladinCustomTest.IsActive(unit) then StopDecoration(state.frame); return end
     local owner = _G[unit == "player" and "PlayerFrame" or "TargetFrame"]
     if not db.enabled or not config.enabled or not WoW.IsPublic(owner) or not owner
         or WoW.ReadValue(owner.IsForbidden, owner) ~= false or WoW.ReadValue(UnitIsPlayer, unit) ~= true then
@@ -216,6 +318,7 @@ local function RefreshDecoration(unit)
                 return
             end
             LayoutDecoration(state.frame, config, unit)
+            state.frame.testActive = paladinTestUnit == unit and LayoutPaladinTest(state.frame, owner, portrait, unit, config) or false
             state.portrait, state.revision = portrait, revision
         end
     end
@@ -322,6 +425,7 @@ local function RefreshMedallion()
 end
 
 local function Refresh()
+    if ns.PaladinCustomTest then ns.PaladinCustomTest.SyncSettings() end
     RefreshMedallion()
     RefreshDecoration("target")
     RefreshDecoration("player")
@@ -331,12 +435,12 @@ local function StopPreview()
     previewActive = false
     StopDecoration(sample)
     if sample and sample.face then sample.face:Hide() end
-    if previewButton then previewButton:Show() end
+    if previewButton then previewButton:SetShown(not db[selectedUnit].customFrame) end
     if UI.PreviewEnded then UI.PreviewEnded("targetPortrait") end
 end
 
 local function RefreshPreview()
-    if not previewActive or not settingsPanel:IsShown() or WoW.ReadValue(InCombatLockdown) ~= false then
+    if db[selectedUnit].customFrame or not previewActive or not settingsPanel:IsShown() or WoW.ReadValue(InCombatLockdown) ~= false then
         StopPreview()
         return
     end
@@ -384,6 +488,9 @@ local function SetEnabled(enabled)
         for _, event in ipairs(events) do driver:RegisterEvent(event) end
         driver:RegisterUnitEvent("UNIT_PORTRAIT_UPDATE", "target", "player")
     elseif not enabled then
+        if ns.PaladinCustomTest then ns.PaladinCustomTest.Stop() end
+        if paladinTestUnit then revision = revision + 1 end
+        paladinTestUnit = nil
         driver:UnregisterAllEvents()
         StopPreview()
     end
@@ -397,6 +504,42 @@ function ns.InitializeTargetPortrait(root)
     db = ForeverTooltipLibreDB.targetPortrait
     db.target, db.player = Normalize(db.target), Normalize(db.player)
     if type(db.medallion) ~= "boolean" then db.medallion = false end
+    ns.StopPaladinOverlayTest = function()
+        if not paladinTestUnit then return end
+        paladinTestUnit = nil
+        Changed()
+    end
+    SLASH_QOLTOOLKITPALADINTEST1 = "/qtpaladin"
+    SlashCmdList.QOLTOOLKITPALADINTEST = function(message)
+        local command = (message or ""):lower():match("^%s*(%S*)")
+        if WoW.ReadValue(InCombatLockdown) ~= false then
+            print(L("Test paladin : utilise cette commande hors combat."))
+            return
+        end
+        if command == "off" then
+            if ns.PaladinCustomTest then ns.PaladinCustomTest.Stop(nil, true) end
+            paladinTestUnit = nil
+            Changed()
+            print(L("Test paladin arrêté. Habillage habituel rétabli."))
+            return
+        end
+        local unit = (command == "target" or command == "cible") and "target"
+            or (command == "" or command == "player" or command == "joueur") and "player"
+        if not unit then print("/qtpaladin [player|target|off]"); return end
+        if not db.enabled or not db[unit].enabled then
+            print(L("Test paladin : active d’abord le cadre concerné dans Portraits de classe."))
+            return
+        end
+        if ns.PaladinCustomTest then ns.PaladinCustomTest.Stop(nil, true) end
+        paladinTestUnit = unit
+        Changed()
+        local state = decorations[unit]
+        if state.frame and state.frame:IsShown() and state.frame.testActive then
+            print(L("Test paladin actif. /qtpaladin off pour revenir à l’habillage habituel."))
+        else
+            print(L("Test paladin indisponible : cadre natif ou texture inaccessible. Sélectionne un joueur pour tester la cible."))
+        end
+    end
     driver = CreateFrame("Frame")
     driver:SetScript("OnEvent", function(_, event, name)
         if event == "CVAR_UPDATE" then
@@ -491,6 +634,10 @@ function ns.InitializeTargetPortrait(root)
         function() return selectedUnit end, function(value) selectedUnit = value end)
     local unitEnabled = Check("UnitEnabled", "Afficher le cadre de ce portrait", function() return db[selectedUnit].enabled end,
         function(value) db[selectedUnit].enabled = value end)
+    local customFrame = Check("CustomFrame", "Cadre complet de classe", function() return db[selectedUnit].customFrame end,
+        function(value) db[selectedUnit].customFrame = value end)
+    local customHelpSource = "Le cadre complet de classe est affiché directement en jeu."
+    local customHelp = Track(UI.Label(body, L(customHelpSource), 0, 0), "text", customHelpSource)
     Choice("Intensity", "Intensité des ornements", {{"subtle", "Sobre"}, {"ornate", "Ornée"}, {"epic", "Spectaculaire"}},
         function() return db[selectedUnit].intensity end, function(value) db[selectedUnit].intensity = value end)
     local classes = {}
@@ -564,6 +711,7 @@ function ns.InitializeTargetPortrait(root)
         [previewButton] = true, [pending] = true, [reset] = true}
     for control in pairs(pinned) do control:SetParent(panel) end
     local sourceSections = {
+        ["Cadre complet de classe"] = "style", [customHelpSource] = "style",
         ["Intensité des ornements"] = "style", ["Épaisseur de bordure"] = "style",
         ["Utiliser la couleur de classe"] = "style", ["Couleur personnalisée"] = "style",
         ["Taille du cadre (%)"] = "placement", ["Distance autour du portrait"] = "placement",
@@ -574,10 +722,13 @@ function ns.InitializeTargetPortrait(root)
     Layout = function()
         local width = math.max(250, panel:GetWidth() - 32)
         local height = panel:GetHeight()
+        local full = db[selectedUnit].customFrame
+        if full then activeSection = "style" end
         local paired = width >= 500
-        local previewWidth = paired and 204 or 122
-        local controlWidth = paired and width - previewWidth - 24 or width - 18
-        local top = paired and 50 or 182
+        local previewWidth = full and 0 or (paired and 204 or 122)
+        local controlWidth = full and math.max(1, panel:GetWidth() - (paired and 56 or 50))
+            or (paired and width - previewWidth - 24 or width - 18)
+        local top = paired and 50 or (full and 142 or 182)
         local function Place(control, x, y, w)
             control:ClearAllPoints()
             control:SetPoint("TOPLEFT", panel, "TOPLEFT", x, -y)
@@ -594,7 +745,8 @@ function ns.InitializeTargetPortrait(root)
         local tabWidth = (controlWidth - 12) / 3
         for index, id in ipairs({"style", "placement", "effects"}) do
             local button = sectionButtons[id]
-            Place(button, 16 + (index - 1) * (tabWidth + 6), top, tabWidth)
+            button:SetShown(not full or id == "style")
+            Place(button, 16 + (index - 1) * (tabWidth + 6), top, full and controlWidth or tabWidth)
             button:SetEnabled(activeSection ~= id)
         end
         scroll:ClearAllPoints()
@@ -602,14 +754,16 @@ function ns.InitializeTargetPortrait(root)
         scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", paired and -previewWidth - 40 or -34, 54)
         local previewX = width - previewWidth + 16
         local previewTop = 10
-        local previewScale = previewWidth / 250
+        local previewScale = previewWidth > 0 and previewWidth / 250 or 1
         Place(previewChoice, previewX, previewTop, previewWidth)
+        previewChoice:SetShown(not full)
         previewChoice:SetText(L(Art.classes[previewClass].label))
         panel.previewHost:ClearAllPoints()
         panel.previewHost:SetPoint("TOPLEFT", panel, "TOPLEFT", previewX / previewScale, -(previewTop + 34) / previewScale)
         panel.previewHost:SetScale(previewScale)
+        panel.previewHost:SetShown(not full)
         Place(previewButton, previewX, previewTop + previewWidth + 40, previewWidth)
-        previewButton:SetShown(not previewActive)
+        previewButton:SetShown(not full and not previewActive)
         Place(reset, 16, math.max(top + 40, height - 40), math.min(controlWidth, 250))
         pending:SetShown(WoW.ReadValue(InCombatLockdown) ~= false)
         Place(pending, paired and previewX or 16, paired and previewTop + previewWidth + 80 or height - 80, paired and previewWidth or controlWidth)
@@ -618,6 +772,8 @@ function ns.InitializeTargetPortrait(root)
             local control = row.frame
             local section = sourceSections[row.source] or "effects"
             local visible = not pinned[control] and section == activeSection
+            if full and control ~= customFrame and control ~= customHelp then visible = false end
+            if not full and control == customHelp then visible = false end
             if control == colorButton and db[selectedUnit].classColor then visible = false end
             if (control == medallion or control == medallionHelp) and selectedUnit ~= "target" then visible = false end
             if not pinned[control] then control:SetShown(visible) end
@@ -685,7 +841,7 @@ function ns.InitializeTargetPortrait(root)
     ns.RegisterModule("targetPortrait", {
         label = title, icon = "Interface\\Icons\\Achievement_Character_Human_Male",
         category = function() return category end,
-        SearchSettings = {toggleSource, "Portrait à personnaliser", "Afficher le cadre de ce portrait", "Intensité des ornements",
+        SearchSettings = {toggleSource, "Portrait à personnaliser", "Afficher le cadre de ce portrait", "Cadre complet de classe", "Intensité des ornements",
             "Classe de l’aperçu", "Personnalisation avancée", "Taille du cadre (%)", "Épaisseur de bordure", "Distance autour du portrait",
             "Opacité (%)", "Intensité du halo (%)", "Décalage horizontal", "Décalage vertical", "Utiliser la couleur de classe",
             "Couleur personnalisée", "Animer le halo", "Afficher le médaillon de classe", "Réinitialiser ce portrait"},
@@ -696,6 +852,7 @@ function ns.InitializeTargetPortrait(root)
         Preview = function()
             if WoW.ReadValue(InCombatLockdown) ~= false then return false, L("Aperçu disponible hors combat.") end
             UI.OpenCategory(category)
+            if db[selectedUnit].customFrame then return false, L(customHelpSource) end
             previewActive = true
             refreshSettings()
             return sample and sample:IsShown() == true
@@ -706,6 +863,9 @@ function ns.InitializeTargetPortrait(root)
             if source == "Afficher le médaillon de classe" then selectedUnit = "target" end
             if target == colorButton and db[selectedUnit].classColor then target = targets["Utiliser la couleur de classe"] end
             activeSection = sourceSections[source] or (source == "Personnalisation avancée" and "placement") or activeSection
+            if db[selectedUnit].customFrame and sourceSections[source] then
+                target, activeSection = customFrame, "style"
+            end
             refreshSettings()
             if target and not pinned[target] and sourceSections[source] and UI.RevealControl then UI.RevealControl(scroll, target) end
         end,

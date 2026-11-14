@@ -32,6 +32,51 @@ assert(#iconHeader == 18 and iconHeader:byte(3) == 2 and iconHeader:byte(17) == 
 assert(iconHeader:byte(13) == 128 and iconHeader:byte(14) == 0
     and iconHeader:byte(15) == 128 and iconHeader:byte(16) == 0, "Keep the icon square at 128 pixels")
 
+local paladinFile = assert(io.open("Media/PaladinFrameTest.tga", "rb"))
+local paladinData = paladinFile:read("*a"); paladinFile:close()
+assert(paladinData:byte(3) == 2 and paladinData:byte(17) == 32,
+    "The temporary paladin test uses an uncompressed 32-bit TGA")
+assert(paladinData:byte(13) == 0 and paladinData:byte(14) == 4
+    and paladinData:byte(15) == 0 and paladinData:byte(16) == 4, "The paladin atlas is power-of-two at 1024px")
+local paladinNS = {}
+chunks["Modules/TargetPortraitArt.lua"]("QoLToolkit", paladinNS)
+local paladinArt = paladinNS.TargetPortraitArt.paladinTest
+assert(paladinArt.side == 1024, "Calibrate paladin slices against the actual installed TGA dimensions")
+local function PaladinAlpha(x, y)
+    x, y = math.floor(x), math.floor(y)
+    if math.floor(paladinData:byte(18) / 32) % 2 == 0 then y = 1023 - y end
+    return paladinData:byte(18 + paladinData:byte(1) + (y * 1024 + x) * 4 + 4)
+end
+assert(PaladinAlpha(255, 285) == 0 and PaladinAlpha(650, 240) == 0,
+    "The portrait aperture and spaces between paladin sprites remain transparent")
+assert(PaladinAlpha(650, 570) > 200 and PaladinAlpha(650, 686) > 200,
+    "Both paladin rail sprites contain opaque artwork")
+for _, key in ipairs({"topFill", "bottomFill"}) do
+    local rect = paladinArt[key]
+    assert(PaladinAlpha((rect[1] + rect[2]) / 2, rect[4] + 1) < 16,
+        "Paladin slice must not cut through the opaque stroke: " .. key)
+end
+
+local customFile = assert(io.open("Media/PaladinCustomFrame.tga", "rb"))
+local customData = customFile:read("*a"); customFile:close()
+local customArt = paladinNS.TargetPortraitArt.paladinCustom
+assert(customData:byte(3) == 2 and customData:byte(17) == 32,
+    "The full custom paladin frame uses an uncompressed 32-bit TGA")
+assert(customData:byte(13) == 0 and customData:byte(14) == 4
+    and customData:byte(15) == 0 and customData:byte(16) == 2
+    and customArt.width == 1024 and customArt.height == 512 and customArt.displayWidth == 232,
+    "The full custom frame keeps its 1024 by 512 source and proportional UI width")
+local function CustomPaladinAlpha(x, y)
+    if math.floor(customData:byte(18) / 32) % 2 == 0 then y = 511 - y end
+    return customData:byte(18 + customData:byte(1) + (y * 1024 + x) * 4 + 4)
+end
+assert(CustomPaladinAlpha(0, 0) == 0 and CustomPaladinAlpha(210, 230) == 0
+    and CustomPaladinAlpha(600, 230) == 0,
+    "The full custom skin leaves its exterior, portrait and central bar panel transparent")
+assert(CustomPaladinAlpha(625, 100) > 240 and CustomPaladinAlpha(213, 390) > 240
+    and customArt.name[2] + customArt.name[4] < customArt.health[2],
+    "Both text plaques stay opaque while the upper name plaque remains above the health row")
+
 local function CheckLocale(locale, expected)
     GetLocale = locale and function() return locale end or nil
     local ns = {}
@@ -52,6 +97,7 @@ local function CheckLocale(locale, expected)
     assert(ns.L("Infobulles") == expected, "Unexpected client language")
     assert(ns.L("Infobulles et distance") == (locale == "frFR" and "Infobulles et distance" or "Tooltips and distance"))
     assert(ns.L("Affichage") == (locale == "frFR" and "Affichage" or "Display"))
+    assert(ns.L("Réparation automatique") == (locale == "frFR" and "Réparation automatique" or "Automatic repair"))
     assert(ns.L("Annuler", "talent.undo") == (locale == "frFR" and "Annuler" or "Undo"))
     assert(ns.L("Untranslated example") == "Untranslated example", "Missing translation should use source text")
 end
@@ -404,12 +450,25 @@ print("PASS: minimap artwork, mask, fallback, click, scaled drag, reload, and ma
 do
     local hook, bagModule, shortcut, opened
     local bag = {GetBagID = function() return 0 end, GetFrameLevel = function() return 1 end,
-        IsVisible = function() return true end}
+        IsVisible = function() return true end, CloseButton = CreateFrame("Button")}
+    local closeArt = CreateFrame("Texture")
+    bag.CloseButton.GetNormalTexture = function() return closeArt end
     ContainerFrameCombinedBags = bag
+    local oldTexture = C_Texture
+    C_Texture = {GetAtlasInfo = function(atlas)
+        if atlas == "RedButton-Exit" then
+            return {file = 8107307, leftTexCoord = .13671875, rightTexCoord = .26171875,
+                topTexCoord = .0078125, bottomTexCoord = .2578125}
+        end
+    end}
     local createWidget = CreateFrame
-    CreateFrame = function(kind, name, parent)
+    CreateFrame = function(kind, name, parent, template)
         local widget = createWidget(kind, name)
         widget.parent = parent
+        widget.template = template
+        widget.SetAtlas = function(self, atlas) self.atlas = atlas end
+        widget.SetNormalTexture = function(self, asset) self.normalAsset = asset end
+        widget.SetPushedTexture = function(self, asset) self.pushedAsset = asset end
         widget.offset = 0
         widget.SetHeight = function(self, height) self.height = height end
         widget.GetHeight = function(self) return rawget(self, "height") or 300 end
@@ -418,6 +477,7 @@ do
         widget.SetSize = function(self, width, height) self:SetWidth(width); self:SetHeight(height) end
         widget.GetText = function(self) return rawget(self, "text") or "" end
         widget.GetStringHeight = function(self)
+            if self:GetText() == "" then return 0 end
             return math.max(14, math.ceil(#self:GetText() * 6 / math.max(1, self:GetWidth())) * 14)
         end
         widget.HookScript = function(self, event, callback)
@@ -443,10 +503,11 @@ do
     NUM_TOTAL_BAG_FRAMES = 5
     ContainerFrameUtil_GetShownFrameForID = function() return bag end
     ContainerFrameUtil_EnumerateContainerFrames = function() return ipairs({bag}) end
-    local newItemHook
+    local newItemHook, backpackExclusionHook
     slot.UpdateNewItem = noop
     hooksecurefunc = function(target, name, fn)
         if target == "SetItemButtonQuality" then hook = name
+        elseif target == C_Container and name == "SetBackpackSellJunkDisabled" then backpackExclusionHook = fn
         else
             assert(target == slot and name == "UpdateNewItem")
             newItemHook = fn
@@ -461,8 +522,13 @@ do
     slot.IconQuestTexture = CreateFrame("Texture")
     slot.IconQuestTexture.alpha = .9
     local bagItem = {quality = 4, itemID = 42}
+    local backpackExcluded = false
     C_Container = {GetContainerItemInfo = function() return bagItem end,
-        GetContainerItemQuestInfo = function() return questInfo end}
+        GetContainerItemQuestInfo = function() return questInfo end,
+        SetBackpackSellJunkDisabled = function(value)
+            backpackExcluded = value
+            backpackExclusionHook()
+        end}
     ITEM_QUALITY6_DESC, ITEM_QUALITY7_DESC, ITEM_QUALITY8_DESC = "Artifact", "Heirloom", "WoW Token"
     local reagent
     C_Item = {GetItemQualityColor = function() return .64, .21, .93 end,
@@ -483,6 +549,7 @@ do
         local control = CreateFrame("CheckButton", name)
         control.label = Control(control, text)
         control.SetChecked = function(self, value) self.checked = value end
+        control.SetEnabled = function(self, value) self.enabled = value end
         control:SetScript("OnClick", function(_, value) callback(value) end)
         return control
     end
@@ -497,6 +564,39 @@ do
         RegisterModule = function(_, module) bagModule = module end}
     bagNS.UI.RegisterSettingsPanel = Settings.RegisterCanvasLayoutSubcategory
     bagNS.UI.OpenCategory = function(category) opened = category:GetID(); return true end
+    bagNS.UI.Refresh = function() bagModule.Refresh() end
+    local callbacks = {}
+    local oldTimer, oldEnum, oldSecret = C_Timer, Enum, issecretvalue
+    local oldLockdown, oldCursor = InCombatLockdown, GetCursorInfo
+    C_Timer = {After = function(_, callback)
+        if MerchantFrame and MerchantFrame:IsShown() then callbacks[#callbacks + 1] = callback
+        else callback() end
+    end}
+    local function Tick() table.remove(callbacks, 1)() end
+    local function Drain()
+        while #callbacks > 0 do Tick() end
+    end
+    local secret = {}
+    issecretvalue = function(value) return value == secret or oldSecret and oldSecret(value) end
+    Enum = {ItemQuality = {Poor = 0}, BagSlotFlags = {ExcludeJunkSell = 32}, PlayerInteractionType = {Merchant = 5}}
+    local merchantOpen, combat, repairable, repairCount, money, cost = false, false, true, 0, 100, 10
+    MerchantFrame = {IsShown = function() return merchantOpen end, selectedTab = 1}
+    C_PlayerInteractionManager = {IsInteractingWithNpcOfType = function(kind)
+        assert(kind == Enum.PlayerInteractionType.Merchant)
+        return merchantOpen
+    end}
+    InCombatLockdown = function() return combat end
+    GetCursorInfo = noop
+    SpellIsTargeting = function() return false end
+    InRepairMode = SpellIsTargeting
+    CanMerchantRepair = function() return repairable end
+    GetMoney = function() return money end
+    GetRepairAllCost = function() return cost, true end
+    RepairAllItems = function(guild)
+        assert(not guild)
+        repairCount = repairCount + 1
+    end
+
     ForeverTooltipLibreDB.bagSort = {qualityInnerGlow = 100, qualityUncommonOnly = true}
     chunks["Modules/BagSort.lua"]("QoLToolkit", bagNS)
     bagNS.InitializeBagSort({GetID = function() return 1 end})
@@ -511,18 +611,21 @@ do
     assert(advanced.shown and body:GetHeight() > collapsedHeight)
     scroll.offset = 200
     frames.ArkannsQOLBagAdvanced:OnClick()
-    assert(not advanced.shown and body:GetHeight() == collapsedHeight and scroll.offset == 0)
+    assert(not advanced.shown and body:GetHeight() == collapsedHeight
+        and scroll.offset == math.min(200, math.max(0, collapsedHeight - scroll:GetHeight())))
     local bagsPanel = frames.ArkannsQOLBagsPanel
     bagsPanel:SetWidth(800); bagsPanel:OnSizeChanged()
     frames.ArkannsQOLBagAdvanced:OnClick()
     local wideHeight = body:GetHeight()
     assert(body:GetWidth() == 750 and frames.ArkannsQOLBagQualityBorders.points.TOPLEFT[1] > 0,
         "Wide bag settings separate sorting and display")
-    assert(frames.ArkannsQOLBagColor0.points.TOPLEFT[1] > frames.ArkannsQOLBag_qualityOpacity.points.TOPLEFT[1],
+    assert(frames.ArkannsQOLBagColor0.points.TOPLEFT[1]
+        > frames.ArkannsQOLBag_qualityOpacity.points.TOPLEFT[1].points.TOPLEFT[1],
         "Wide border settings place the palette beside the sliders")
     bagsPanel:SetWidth(340); bagsPanel:OnSizeChanged()
     assert(body:GetWidth() == 290 and body:GetHeight() > wideHeight)
-    assert(frames.ArkannsQOLBagColor0.points.TOPLEFT[2] < frames.ArkannsQOLBag_qualityInnerGlow.points.TOPLEFT[2],
+    assert(frames.ArkannsQOLBagColor0.points.TOPLEFT[2]
+        < frames.ArkannsQOLBag_qualityInnerGlow.points.TOPLEFT[1].points.TOPLEFT[2],
         "Narrow border settings keep the palette after the sliders")
     for _, key in ipairs({"qualityOpacity", "qualityThickness", "qualityInnerGlow"}) do
         assert(frames["ArkannsQOLBag_" .. key]:GetWidth() <= advanced:GetWidth() - 8)
@@ -625,15 +728,47 @@ do
         and bagModule.ExportSettings().qualityColors.reagent == "FF8000", "Unchecked reagents use the native border")
     assert(bagModule.ImportSettings(bagModule.ExportSettings()), "Reagent color and checkbox survive a profile round trip")
     local old = {enabled = false, qualityUncommonOnly = true}
-    bagModule.profileMigrations[#bagModule.profileMigrations](old, bagModule.ExportSettings())
+    for _, migrate in ipairs(bagModule.profileMigrations) do migrate(old, bagModule.ExportSettings()) end
     assert(old.qualityUncommonOnly == nil and old.qualityHidden[0] and old.qualityHidden[1])
+    assert(old.autoSell == false and old.sellEquipment == false and old.autoRepair == false)
     ColorPickerFrame = nil
 
     local tooltip = GameTooltip
     GameTooltip = nil
+    local centerFill, gear = unpack(shortcut.textures)
+    assert(shortcut.template == "UIPanelCloseButtonNoScripts"
+        and not rawget(shortcut, "normalAsset") and not rawget(shortcut, "pushedAsset")
+        and centerFill.asset == 8107307 and centerFill.points.TOPLEFT[3] == 4
+        and centerFill.points.BOTTOMRIGHT[3] == -4 and centerFill.coords[2] < .17
+        and shortcut:NarrationGetName() == "Réglages des sacs"
+        and gear.asset == "Interface\\WorldMap\\GEAR_64GREY"
+        and shortcut:GetWidth() == 24 and shortcut:GetHeight() == 24 and shortcut:GetText() == ""
+        and gear.points.CENTER[1] == shortcut and gear.points.CENTER[2] == "CENTER"
+        and gear.points.CENTER[3] == 0 and gear.points.CENTER[4] == 0
+        and shortcut.points.RIGHT[1] == closeArt and shortcut.points.RIGHT[2] == "LEFT"
+        and shortcut.points.RIGHT[4] == 0)
+    local oldParent, screenWidth = UIParent, 1000
+    UIParent = {GetWidth = function() return screenWidth end}
     shortcut:OnClick("LeftButton")
     local quick = frames.ArkannsQOLBagQuickSettings
     assert(quick.shown and quick.points.TOPRIGHT[1] == bag)
+    local compactHeight = quick:GetHeight()
+    local quickSlider = frames.ArkannsQOLBagQuick_qualityOpacity
+    local firstLabel = quickSlider.points.TOPLEFT[1]
+    local quickColor = frames.ArkannsQOLBagQuickColorreagent
+    assert(compactHeight < 340 and quick:GetWidth() == 524
+        and quickColor.points.TOPLEFT[1] > firstLabel.points.TOPLEFT[1],
+        "Quick settings show the sliders and palette side by side")
+    local previousBottom = 0
+    for _, key in ipairs({"qualityOpacity", "qualityThickness", "qualityInnerGlow"}) do
+        local slider = frames["ArkannsQOLBagQuick_" .. key]
+        local position = slider.points.TOPLEFT
+        local label = position[1]
+        local labelTop = -label.points.TOPLEFT[2]
+        assert(label:GetText() ~= "" and position[2] == "BOTTOMLEFT" and position[4] <= -8
+            and labelTop >= previousBottom, "Each slider clears its own caption and the next row")
+        previousBottom = labelTop + label:GetStringHeight() - position[4] + slider:GetHeight()
+    end
     assert(not frames.ArkannsQOLBagQuickShowColorreagent.checked and frames.ArkannsQOLBagQuickShowColor4.checked)
     frames.ArkannsQOLBagQuickShowColorreagent:OnClick(true)
     assert(outline.shown and frames.ArkannsQOLBagShowColorreagent.checked)
@@ -643,21 +778,204 @@ do
     for key, value in pairs({qualityOpacity = 75, qualityThickness = 3, qualityInnerGlow = 40}) do
         local slider = assert(frames["ArkannsQOLBagQuick_" .. key], "Missing backpack slider " .. key)
         slider:OnValueChanged(value)
-        assert(bagModule.ExportSettings()[key] == value, "Backpack controls must update the shared bag settings")
+        assert(bagModule.ExportSettings()[key] == value, "Border controls must update the shared bag settings")
     end
     assert(glow.shown and math.abs(glow.gradient[2][4] - .38) < .0001,
         "The backpack slider must restore the glow at the chosen intensity")
+    screenWidth = 350
+    bagModule.Refresh()
+    assert(quick:GetWidth() == 314 and quick:GetHeight() > compactHeight
+        and quickColor.points.TOPLEFT[2] < firstLabel.points.TOPLEFT[2],
+        "Narrow screens stack the same controls")
+    shortcut:OnClick("LeftButton")
+    screenWidth = 1000
+    shortcut:OnClick("LeftButton")
+    assert(quick.shown and quick:GetHeight() == compactHeight, "Reopening keeps the compact layout")
+
+    local events = frames.ArkannsQOLBagMerchantEvents
+    local registered = {}
+    events.RegisterEvent = function(_, event) registered[event] = true end
+    events.UnregisterEvent = function(_, event) registered[event] = nil end
+    events.UnregisterAllEvents = function() registered = {} end
+    local function MerchantEvent(event, ...)
+        assert(registered[event], event .. " must be registered")
+        events:OnEvent(event, ...)
+    end
+    local function OpenMerchant()
+        merchantOpen = true
+        MerchantEvent("MERCHANT_SHOW")
+    end
+    local function CloseMerchant()
+        merchantOpen = false
+        MerchantEvent("MERCHANT_CLOSED")
+    end
+    local function Stock(id, quality, noValue)
+        return {itemID = id, guid = "Item-" .. id, stackCount = 1, quality = quality, isLocked = false, hasNoValue = noValue == true}
+    end
+    local inventory = {
+        [0] = {Stock(1, 0), Stock(2, 0), Stock(3, 1), Stock(4, 0, true), Stock(5, secret), Stock(6, 0), Stock(7, 0), Stock(8, 0)},
+        [1] = {Stock(9, 0)},
+        [2] = {Stock(10, 0)},
+    }
+    local slots = {[0] = 8, 1, 1}
+    local sold = {}
+    C_Container.GetContainerNumSlots = function(bag) return slots[bag] or 0 end
+    C_Container.GetContainerItemInfo = function(bag, index) return inventory[bag] and inventory[bag][index] end
+    C_Container.GetContainerItemQuestInfo = function(bag, index) return {isQuestItem = bag == 0 and index == 6} end
+    C_Container.GetContainerItemPurchaseInfo = function(bag, index)
+        if bag == 0 and index == 7 then return {money = 1, itemCount = 0, currencyCount = 0} end
+    end
+    C_Container.GetBackpackSellJunkDisabled = function() return backpackExcluded end
+    C_Container.GetBagSlotFlag = function(bag, flag) assert(flag == 32); return bag == 1 end
+    C_Item.IsEquippableItem = function(id) return id == 2 end
+    ItemLocation = {CreateFromBagAndSlot = function(_, bag, index) return {bag = bag, index = index} end}
+    C_Item.GetItemGUID = function(location) return inventory[location.bag][location.index].guid end
+    local prices = {[1] = 103, [2] = 13300, [8] = 99}
+    C_Item.GetItemInfo = function(id)
+        return "Item", nil, nil, nil, nil, nil, nil, nil, nil, nil, prices[id]
+    end
+    local atlases = true
+    C_Texture = {GetAtlasInfo = function() return atlases and {} or nil end}
+    local waitForSale, finishSale
+    C_Container.UseContainerItem = function(bag, index)
+        sold[#sold + 1] = inventory[bag][index].itemID
+        finishSale = function() inventory[bag][index] = nil end
+        if not waitForSale then finishSale() end
+    end
+    bagModule.Refresh()
+    assert(not registered.MERCHANT_SHOW and not frames.ArkannsQOLBagQuickSellEquipment.enabled)
+    frames.ArkannsQOLBagQuickAutoSell:OnClick(true)
+    frames.ArkannsQOLBagQuickAutoRepair:OnClick(true)
+    assert(frames.ArkannsQOLBagAutoSell.checked and frames.ArkannsQOLBagSellEquipment.enabled
+        and frames.ArkannsQOLBagAutoRepair.checked, "Both panels share merchant settings")
+    assert(frames.ArkannsQOLBagQuickSellEquipment.enabled and quick:GetHeight() == compactHeight
+        and frames.ArkannsQOLBagQuickAutoRepair.label:GetText() == "Réparation automatique")
+    local coin = slot.textures[#slot.textures]
+    local rearCoin, frontOutline = slot.textures[#slot.textures - 2], slot.textures[#slot.textures - 1]
+    assert(coin.shown and rearCoin.shown and coin.atlas == "coin-silver" and rearCoin.atlas == coin.atlas
+        and coin:GetWidth() == 20 and frontOutline:GetWidth() == 22 and frontOutline.color[4] == .85
+        and coin.points.CENTER[1] == slot and coin.points.CENTER[2] == "CENTER"
+        and coin.points.CENTER[3] == -rearCoin.points.CENTER[3] and coin.points.CENTER[4] == -rearCoin.points.CENTER[4])
+    local slotIndex, bagIndex = 2, 0
+    slot.GetID = function() return slotIndex end
+    slot.GetBagID = function() return bagIndex end
+    SetItemButtonQuality(slot, 0)
+    assert(not coin.shown, "Recycled slots hide the coin for excluded gear")
+    frames.ArkannsQOLBagQuickSellEquipment:OnClick(true)
+    assert(coin.shown and coin.atlas == "coin-gold")
+    frames.ArkannsQOLBagQuickSellEquipment:OnClick(false)
+    slotIndex = 8
+    SetItemButtonQuality(slot, 0)
+    assert(coin.shown and coin.atlas == "coin-copper")
+    inventory[0][8].stackCount = 2
+    SetItemButtonQuality(slot, 0)
+    assert(coin.shown and coin.atlas == "coin-silver", "Use the value of the entire stack")
+    inventory[0][8].stackCount = 1
+    prices[8] = nil
+    SetItemButtonQuality(slot, 0)
+    assert(not coin.shown, "Hide the marker until the price is available")
+    prices[8] = 99
+    atlases = false
+    MerchantEvent("GET_ITEM_INFO_RECEIVED", 8, true)
+    assert(coin.shown and coin.asset == "Interface\\MoneyFrame\\UI-CopperIcon")
+    atlases = true
+    bagIndex, slotIndex = 1, 1
+    prices[9] = 99
+    MerchantEvent("BAG_SLOT_FLAGS_UPDATED", 1)
+    assert(not coin.shown, "Excluded bags never show an auto-sell coin")
+    bagIndex, slotIndex = 0, 1
+    bagModule.Refresh()
+    assert(coin.shown)
+    C_Container.SetBackpackSellJunkDisabled(true)
+    assert(not coin.shown)
+    C_Container.SetBackpackSellJunkDisabled(false)
+    assert(coin.shown)
+    local first = inventory[0][1]
+    inventory[0][1] = nil
+    SetItemButtonQuality(slot, nil)
+    assert(not coin.shown, "Empty slots clear the sale marker")
+    inventory[0][1] = first
+    SetItemButtonQuality(slot, 0)
+    assert(coin.shown)
+    slot:OnHide()
+    assert(not coin.shown and not rearCoin.shown and not frontOutline.shown)
+    bagModule.Refresh()
+    frames.ArkannsQOLBagQuickAutoSell:OnClick(false)
+    assert(not coin.shown and not registered.GET_ITEM_INFO_RECEIVED)
+    assert(not frames.ArkannsQOLBagQuickSellEquipment.enabled and quick:GetHeight() == compactHeight)
+    frames.ArkannsQOLBagQuickAutoSell:OnClick(true)
+    assert(coin.shown)
+    print("PASS: centered auto-sell coins, stack prices, exclusions, recycled slots and item data refresh")
+    if advanced.shown then frames.ArkannsQOLBagAdvanced:OnClick() end
+    bagModule.OpenSettings("Vendre les objets gris")
+    assert(revealedControl == frames.ArkannsQOLBagAutoSell and not advanced.shown)
+    waitForSale = true
+    OpenMerchant()
+    MerchantEvent("MERCHANT_SHOW")
+    Tick()
+    Tick()
+    assert(repairCount == 1 and #sold == 1 and sold[1] == 1)
+    finishSale()
+    waitForSale = false
+    inventory[0][8] = Stock(11, 0)
+    Drain()
+    assert(#sold == 2 and sold[2] == 10, "Skip gear, non-gray, valueless, secret, quest, refundable, changed and excluded items")
+    CloseMerchant()
+    frames.ArkannsQOLBagQuickSellEquipment:OnClick(true)
+    local profile = bagModule.ExportSettings()
+    assert(profile.autoSell and profile.sellEquipment and profile.autoRepair)
+    assert(bagModule.ImportSettings({enabled = false, autoSell = false}))
+    assert(not frames.ArkannsQOLBagQuickSellEquipment.enabled and not frames.ArkannsQOLBagAutoSell.checked)
+    assert(bagModule.ImportSettings(profile))
+    money = 0
+    OpenMerchant()
+    Tick()
+    assert(#sold == 3 and sold[3] == 2 and repairCount == 1)
+    CloseMerchant()
+    Drain()
+    assert(#sold == 3 and inventory[0][8].itemID == 11)
+    money, combat = 100, true
+    OpenMerchant()
+    Drain()
+    assert(#sold == 3 and repairCount == 1)
+    CloseMerchant()
+    combat, repairable = false, false
+    OpenMerchant()
+    Drain()
+    assert(#sold == 4 and sold[4] == 11 and repairCount == 1)
+    CloseMerchant()
+    inventory[0][1], inventory[0][2] = Stock(12, 0), Stock(13, 0)
+    waitForSale = true
+    OpenMerchant()
+    Drain()
+    assert(#sold == 5 and sold[5] == 12 and inventory[0][2].itemID == 13,
+        "A sale that never updates the bags stops the batch")
+    MerchantEvent("ADDON_ACTION_BLOCKED", "QoLToolkit", "C_Container.UseContainerItem")
+    assert(not frames.ArkannsQOLBagAutoSell.enabled and not frames.ArkannsQOLBagQuickSellEquipment.enabled)
+    assert(not coin.shown)
+    CloseMerchant()
+    RepairAllItems = nil
+    assert(bagModule.ImportSettings({enabled = false, autoSell = false}))
+    assert(not frames.ArkannsQOLBagQuickAutoRepair.enabled and not registered.MERCHANT_SHOW)
+    C_Timer, Enum, issecretvalue = oldTimer, oldEnum, oldSecret
+    C_Texture = oldTexture
+    InCombatLockdown, GetCursorInfo = oldLockdown, oldCursor
+    MerchantFrame, ItemLocation, C_PlayerInteractionManager = nil, nil, nil
+    SpellIsTargeting, InRepairMode, CanMerchantRepair, GetMoney, GetRepairAllCost = nil, nil, nil, nil, nil
+    print("PASS: shared bag merchant settings, profiles, filtered sales, cancellation, and personal repairs")
+
     frames.ArkannsQOLBagQuickMore:OnClick()
     assert(not quick.shown and opened == 2)
     shortcut:OnClick("RightButton")
     assert(opened == 1)
     GameTooltip = tooltip
+    UIParent = oldParent
     CreateFrame = createWidget
 end
 print("PASS: bag border geometry, inner glow, native restoration, and backpack settings")
 
 -- Keep each simulation isolated from the globals used above.
-for _, path in ipairs({"tests/session_history.lua","tests/session_history_ui.lua","tests/talent_plan.lua","tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/advanced_bounds.lua","tests/ui_utilities.lua","tests/rank_events.lua","tests/ui_modules.lua","tests/flight_times.lua"}) do
+for _, path in ipairs({"tests/session_history.lua","tests/session_history_ui.lua","tests/talent_plan.lua","tests/ui_core.lua","tests/ui_profiles.lua","tests/ui_advanced.lua","tests/advanced_bounds.lua","tests/class_frame_art.lua","tests/target_distance_layout.lua","tests/paladin_colors.lua","tests/paladin_indicators.lua","tests/ui_utilities.lua","tests/rank_events.lua","tests/ui_modules.lua","tests/flight_times.lua"}) do
     local chunk = assert(loadfile(path))
     local environment = setmetatable({}, {__index = testGlobals})
     environment._G = environment
